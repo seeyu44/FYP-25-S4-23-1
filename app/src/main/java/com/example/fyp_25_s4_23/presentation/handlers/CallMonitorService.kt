@@ -1,17 +1,20 @@
 package com.example.fyp_25_s4_23.presentation.handlers
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.example.fyp_25_s4_23.ml.AudioFeatureExtractor
 import com.example.fyp_25_s4_23.ml.ModelRunner
 import kotlinx.coroutines.CoroutineScope
@@ -67,6 +70,14 @@ class CallMonitorService : Service() {
 
     private fun startCapture() {
         if (audioRecord != null) return
+        val hasPermission = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!hasPermission) {
+            stopSelf()
+            return
+        }
         val bufferSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,

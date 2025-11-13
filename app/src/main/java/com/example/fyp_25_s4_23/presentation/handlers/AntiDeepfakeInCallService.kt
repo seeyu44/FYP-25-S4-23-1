@@ -3,6 +3,9 @@ package com.example.fyp_25_s4_23.presentation.handlers
 import android.content.Intent
 import android.telecom.Call
 import android.telecom.InCallService
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import com.example.fyp_25_s4_23.presentation.call.ActiveCallStore
 import com.example.fyp_25_s4_23.presentation.call.InCallServiceHolder
 import com.example.fyp_25_s4_23.presentation.ui.call.CallInProgressActivity
@@ -45,6 +48,13 @@ class AntiDeepfakeInCallService : InCallService() {
     }
 
     private fun startMonitoring() {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!hasPermission) {
+            return
+        }
         startForegroundService(Intent(this, CallMonitorService::class.java))
     }
 

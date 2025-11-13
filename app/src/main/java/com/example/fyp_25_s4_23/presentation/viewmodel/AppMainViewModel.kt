@@ -1,6 +1,9 @@
 package com.example.fyp_25_s4_23.presentation.viewmodel
 
+import android.Manifest
 import android.app.Application
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fyp_25_s4_23.control.controllers.DetectionController
@@ -92,7 +95,15 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                         )
                     }
                     if (settings.realTimeDetectionEnabled) {
-                        detectionController.startMonitoring()
+                        if (hasRecordAudioPermission()) {
+                            detectionController.startMonitoring()
+                        } else {
+                            _state.update {
+                                it.copy(
+                                    message = "Enable microphone permission to resume detection"
+                                )
+                            }
+                        }
                     }
                     refreshDashboard()
                 }
@@ -146,6 +157,18 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
     fun setRealTimeDetection(enabled: Boolean) {
         val user = _state.value.currentUser ?: return
+        if (enabled && !hasRecordAudioPermission()) {
+            _state.update {
+                it.copy(
+                    userSettings = it.userSettings.copy(realTimeDetectionEnabled = false),
+                    message = "Microphone permission required to enable detection"
+                )
+            }
+            viewModelScope.launch {
+                settingsRepository.update(user.id, _state.value.userSettings)
+            }
+            return
+        }
         _state.update { it.copy(userSettings = it.userSettings.copy(realTimeDetectionEnabled = enabled)) }
         if (enabled) {
             detectionController.startMonitoring()
@@ -170,5 +193,12 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     _state.update { it.copy(message = throwable.message, isBusy = false) }
                 }
         }
+    }
+
+    private fun hasRecordAudioPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            getApplication(),
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
     }
 }
