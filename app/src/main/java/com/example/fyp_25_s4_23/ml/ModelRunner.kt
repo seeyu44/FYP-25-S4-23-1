@@ -1,7 +1,5 @@
 package com.example.fyp_25_s4_23.ml
 
-package com.example.fyp_25_s4_23.ml
-
 import android.content.Context
 import kotlin.math.exp
 
