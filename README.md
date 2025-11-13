@@ -20,8 +20,10 @@ This repository contains an Android app (Kotlin + Compose) and an ML training sk
 ## Getting Started (Android)
 
 1. Open the root folder in Android Studio.
-2. Build and run the app (the current UI is a simple Compose screen).
-3. To test the monitoring service, wire UI buttons to Start/Stop use cases or start the service from `MainActivity` (requires RECORD_AUDIO permission).
+2. Build and run the app. You now land on the SQLite-backed login page.
+3. Default admin credentials: `admin / admin`. Create additional admin or registered accounts from the Register page.
+4. Admin dashboard shows all registered users plus the testing lab; registered users get a scoped dashboard.
+5. Use the testing panel to seed sample calls/alerts into SQLite so each teammate can work on their function locally without touching remote data.
 
 Permissions declared:
 - RECORD_AUDIO, READ_PHONE_STATE, POST_NOTIFICATIONS, FOREGROUND_SERVICE, FOREGROUND_SERVICE_MICROPHONE
@@ -41,7 +43,6 @@ This copies artifacts to `app/src/main/assets/model/`.
 ## Next Steps
 
 - Implement `ModelRunner` with TFLite or ONNX Runtime Mobile.
-- Add feature extraction (AudioRecord + MFCC/log-mel) and connect to the service.
-- Add Room/DataStore and repositories for analytics and settings.
-- Implement dashboard screens (analytics, settings, live alert) under `presentation/ui`.
-
+- Wire feature extraction (AudioRecord + MFCC/log-mel) into `CallMonitorService` and log detections into the SQLite tables.
+- Expand dashboards to surface real analytics (calls, alerts, heatmaps) using the stored entities.
+- Lock down admin-only actions (user management, alert policies) once auth requirements are finalized.
