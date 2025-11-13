@@ -68,16 +68,17 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             } else {
                 DashboardScreen(
                     user = user,
+                    userSettings = uiState.userSettings,
                     callRecords = uiState.callRecords,
                     users = uiState.users,
                     message = uiState.message,
                     isBusy = uiState.isBusy,
                     onLogout = viewModel::logout,
                     onRefresh = viewModel::refreshDashboard,
-                    onSeedData = viewModel::seedSampleData
+                    onSeedData = viewModel::seedSampleData,
+                    onToggleDetection = viewModel::setRealTimeDetection
                 )
             }
         }
     }
 }
-

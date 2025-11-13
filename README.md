@@ -23,7 +23,8 @@ This repository contains an Android app (Kotlin + Compose) and an ML training sk
 2. Build and run the app. You now land on the SQLite-backed login page.
 3. Default admin credentials: `admin / admin`. Create additional admin or registered accounts from the Register page.
 4. Admin dashboard shows all registered users plus the testing lab; registered users get a scoped dashboard.
-5. Use the testing panel to seed sample calls/alerts into SQLite so each teammate can work on their function locally without touching remote data.
+5. Toggle the "Real-time Deepfake Detection" switch on the dashboard to start/stop the foreground detection service (saves battery when off).
+6. Use the testing panel to seed sample calls/alerts into SQLite so each teammate can work on their function locally without touching remote data.
 
 Permissions declared:
 - RECORD_AUDIO, READ_PHONE_STATE, POST_NOTIFICATIONS, FOREGROUND_SERVICE, FOREGROUND_SERVICE_MICROPHONE

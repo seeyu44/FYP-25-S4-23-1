@@ -13,6 +13,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -20,18 +21,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.domain.entities.CallRecord
 import com.example.fyp_25_s4_23.domain.entities.UserAccount
+import com.example.fyp_25_s4_23.domain.entities.UserSettings
 import com.example.fyp_25_s4_23.domain.valueobjects.UserRole
 
 @Composable
 fun DashboardScreen(
     user: UserAccount,
+    userSettings: UserSettings,
     callRecords: List<CallRecord>,
     users: List<UserAccount>,
     message: String?,
     isBusy: Boolean,
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
-    onSeedData: () -> Unit
+    onSeedData: () -> Unit,
+    onToggleDetection: (Boolean) -> Unit
 ) {
     Column(modifier = Modifier
         .fillMaxSize()
@@ -50,6 +54,11 @@ fun DashboardScreen(
         if (message != null) {
             Text(text = message, modifier = Modifier.padding(top = 8.dp))
         }
+
+        DetectionToggleCard(
+            enabled = userSettings.realTimeDetectionEnabled,
+            onToggleDetection = onToggleDetection
+        )
 
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -117,6 +126,29 @@ private fun TestingPanel(onSeedData: () -> Unit) {
             Button(onClick = onSeedData, modifier = Modifier.padding(top = 8.dp)) {
                 Text("Add sample call & alert")
             }
+        }
+    }
+}
+
+@Composable
+private fun DetectionToggleCard(enabled: Boolean, onToggleDetection: (Boolean) -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Real-time Deepfake Detection", style = MaterialTheme.typography.titleMedium)
+                Text("Automatically monitors calls for synthetic voices. Disable when you need to save battery.")
+            }
+            Switch(checked = enabled, onCheckedChange = onToggleDetection)
         }
     }
 }
