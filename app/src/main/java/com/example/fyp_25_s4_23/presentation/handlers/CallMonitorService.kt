@@ -42,7 +42,7 @@ class CallMonitorService : Service() {
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Monitoring active")
             .setContentText("Deepfake detection running")
-            .setSmallIcon(android.R.drawable.stat_sys_call)
+            .setSmallIcon(android.R.drawable.ic_menu_call)
             .build()
     }
 

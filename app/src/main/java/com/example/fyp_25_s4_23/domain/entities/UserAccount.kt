@@ -1,0 +1,12 @@
+package com.example.fyp_25_s4_23.domain.entities
+
+import com.example.fyp_25_s4_23.domain.valueobjects.UserRole
+
+data class UserAccount(
+    val id: Long,
+    val username: String,
+    val displayName: String,
+    val role: UserRole,
+    val createdAtMillis: Long
+)
+
