@@ -6,17 +6,19 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import com.example.fyp_25_s4_23.ml.AudioFeatureExtractor
+import com.example.fyp_25_s4_23.ml.ModelRunner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
-import kotlin.random.Random
 
 /**
  * Foreground service placeholder for monitoring audio during calls.
@@ -24,18 +26,21 @@ import kotlin.random.Random
  */
 class CallMonitorService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private var monitoringJobStarted = false
+    private var audioRecord: AudioRecord? = null
+    private var currentJob: kotlinx.coroutines.Job? = null
+    private val modelRunner by lazy { ModelRunner(this) }
+    private var lastAlertTime = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIF_ID, buildNotification())
-        beginDetectionLoop()
+        startCapture()
         return START_STICKY
     }
 
     override fun onDestroy() {
-        monitoringJobStarted = false
+        stopCapture()
         serviceScope.cancel()
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
@@ -59,31 +64,62 @@ class CallMonitorService : Service() {
             .build()
     }
 
-    private fun beginDetectionLoop() {
-        if (monitoringJobStarted) return
-        monitoringJobStarted = true
+    private fun startCapture() {
+        if (audioRecord != null) return
+        val bufferSize = AudioRecord.getMinBufferSize(
+            SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT
+        ).coerceAtLeast(SAMPLE_RATE)
+        audioRecord = AudioRecord(
+            MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+            SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+            bufferSize
+        )
+        audioRecord?.startRecording()
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        serviceScope.launch {
+        currentJob = serviceScope.launch {
+            val shortBuffer = ShortArray(FRAME_SIZE)
             var alertId = ALERT_NOTIF_ID
-            while (isActive) {
-                delay(15_000)
-                val probability = Random.nextFloat()
-                if (probability > 0.8f) {
-                    val notification = NotificationCompat.Builder(this@CallMonitorService, MONITOR_CHANNEL_ID)
-                        .setContentTitle("Possible deepfake detected")
-                        .setContentText("Confidence ${(probability * 100).toInt()}%")
-                        .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                        .setPriority(NotificationCompat.PRIORITY_HIGH)
-                        .build()
-                    manager.notify(alertId++, notification)
+            while (isActive && audioRecord != null) {
+                val read = audioRecord?.read(shortBuffer, 0, FRAME_SIZE) ?: 0
+                if (read > 0) {
+                    val frame = shortBuffer.copyOf(read)
+                    val energy = AudioFeatureExtractor.energy(frame)
+                    val zcr = AudioFeatureExtractor.zeroCrossRate(frame)
+                    val probability = modelRunner.infer(floatArrayOf(energy, zcr))
+                    if (probability >= ALERT_THRESHOLD && System.currentTimeMillis() - lastAlertTime > ALERT_COOLDOWN) {
+                        val notification = NotificationCompat.Builder(this@CallMonitorService, MONITOR_CHANNEL_ID)
+                            .setContentTitle("Possible deepfake detected")
+                            .setContentText("Confidence ${(probability * 100).toInt()}%")
+                            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                            .setPriority(NotificationCompat.PRIORITY_HIGH)
+                            .build()
+                        manager.notify(alertId++, notification)
+                        lastAlertTime = System.currentTimeMillis()
+                    }
                 }
             }
         }
+    }
+
+    private fun stopCapture() {
+        currentJob?.cancel()
+        currentJob = null
+        audioRecord?.stop()
+        audioRecord?.release()
+        audioRecord = null
     }
 
     companion object {
         private const val NOTIF_ID = 1001
         private const val ALERT_NOTIF_ID = 2001
         private const val MONITOR_CHANNEL_ID = "call_monitor_channel"
+        private const val SAMPLE_RATE = 16_000
+        private const val FRAME_SIZE = 1024
+        private const val ALERT_THRESHOLD = 0.75f
+        private const val ALERT_COOLDOWN = 10_000L
     }
 }

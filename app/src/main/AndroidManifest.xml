@@ -8,6 +8,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
 
     <application
         android:allowBackup="true"
@@ -24,6 +29,15 @@
             android:foregroundServiceType="microphone"
             android:exported="false" />
 
+        <service
+            android:name=".presentation.handlers.AntiDeepfakeInCallService"
+            android:permission="android.permission.BIND_INCALL_SERVICE"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.telecom.InCallService" />
+            </intent-filter>
+        </service>
+
         <!-- Optional: Call screening role-based service (requires role/default dialer) -->
         <service
             android:name=".presentation.handlers.CallScreeningServiceImpl"
@@ -33,6 +47,14 @@
                 <action android:name="android.telecom.CallScreeningService" />
             </intent-filter>
         </service>
+
+        <activity
+            android:name=".presentation.ui.call.CallInProgressActivity"
+            android:exported="false"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask" />
 
         <activity
             android:name=".MainActivity"
