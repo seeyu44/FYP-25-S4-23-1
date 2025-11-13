@@ -4,6 +4,7 @@ import android.content.Intent
 import android.telecom.Call
 import android.telecom.InCallService
 import com.example.fyp_25_s4_23.presentation.call.ActiveCallStore
+import com.example.fyp_25_s4_23.presentation.call.InCallServiceHolder
 import com.example.fyp_25_s4_23.presentation.ui.call.CallInProgressActivity
 
 class AntiDeepfakeInCallService : InCallService() {
@@ -18,6 +19,7 @@ class AntiDeepfakeInCallService : InCallService() {
 
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
+        InCallServiceHolder.service = this
         call.registerCallback(callback)
         ActiveCallStore.update(call)
         startMonitoring()
@@ -31,7 +33,15 @@ class AntiDeepfakeInCallService : InCallService() {
         call.unregisterCallback(callback)
         ActiveCallStore.clear()
         stopMonitoring()
+        if (call == ActiveCallStore.state.value?.call) {
+            InCallServiceHolder.service = null
+        }
         super.onCallRemoved(call)
+    }
+
+    override fun onDestroy() {
+        InCallServiceHolder.service = null
+        super.onDestroy()
     }
 
     private fun startMonitoring() {
@@ -42,4 +52,3 @@ class AntiDeepfakeInCallService : InCallService() {
         stopService(Intent(this, CallMonitorService::class.java))
     }
 }
-

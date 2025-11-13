@@ -1,9 +1,11 @@
 package com.example.fyp_25_s4_23.presentation.ui.call
 
 import android.telecom.Call
+import android.telecom.VideoProfile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fyp_25_s4_23.presentation.call.ActiveCallStore
+import com.example.fyp_25_s4_23.presentation.call.InCallServiceHolder
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -11,7 +13,7 @@ import kotlinx.coroutines.launch
 
 data class CallUiState(
     val handle: String = "",
-    val stateLabel: String = "Connectingâ€¦",
+    val stateLabel: String = "Connecting…",
     val isMuted: Boolean = false,
     val call: Call? = null
 )
@@ -37,7 +39,7 @@ class CallInProgressViewModel : ViewModel() {
     }
 
     fun answer() {
-        _state.value.call?.answer(Call.AUDIO_STATE_CONNECTED)
+        _state.value.call?.answer(VideoProfile.STATE_AUDIO_ONLY)
     }
 
     fun hangUp() {
@@ -45,9 +47,8 @@ class CallInProgressViewModel : ViewModel() {
     }
 
     fun toggleMute() {
-        val call = _state.value.call ?: return
         val newMuted = !_state.value.isMuted
-        call.setMuted(newMuted)
+        InCallServiceHolder.service?.setMuted(newMuted)
         _state.value = _state.value.copy(isMuted = newMuted)
     }
 
@@ -61,4 +62,3 @@ class CallInProgressViewModel : ViewModel() {
         else -> "Idle"
     }
 }
-
