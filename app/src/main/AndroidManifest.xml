@@ -34,7 +34,6 @@
             </intent-filter>
         </service>
 
-        <!-- CHANGED: Point to the correct MainActivity in root package -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
