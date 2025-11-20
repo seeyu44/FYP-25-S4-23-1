@@ -10,10 +10,12 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.fyp_25_s4_23.control.controllers.SystemController
 import com.example.fyp_25_s4_23.presentation.ui.auth.LoginScreen
 import com.example.fyp_25_s4_23.presentation.ui.auth.RegisterScreen
 import com.example.fyp_25_s4_23.presentation.ui.dashboard.DashboardScreen
@@ -27,7 +29,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FYP25S423Theme {
-                Scaffold(modifier = Modifier.fillMaxSize()) {
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     AntiDeepfakeApp()
                 }
             }
@@ -66,6 +68,8 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             if (user == null) {
                 viewModel.navigateToLogin()
             } else {
+                val systemController = remember { SystemController() }
+
                 DashboardScreen(
                     user = user,
                     callRecords = uiState.callRecords,
@@ -74,10 +78,10 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                     isBusy = uiState.isBusy,
                     onLogout = viewModel::logout,
                     onRefresh = viewModel::refreshDashboard,
-                    onSeedData = viewModel::seedSampleData
+                    onSeedData = viewModel::seedSampleData,
+                    systemController = systemController
                 )
             }
         }
     }
 }
-
