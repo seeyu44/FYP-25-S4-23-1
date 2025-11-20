@@ -5,4 +5,3 @@ import com.example.fyp_25_s4_23.control.controllers.DetectionController
 class StopMonitoring(private val controller: DetectionController) {
     operator fun invoke() = controller.stopMonitoring()
 }
-

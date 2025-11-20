@@ -1,13 +1,19 @@
 package com.example.fyp_25_s4_23.presentation.ui.dashboard
 
+import androidx.compose.runtime.*
+import kotlinx.coroutines.delay
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -17,10 +23,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.domain.entities.CallRecord
 import com.example.fyp_25_s4_23.domain.entities.UserAccount
 import com.example.fyp_25_s4_23.domain.valueobjects.UserRole
+import com.example.fyp_25_s4_23.control.controllers.SystemController
 
 @Composable
 fun DashboardScreen(
@@ -31,7 +39,8 @@ fun DashboardScreen(
     isBusy: Boolean,
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
-    onSeedData: () -> Unit
+    onSeedData: () -> Unit,
+    systemController: SystemController
 ) {
     Column(modifier = Modifier
         .fillMaxSize()
@@ -45,6 +54,62 @@ fun DashboardScreen(
                 Button(onClick = onRefresh, enabled = !isBusy) { Text("Refresh") }
                 Button(onClick = onLogout, modifier = Modifier.padding(top = 4.dp)) { Text("Logout") }
             }
+        }
+
+        val uptime = remember { mutableStateOf("00:00:00") }
+        val isSystemHealthy = remember { mutableStateOf(true) }
+        val lastUpdateTime = remember { mutableStateOf(System.currentTimeMillis()) }
+
+        LaunchedEffect(Unit) {
+            while (true) {
+                try {
+                    uptime.value = systemController.fetchUptime()
+                    lastUpdateTime.value = System.currentTimeMillis()
+                    isSystemHealthy.value = true
+                } catch (e: Exception) {
+                    isSystemHealthy.value = false
+                }
+                delay(1000)
+            }
+        }
+
+        // Monitor if uptime stops updating (system down)
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(3000) // Check every 3 seconds
+                val timeSinceLastUpdate = System.currentTimeMillis() - lastUpdateTime.value
+                if (timeSinceLastUpdate > 3000) {
+                    isSystemHealthy.value = false
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier.padding(top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Status indicator circle
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .background(
+                        color = if (isSystemHealthy.value) Color.Green else Color.Red,
+                        shape = CircleShape
+                    )
+            )
+
+            Text(
+                text = "System Uptime: ${uptime.value}",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+
+            Text(
+                text = if (isSystemHealthy.value) "(Online)" else "(Offline)",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isSystemHealthy.value) Color.Green else Color.Red,
+                modifier = Modifier.padding(start = 8.dp)
+            )
         }
 
         if (message != null) {
