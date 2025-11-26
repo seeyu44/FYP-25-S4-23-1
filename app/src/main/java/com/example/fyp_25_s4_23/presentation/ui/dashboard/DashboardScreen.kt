@@ -141,6 +141,10 @@ fun DashboardScreen(
 
             if (user.role == UserRole.ADMIN) {
                 item {
+                    CallAnalysisCard(callRecords = callRecords)
+                }
+
+                item {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
