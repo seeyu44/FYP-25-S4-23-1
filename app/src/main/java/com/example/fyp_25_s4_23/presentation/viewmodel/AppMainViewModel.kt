@@ -149,7 +149,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 suspicious = r.suspicious,
                 blocked = r.blocked,
                 warned = (r.suspicious - r.blocked).coerceAtLeast(0),
-                avgConfidence = r.avg_confidence ?: -1.0
+                avgConfidence = r.avgConfidence ?: -1.0
             )
         }
     }
