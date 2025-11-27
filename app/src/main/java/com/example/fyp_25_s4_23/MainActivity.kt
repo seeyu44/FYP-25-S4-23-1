@@ -4,12 +4,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -103,15 +108,21 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                         systemController = systemController
                     )
 
-                    // Always-visible header button for registered users to ensure accessibility during testing
+                    // Prominent debug banner for registered users so the summary action is always visible
                     if (user.role.name == "REGISTERED") {
-                        Button(
-                            onClick = { viewModel.navigateToSummary() },
+                        Row(
                             modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(12.dp)
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .background(Color(0xFFDD3333))
+                                .padding(horizontal = 12.dp)
+                                .align(Alignment.TopStart),
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
                         ) {
-                            Text("View Summary")
+                            Text(text = "USER: ${user.username}  ROLE: ${user.role}", color = Color.White)
+                            Button(onClick = { viewModel.navigateToSummary() }) {
+                                Text("Open Summary")
+                            }
                         }
                     }
                 }
