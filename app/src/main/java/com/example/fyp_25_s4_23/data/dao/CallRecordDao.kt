@@ -22,7 +22,7 @@ interface CallRecordDao {
     // Aggregation queries: return dynamic projection via RawQuery if needed
     @RawQuery
     suspend fun rawQuery(query: SupportSQLiteQuery): List<AggregateResult>
-}
+
     @Query(
         """
         SELECT strftime('%Y-%m-%d', start_time/1000, 'unixepoch', 'localtime') AS period,
@@ -56,8 +56,11 @@ interface CallRecordDao {
         """
     )
     suspend fun weeklyAggregates(startMillis: Long, endMillis: Long, threshold: Double): List<AggregateResult>
+}
 
 // POJO for aggregation results
+import androidx.room.ColumnInfo
+
 data class AggregateResult(
     val period: String,
     val total: Int,
@@ -65,6 +68,7 @@ data class AggregateResult(
     val missed: Int,
     val suspicious: Int,
     val blocked: Int,
-    val avg_confidence: Double?
+    @ColumnInfo(name = "avg_confidence")
+    val avgConfidence: Double?
 )
 
