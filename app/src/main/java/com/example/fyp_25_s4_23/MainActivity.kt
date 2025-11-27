@@ -6,6 +6,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -85,18 +89,32 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             } else {
                 val systemController = remember { SystemController() }
 
-                DashboardScreen(
-                    user = user,
-                    callRecords = uiState.callRecords,
-                    users = uiState.users,
-                    message = uiState.message,
-                    isBusy = uiState.isBusy,
-                    onLogout = viewModel::logout,
-                    onRefresh = viewModel::refreshDashboard,
-                    onSeedData = viewModel::seedSampleData,
-                    onNavigateToSummary = viewModel::navigateToSummary,
-                    systemController = systemController
-                )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    DashboardScreen(
+                        user = user,
+                        callRecords = uiState.callRecords,
+                        users = uiState.users,
+                        message = uiState.message,
+                        isBusy = uiState.isBusy,
+                        onLogout = viewModel::logout,
+                        onRefresh = viewModel::refreshDashboard,
+                        onSeedData = viewModel::seedSampleData,
+                        onNavigateToSummary = viewModel::navigateToSummary,
+                        systemController = systemController
+                    )
+
+                    // Always-visible header button for registered users to ensure accessibility during testing
+                    if (user.role.name == "REGISTERED") {
+                        Button(
+                            onClick = { viewModel.navigateToSummary() },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(12.dp)
+                        ) {
+                            Text("View Summary")
+                        }
+                    }
+                }
             }
         }
     }
