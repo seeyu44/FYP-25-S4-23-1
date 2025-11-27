@@ -29,6 +29,8 @@ import com.example.fyp_25_s4_23.domain.entities.CallRecord
 import com.example.fyp_25_s4_23.domain.entities.UserAccount
 import com.example.fyp_25_s4_23.control.controllers.SystemController
 import androidx.compose.material3.Text
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 
 /**
  * Admin dashboard showing operational metrics and system management tools.
@@ -46,6 +48,10 @@ fun AdminDashboard(
     onNavigateToSummary: () -> Unit,
     systemController: SystemController
 ) {
+    val ctx = LocalContext.current
+    LaunchedEffect(user.role) {
+        Toast.makeText(ctx, "Dashboard role: ${user.role}", Toast.LENGTH_SHORT).show()
+    }
     Column(modifier = Modifier
         .fillMaxSize()
         .padding(16.dp)) {
