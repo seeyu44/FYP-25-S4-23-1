@@ -3,6 +3,8 @@ package com.example.fyp_25_s4_23
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -123,6 +125,18 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                             Button(onClick = { viewModel.navigateToSummary() }) {
                                 Text("Open Summary")
                             }
+                        }
+                        // Blocking debug dialog for registered users to guarantee visibility during testing
+                        val showDebug = remember { mutableStateOf(true) }
+                        if (showDebug.value) {
+                            androidx.compose.material3.AlertDialog(
+                                onDismissRequest = { showDebug.value = false },
+                                title = { Text("Debug: Current User") },
+                                text = { Text("username=${user.username}\nrole=${user.role}\nid=${user.id}") },
+                                confirmButton = {
+                                    Button(onClick = { showDebug.value = false }) { Text("OK") }
+                                }
+                            )
                         }
                     }
                 }
