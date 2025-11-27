@@ -39,7 +39,6 @@ fun buildWeeklySummary(callRecords: List<CallRecord>): List<SummaryMetrics> {
         val local = Instant.ofEpochMilli(record.metadata.startTimeMillis).atZone(zone).toLocalDate()
         val week = local.get(wf.weekOfWeekBasedYear())
         val year = local.get(wf.weekBasedYear())
-        // label like 2025-W35
         Pair(year, week)
     }
 
@@ -57,7 +56,6 @@ private fun summarizeRecords(records: List<CallRecord>): SummaryMetrics {
     val missed = records.count { it.status == CallStatus.DROPPED }
     val suspicious = records.count { it.lastDetection?.isDeepfake == true }
     val blocked = records.count { it.status == CallStatus.BLOCKED }
-    // warned = suspicious but not blocked
     val warned = records.count { it.lastDetection?.isDeepfake == true && it.status != CallStatus.BLOCKED }
 
     val confidences = records.mapNotNull { r -> r.lastDetection?.takeIf { it.isDeepfake }?.probability?.toDouble() }

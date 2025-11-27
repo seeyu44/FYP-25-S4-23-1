@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -54,13 +55,11 @@ fun SummaryScreen(
             Text(text = "Weekly", modifier = Modifier.padding(start = 4.dp))
         }
 
-        // Date range presets and custom picker
         var rangeLabel by remember { mutableStateOf("Last 7 days") }
         var startMillis by remember { mutableStateOf(0L) }
         var endMillis by remember { mutableStateOf(System.currentTimeMillis()) }
         var localError by remember { mutableStateOf<String?>(null) }
 
-        // initialize to last 7 days
         LaunchedEffect(Unit) {
             val zone = ZoneId.systemDefault()
             val today = LocalDate.now(zone)
@@ -119,10 +118,8 @@ fun SummaryScreen(
         var summaryList by remember { mutableStateOf<List<SummaryMetrics>>(emptyList()) }
         var isLoading by remember { mutableStateOf(false) }
 
-        // Load summary list either from provided fetchAggregates (DAO) or in-memory utils
         LaunchedEffect(startMillis, endMillis, periodDaily) {
             if (startMillis > endMillis) {
-                // invalid range; show error and skip fetch
                 localError = "Invalid date range"
                 summaryList = emptyList()
                 return@LaunchedEffect
@@ -135,7 +132,6 @@ fun SummaryScreen(
                     if (periodDaily) buildDailySummary(filtered) else buildWeeklySummary(filtered)
                 }
             } catch (t: Throwable) {
-                // fallback to in-memory on error
                 if (periodDaily) buildDailySummary(filtered) else buildWeeklySummary(filtered)
             } finally {
                 isLoading = false
@@ -168,7 +164,6 @@ fun SummaryScreen(
 private fun showCustomDatePicker(context: Context, onRangeSelected: (Long, Long) -> Unit) {
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
-    // Start picker
     var startYear = today.year
     var startMonth = today.monthValue - 1
     var startDay = today.dayOfMonth
@@ -177,7 +172,6 @@ private fun showCustomDatePicker(context: Context, onRangeSelected: (Long, Long)
         startYear = y
         startMonth = m
         startDay = d
-        // after picking start, pick end
         DatePickerDialog(context, { _, ey, em, ed ->
             val startDate = LocalDate.of(startYear, startMonth + 1, startDay)
             val endDate = LocalDate.of(ey, em + 1, ed)

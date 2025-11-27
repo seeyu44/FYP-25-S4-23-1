@@ -83,7 +83,6 @@ fun UserDashboard(
         }, modifier = Modifier.padding(top = 12.dp)) {
             Text("View Daily/Weekly Summary")
         }
-
         val uptime = remember { mutableStateOf("00:00:00") }
         val isSystemHealthy = remember { mutableStateOf(true) }
         val lastUpdateTime = remember { mutableStateOf(System.currentTimeMillis()) }

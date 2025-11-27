@@ -18,7 +18,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Icon
+import androidx.compose.material3.icons.Icons
+import androidx.compose.material3.icons.filled.Analytics
+import androidx.compose.ui.semantics.Role
+import com.example.fyp_25_s4_23.domain.valueobjects.UserRole
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -41,9 +47,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FYP25S423Theme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    AntiDeepfakeApp()
-                }
+                AntiDeepfakeApp()
             }
         }
     }
@@ -52,8 +56,17 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
     val uiState by viewModel.state.collectAsState()
-
-    when (uiState.screen) {
+    Scaffold(
+        floatingActionButton = {
+            if (uiState.screen == AppScreen.Dashboard && uiState.currentUser?.role == UserRole.REGISTERED) {
+                FloatingActionButton(onClick = { viewModel.navigateToSummary() }) {
+                    Icon(imageVector = Icons.Default.Analytics, contentDescription = "Open summary")
+                }
+            }
+        }
+    ) {
+        _ ->
+        when (uiState.screen) {
         AppScreen.Loading -> Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center

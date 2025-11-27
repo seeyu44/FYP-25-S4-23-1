@@ -42,7 +42,6 @@ fun DashboardScreen(
                 onLogout = onLogout,
                 onRefresh = onRefresh,
                 onSeedData = onSeedData,
-                onNavigateToSummary = onNavigateToSummary,
                 systemController = systemController
             )
         }

@@ -45,7 +45,6 @@ fun AdminDashboard(
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
     onSeedData: () -> Unit,
-    onNavigateToSummary: () -> Unit,
     systemController: SystemController
 ) {
     val ctx = LocalContext.current

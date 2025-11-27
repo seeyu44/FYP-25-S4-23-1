@@ -67,14 +67,6 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         _state.update { it.copy(screen = AppScreen.Login, message = null) }
     }
 
-    fun navigateToSummary() {
-        _state.update { it.copy(screen = AppScreen.Summary, message = null) }
-    }
-
-    fun navigateToDashboard() {
-        _state.update { it.copy(screen = AppScreen.Dashboard, message = null) }
-    }
-
     fun login(username: String, password: String) {
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true, message = null) }
@@ -154,6 +146,13 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun navigateToSummary() {
+        _state.update { it.copy(screen = AppScreen.Summary, message = null) }
+    }
+
+    fun navigateToDashboard() {
+        _state.update { it.copy(screen = AppScreen.Dashboard, message = null) }
+    }
     fun seedSampleData() {
         val user = _state.value.currentUser ?: return
         viewModelScope.launch {
