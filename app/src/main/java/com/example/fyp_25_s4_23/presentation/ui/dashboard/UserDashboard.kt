@@ -58,6 +58,15 @@ fun UserDashboard(
             Column(horizontalAlignment = Alignment.End) {
                 Button(onClick = onRefresh, enabled = !isBusy) { Text("Refresh") }
                 Button(onClick = onLogout, modifier = Modifier.padding(top = 4.dp)) { Text("Logout") }
+                // Ensure the summary button is visible even if layout compresses below: show here for registered users
+                if (user.role.name == "REGISTERED") {
+                    Button(onClick = {
+                        Log.d("UserDashboard", "Summary header button clicked by user=${user.username}, role=${user.role}")
+                        onNavigateToSummary()
+                    }, modifier = Modifier.padding(top = 8.dp)) {
+                        Text("View Daily/Weekly Summary")
+                    }
+                }
             }
         }
 
