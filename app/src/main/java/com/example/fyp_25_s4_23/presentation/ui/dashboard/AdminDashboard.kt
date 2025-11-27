@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.domain.entities.CallRecord
 import com.example.fyp_25_s4_23.domain.entities.UserAccount
 import com.example.fyp_25_s4_23.control.controllers.SystemController
+import androidx.compose.material3.Text
 
 /**
  * Admin dashboard showing operational metrics and system management tools.
@@ -52,6 +53,8 @@ fun AdminDashboard(
             Column {
                 Text(text = "Welcome, ${user.displayName}", style = MaterialTheme.typography.titleLarge)
                 Text(text = "Admin Dashboard", style = MaterialTheme.typography.bodyMedium)
+                // Debug: show resolved role for clarity
+                Text(text = "Role: ${user.role}", style = MaterialTheme.typography.bodySmall)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Button(onClick = onRefresh, enabled = !isBusy) { Text("Refresh") }

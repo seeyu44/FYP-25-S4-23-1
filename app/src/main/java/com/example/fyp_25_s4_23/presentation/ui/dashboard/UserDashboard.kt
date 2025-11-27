@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.domain.entities.CallRecord
 import com.example.fyp_25_s4_23.domain.entities.UserAccount
 import com.example.fyp_25_s4_23.control.controllers.SystemController
+import android.util.Log
 
 /**
  * User dashboard showing recent calls and system health.
@@ -51,6 +52,8 @@ fun UserDashboard(
             Column {
                 Text(text = "Welcome, ${user.displayName}", style = MaterialTheme.typography.titleLarge)
                 Text(text = "User Dashboard", style = MaterialTheme.typography.bodyMedium)
+                // Debug: show resolved role to help verify which dashboard is rendered
+                Text(text = "Role: ${user.role}", style = MaterialTheme.typography.bodySmall)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Button(onClick = onRefresh, enabled = !isBusy) { Text("Refresh") }
@@ -59,7 +62,10 @@ fun UserDashboard(
         }
 
         // Summary navigation for users
-        Button(onClick = onNavigateToSummary, modifier = Modifier.padding(top = 12.dp)) {
+        Button(onClick = {
+            Log.d("UserDashboard", "Summary button clicked by user=${user.username}, role=${user.role}")
+            onNavigateToSummary()
+        }, modifier = Modifier.padding(top = 12.dp)) {
             Text("View Daily/Weekly Summary")
         }
 
