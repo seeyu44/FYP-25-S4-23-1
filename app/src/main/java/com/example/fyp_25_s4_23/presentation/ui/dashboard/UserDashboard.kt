@@ -41,6 +41,7 @@ fun UserDashboard(
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
     onSeedData: () -> Unit,
+    onNavigateToSummary: () -> Unit,
     systemController: SystemController
 ) {
     Column(modifier = Modifier
@@ -55,6 +56,11 @@ fun UserDashboard(
                 Button(onClick = onRefresh, enabled = !isBusy) { Text("Refresh") }
                 Button(onClick = onLogout, modifier = Modifier.padding(top = 4.dp)) { Text("Logout") }
             }
+        }
+
+        // Summary navigation for users
+        Button(onClick = onNavigateToSummary, modifier = Modifier.padding(top = 12.dp)) {
+            Text("View Daily/Weekly Summary")
         }
 
         val uptime = remember { mutableStateOf("00:00:00") }

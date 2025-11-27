@@ -28,6 +28,7 @@ fun DashboardScreen(
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
     onSeedData: () -> Unit,
+    onNavigateToSummary: () -> Unit,
     systemController: SystemController
 ) {
     when (user.role) {
@@ -41,6 +42,7 @@ fun DashboardScreen(
                 onLogout = onLogout,
                 onRefresh = onRefresh,
                 onSeedData = onSeedData,
+                onNavigateToSummary = onNavigateToSummary,
                 systemController = systemController
             )
         }
@@ -53,6 +55,7 @@ fun DashboardScreen(
                 onLogout = onLogout,
                 onRefresh = onRefresh,
                 onSeedData = onSeedData,
+                onNavigateToSummary = onNavigateToSummary,
                 systemController = systemController
             )
         }

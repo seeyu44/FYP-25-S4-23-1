@@ -19,6 +19,7 @@ import com.example.fyp_25_s4_23.control.controllers.SystemController
 import com.example.fyp_25_s4_23.presentation.ui.auth.LoginScreen
 import com.example.fyp_25_s4_23.presentation.ui.auth.RegisterScreen
 import com.example.fyp_25_s4_23.presentation.ui.dashboard.DashboardScreen
+import com.example.fyp_25_s4_23.presentation.ui.dashboard.SummaryScreen
 import com.example.fyp_25_s4_23.presentation.viewmodel.AppMainViewModel
 import com.example.fyp_25_s4_23.presentation.viewmodel.AppScreen
 import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
@@ -63,6 +64,20 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             onNavigateToLogin = viewModel::navigateToLogin
         )
 
+        AppScreen.Summary -> {
+            val user = uiState.currentUser
+            if (user == null) {
+                viewModel.navigateToLogin()
+            } else {
+                SummaryScreen(
+                    user = user,
+                    callRecords = uiState.callRecords,
+                    onBack = viewModel::navigateToDashboard,
+                    fetchAggregates = { start, end, daily -> viewModel.aggregateSummary(start, end, daily) }
+                )
+            }
+        }
+
         AppScreen.Dashboard -> {
             val user = uiState.currentUser
             if (user == null) {
@@ -79,6 +94,7 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                     onLogout = viewModel::logout,
                     onRefresh = viewModel::refreshDashboard,
                     onSeedData = viewModel::seedSampleData,
+                    onNavigateToSummary = viewModel::navigateToSummary,
                     systemController = systemController
                 )
             }

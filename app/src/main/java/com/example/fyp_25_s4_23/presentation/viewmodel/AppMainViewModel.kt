@@ -24,6 +24,7 @@ sealed interface AppScreen {
     data object Loading : AppScreen
     data object Login : AppScreen
     data object Register : AppScreen
+    data object Summary : AppScreen
     data object Dashboard : AppScreen
 }
 
@@ -64,6 +65,14 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
     fun navigateToLogin() {
         _state.update { it.copy(screen = AppScreen.Login, message = null) }
+    }
+
+    fun navigateToSummary() {
+        _state.update { it.copy(screen = AppScreen.Summary, message = null) }
+    }
+
+    fun navigateToDashboard() {
+        _state.update { it.copy(screen = AppScreen.Dashboard, message = null) }
     }
 
     fun login(username: String, password: String) {
@@ -124,6 +133,24 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
             val users = if (user.role == UserRole.ADMIN) userRepository.listUsers() else emptyList()
             val calls = callRepository.listRecent()
             _state.update { it.copy(users = users, callRecords = calls, isBusy = false) }
+        }
+    }
+
+    // Fetch aggregated summaries from repository and map to SummaryMetrics for UI
+    suspend fun aggregateSummary(startMillis: Long, endMillis: Long, periodDaily: Boolean): List<com.example.fyp_25_s4_23.presentation.ui.dashboard.SummaryMetrics> {
+        val threshold = 0.5
+        val rows = if (periodDaily) callRepository.dailyAggregates(startMillis, endMillis, threshold) else callRepository.weeklyAggregates(startMillis, endMillis, threshold)
+        return rows.map { r ->
+            com.example.fyp_25_s4_23.presentation.ui.dashboard.SummaryMetrics(
+                label = r.period,
+                totalCalls = r.total,
+                answered = r.answered,
+                missed = r.missed,
+                suspicious = r.suspicious,
+                blocked = r.blocked,
+                warned = (r.suspicious - r.blocked).coerceAtLeast(0),
+                avgConfidence = r.avg_confidence ?: -1.0
+            )
         }
     }
 
