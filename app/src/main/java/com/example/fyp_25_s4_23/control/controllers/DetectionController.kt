@@ -6,8 +6,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.example.fyp_25_s4_23.ml.ModelRunner
-import com.example.fyp_25_s4_23.presentation.handlers.CallMonitorService
+import com.example.fyp_25_s4_23.entity.ml.ModelRunner
+import com.example.fyp_25_s4_23.boundary.handlers.CallMonitorService
 
 /**
  * Orchestrates starting/stopping monitoring and delegating to ML runtime.

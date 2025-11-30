@@ -2,9 +2,13 @@ numpy
 scipy
 librosa
 torch
+torchaudio
 onnx
 onnxruntime
+onnx-tf
+tf2onnx
 tensorflow; platform_system != 'Windows'
 jupyter
 matplotlib
-
+soundfile
+tqdm
