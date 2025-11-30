@@ -22,10 +22,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
-import com.example.fyp_25_s4_23.domain.entities.CallRecord
-import com.example.fyp_25_s4_23.domain.entities.UserAccount
-import com.example.fyp_25_s4_23.domain.entities.UserSettings
-import com.example.fyp_25_s4_23.domain.valueobjects.UserRole
+import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
+import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
+import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 import com.example.fyp_25_s4_23.presentation.call.CallManager
 
 @Composable
