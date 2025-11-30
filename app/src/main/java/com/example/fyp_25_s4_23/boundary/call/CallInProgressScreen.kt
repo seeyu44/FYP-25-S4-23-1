@@ -14,10 +14,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.fyp_25_s4_23.control.viewmodel.CallUiState
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun CallInProgressScreen(
-    state: kotlinx.coroutines.flow.StateFlow<CallUiState>,
+    state: StateFlow<CallUiState>,
     onAnswer: () -> Unit,
     onHangUp: () -> Unit,
     onMute: () -> Unit
