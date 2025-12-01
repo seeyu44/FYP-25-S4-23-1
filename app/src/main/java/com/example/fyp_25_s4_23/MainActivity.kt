@@ -21,13 +21,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Icon
-import androidx.compose.material3.icons.Icons
-import androidx.compose.material3.icons.filled.Analytics
-import androidx.compose.ui.semantics.Role
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Analytics
 import com.example.fyp_25_s4_23.domain.valueobjects.UserRole
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,8 +62,7 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                 }
             }
         }
-    ) {
-        _ ->
+    ) { paddingValues ->
         when (uiState.screen) {
         AppScreen.Loading -> Box(
             modifier = Modifier.fillMaxSize(),
