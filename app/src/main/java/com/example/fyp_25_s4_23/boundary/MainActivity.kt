@@ -1,7 +1,6 @@
 package com.example.fyp_25_s4_23.boundary
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
@@ -25,6 +25,7 @@ import com.example.fyp_25_s4_23.boundary.auth.RegisterScreen
 import com.example.fyp_25_s4_23.boundary.dashboard.DashboardScreen
 import com.example.fyp_25_s4_23.control.viewmodel.AppMainViewModel
 import com.example.fyp_25_s4_23.control.viewmodel.AppScreen
+import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
 
 class MainActivity : ComponentActivity() {
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
 fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
     val uiState by viewModel.state.collectAsState()
     val context = LocalContext.current
+    val modelRunner = remember { ModelRunner(context) }
     val microphonePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -108,7 +110,8 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                     onLogout = viewModel::logout,
                     onRefresh = viewModel::refreshDashboard,
                     onSeedData = viewModel::seedSampleData,
-                    onToggleDetection = detectionToggleHandler
+                    onToggleDetection = detectionToggleHandler,
+                    modelRunner = modelRunner
                 )
             }
         }
