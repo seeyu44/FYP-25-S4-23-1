@@ -29,6 +29,7 @@ fun DashboardScreen(
     onRefresh: () -> Unit,
     onSeedData: () -> Unit,
     onNavigateToSummary: () -> Unit,
+    onNavigateToCallHistory: () -> Unit,
     systemController: SystemController
 ) {
     when (user.role) {
@@ -55,6 +56,7 @@ fun DashboardScreen(
                 onRefresh = onRefresh,
                 onSeedData = onSeedData,
                 onNavigateToSummary = onNavigateToSummary,
+                onNavigateToCallHistory = onNavigateToCallHistory,
                 systemController = systemController
             )
         }

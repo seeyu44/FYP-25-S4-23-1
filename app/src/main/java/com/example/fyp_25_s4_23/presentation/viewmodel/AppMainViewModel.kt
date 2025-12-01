@@ -25,6 +25,7 @@ sealed interface AppScreen {
     data object Login : AppScreen
     data object Register : AppScreen
     data object Summary : AppScreen
+    data object CallHistory : AppScreen
     data object Dashboard : AppScreen
 }
 
@@ -148,6 +149,10 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
     fun navigateToSummary() {
         _state.update { it.copy(screen = AppScreen.Summary, message = null) }
+    }
+
+    fun navigateToCallHistory() {
+        _state.update { it.copy(screen = AppScreen.CallHistory, message = null) }
     }
 
     fun navigateToDashboard() {

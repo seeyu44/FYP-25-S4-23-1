@@ -45,6 +45,7 @@ fun UserDashboard(
     onRefresh: () -> Unit,
     onSeedData: () -> Unit,
     onNavigateToSummary: () -> Unit,
+    onNavigateToCallHistory: () -> Unit,
     systemController: SystemController
 ) {
     val ctx = LocalContext.current
@@ -71,6 +72,12 @@ fun UserDashboard(
                         onNavigateToSummary()
                     }, modifier = Modifier.padding(top = 8.dp)) {
                         Text("View Daily/Weekly Summary")
+                    }
+                    Button(onClick = {
+                        Log.d("UserDashboard", "Call History button clicked by user=${user.username}, role=${user.role}")
+                        onNavigateToCallHistory()
+                    }, modifier = Modifier.padding(top = 4.dp)) {
+                        Text("View Call History")
                     }
                 }
             }

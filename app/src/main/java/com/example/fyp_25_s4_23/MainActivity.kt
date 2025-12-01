@@ -30,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fyp_25_s4_23.control.controllers.SystemController
 import com.example.fyp_25_s4_23.presentation.ui.auth.LoginScreen
 import com.example.fyp_25_s4_23.presentation.ui.auth.RegisterScreen
+import com.example.fyp_25_s4_23.presentation.ui.callhistory.CallHistoryScreen
 import com.example.fyp_25_s4_23.presentation.ui.dashboard.DashboardScreen
 import com.example.fyp_25_s4_23.presentation.ui.dashboard.SummaryScreen
 import com.example.fyp_25_s4_23.presentation.viewmodel.AppMainViewModel
@@ -88,6 +89,19 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             }
         }
 
+        AppScreen.CallHistory -> {
+            val user = uiState.currentUser
+            if (user == null) {
+                viewModel.navigateToLogin()
+            } else {
+                CallHistoryScreen(
+                    user = user,
+                    callRecords = uiState.callRecords,
+                    onBack = viewModel::navigateToDashboard
+                )
+            }
+        }
+
         AppScreen.Dashboard -> {
             val user = uiState.currentUser
             if (user == null) {
@@ -105,6 +119,7 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                     onRefresh = viewModel::refreshDashboard,
                     onSeedData = viewModel::seedSampleData,
                     onNavigateToSummary = viewModel::navigateToSummary,
+                    onNavigateToCallHistory = viewModel::navigateToCallHistory,
                     systemController = systemController
                 )
             }
