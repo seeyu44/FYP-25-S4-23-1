@@ -20,9 +20,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Icon
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Analytics
 import com.example.fyp_25_s4_23.domain.valueobjects.UserRole
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -58,7 +55,7 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
         floatingActionButton = {
             if (uiState.screen == AppScreen.Dashboard && uiState.currentUser?.role == UserRole.REGISTERED) {
                 FloatingActionButton(onClick = { viewModel.navigateToSummary() }) {
-                    Icon(imageVector = Icons.Default.Analytics, contentDescription = "Open summary")
+                    Text("📊")
                 }
             }
         }
