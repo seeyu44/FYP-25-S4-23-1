@@ -59,8 +59,6 @@ interface CallRecordDao {
 }
 
 // POJO for aggregation results
-import androidx.room.ColumnInfo
-
 data class AggregateResult(
     val period: String,
     val total: Int,
@@ -68,7 +66,7 @@ data class AggregateResult(
     val missed: Int,
     val suspicious: Int,
     val blocked: Int,
-    @ColumnInfo(name = "avg_confidence")
+    @androidx.room.ColumnInfo(name = "avg_confidence")
     val avgConfidence: Double?
 )
 

@@ -156,4 +156,5 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             }
         }
     }
+    }
 }
