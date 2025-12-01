@@ -14,16 +14,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.max
-import kotlin.math.min
 
 /**
  * Debug UI to pick an audio file and run it through the model,
@@ -36,7 +41,7 @@ fun ModelTestScreen(
     var status by remember { mutableStateOf("Idle") }
     var score by remember { mutableStateOf<Float?>(null) }
     var spectrogram by remember { mutableStateOf<Bitmap?>(null) }
-    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -44,7 +49,7 @@ fun ModelTestScreen(
         status = "Running..."
         score = null
         spectrogram = null
-        LaunchedEffect(uri) {
+        scope.launch {
             val result = withContext(Dispatchers.IO) {
                 modelRunner.inferFromUri(uri)
             }
@@ -80,35 +85,4 @@ fun ModelTestScreen(
                     .height(200.dp)
             )
         }
-        Text(
-            "Supports common audio (WAV/MP3/MP4/M4A/FLAC via platform decoder). Preprocessing matches training: 16k, 3s pad/crop, mel (n_fft=1024, hop=256, n_mels=64), log-dB, normalize.",
-            style = MaterialTheme.typography.bodySmall
-        )
-    }
-}
-
-private fun melToBitmap(mel: Array<FloatArray>): Bitmap {
-    val height = mel.size
-    val width = mel[0].size
-    var minVal = Float.MAX_VALUE
-    var maxVal = -Float.MAX_VALUE
-    for (m in mel.indices) for (t in mel[m].indices) {
-        val v = mel[m][t]
-        if (v < minVal) minVal = v
-        if (v > maxVal) maxVal = v
-    }
-    val range = max(1e-5f, maxVal - minVal)
-    val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-    val pixels = IntArray(width * height)
-    var idx = 0
-    for (y in 0 until height) {
-        val m = height - 1 - y // flip so low freqs at bottom
-        for (x in 0 until width) {
-            val norm = ((mel[m][x] - minVal) / range).coerceIn(0f, 1f)
-            val c = (norm * 255).toInt()
-            pixels[idx++] = 0xFF shl 24 or (c shl 16) or (c shl 8) or c
-        }
-    }
-    bmp.setPixels(pixels, 0, width, 0, 0, width, height)
-    return bmp
-}
+       
