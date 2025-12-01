@@ -1,6 +1,7 @@
 package com.example.fyp_25_s4_23.boundary
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -12,9 +13,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -50,11 +51,7 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
     val microphonePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) {
-            viewModel.setRealTimeDetection(true)
-        } else {
-            viewModel.setRealTimeDetection(false)
-        }
+        viewModel.setRealTimeDetection(granted)
     }
 
     val detectionToggleHandler: (Boolean) -> Unit = { enabled ->
@@ -77,9 +74,7 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
         AppScreen.Loading -> Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator()
-        }
+        ) { CircularProgressIndicator() }
 
         AppScreen.Login -> LoginScreen(
             isBusy = uiState.isBusy,

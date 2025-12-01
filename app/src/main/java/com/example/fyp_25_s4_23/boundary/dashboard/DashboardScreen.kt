@@ -27,6 +27,7 @@ import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
 import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 import com.example.fyp_25_s4_23.control.call.CallManager
+import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.boundary.audio.AudioTestCard
 
 
@@ -41,7 +42,8 @@ fun DashboardScreen(
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
     onSeedData: () -> Unit,
-    onToggleDetection: (Boolean) -> Unit
+    onToggleDetection: (Boolean) -> Unit,
+    modelRunner: ModelRunner? = null
 ) {
     Column(modifier = Modifier
         .fillMaxSize()

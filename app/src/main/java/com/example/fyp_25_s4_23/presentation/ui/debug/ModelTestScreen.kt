@@ -22,7 +22,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import kotlinx.coroutines.Dispatchers
@@ -50,9 +49,7 @@ fun ModelTestScreen(
         score = null
         spectrogram = null
         scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                modelRunner.inferFromUri(uri)
-            }
+            val result = withContext(Dispatchers.IO) { modelRunner.inferFromUri(uri) }
             if (result != null) {
                 score = result.score
                 spectrogram = melToBitmap(result.mel)
@@ -70,11 +67,9 @@ fun ModelTestScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Model Test", style = MaterialTheme.typography.headlineSmall)
-        Button(onClick = { launcher.launch("audio/*") }) {
-            Text("Pick audio and run")
-        }
+        Button(onClick = { launcher.launch("audio/*") }) { Text("Pick audio and run") }
         Text("Status: $status")
-        score?.let { Text("Confidence: ${String.format(\"%.3f\", it)}") }
+        score?.let { Text("Confidence: ${String.format("%.3f", it)}") }
         spectrogram?.let { bmp ->
             Text("Spectrogram (mel):", style = MaterialTheme.typography.labelLarge)
             Image(
@@ -85,4 +80,35 @@ fun ModelTestScreen(
                     .height(200.dp)
             )
         }
-       
+        Text(
+            "Supports common audio (WAV/MP3/MP4/M4A/FLAC via platform decoder). Preprocessing matches training: 16k, 3s pad/crop, mel (n_fft=1024, hop=256, n_mels=64), log-dB, normalize.",
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+private fun melToBitmap(mel: Array<FloatArray>): Bitmap {
+    val height = mel.size
+    val width = mel[0].size
+    var minVal = Float.MAX_VALUE
+    var maxVal = -Float.MAX_VALUE
+    for (m in mel.indices) for (t in mel[m].indices) {
+        val v = mel[m][t]
+        if (v < minVal) minVal = v
+        if (v > maxVal) maxVal = v
+    }
+    val range = max(1e-5f, maxVal - minVal)
+    val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val pixels = IntArray(width * height)
+    var idx = 0
+    for (y in 0 until height) {
+        val m = height - 1 - y // flip so low freqs at bottom
+        for (x in 0 until width) {
+            val norm = ((mel[m][x] - minVal) / range).coerceIn(0f, 1f)
+            val c = (norm * 255).toInt()
+            pixels[idx++] = 0xFF shl 24 or (c shl 16) or (c shl 8) or c
+        }
+    }
+    bmp.setPixels(pixels, 0, width, 0, 0, width, height)
+    return bmp
+}

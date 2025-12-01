@@ -3,9 +3,9 @@ package com.example.fyp_25_s4_23.entity.ml
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import com.microsoft.onnxruntime.OnnxTensor
-import com.microsoft.onnxruntime.OrtEnvironment
-import com.microsoft.onnxruntime.OrtSession
+import ai.onnxruntime.OnnxTensor
+import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.OrtSession
 import java.io.InputStream
 import java.nio.FloatBuffer
 import kotlin.math.exp
