@@ -51,15 +51,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
     val uiState by viewModel.state.collectAsState()
-    Scaffold(
-        floatingActionButton = {
-            if (uiState.screen == AppScreen.Dashboard && uiState.currentUser?.role == UserRole.REGISTERED) {
-                FloatingActionButton(onClick = { viewModel.navigateToSummary() }) {
-                    Text("📊")
-                }
-            }
-        }
-    ) { paddingValues ->
+    Scaffold { paddingValues ->
         when (uiState.screen) {
         AppScreen.Loading -> Box(
             modifier = Modifier.fillMaxSize(),
@@ -103,50 +95,18 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             } else {
                 val systemController = remember { SystemController() }
 
-                Box(modifier = Modifier.fillMaxSize()) {
-                    DashboardScreen(
-                        user = user,
-                        callRecords = uiState.callRecords,
-                        users = uiState.users,
-                        message = uiState.message,
-                        isBusy = uiState.isBusy,
-                        onLogout = viewModel::logout,
-                        onRefresh = viewModel::refreshDashboard,
-                        onSeedData = viewModel::seedSampleData,
-                        onNavigateToSummary = viewModel::navigateToSummary,
-                        systemController = systemController
-                    )
-
-                    // Prominent debug banner for registered users so the summary action is always visible
-                    if (user.role.name == "REGISTERED") {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .background(Color(0xFFDD3333))
-                                .padding(horizontal = 12.dp)
-                                .align(Alignment.TopStart),
-                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
-                        ) {
-                            Text(text = "USER: ${user.username}  ROLE: ${user.role}", color = Color.White)
-                            Button(onClick = { viewModel.navigateToSummary() }) {
-                                Text("Open Summary")
-                            }
-                        }
-                        // Blocking debug dialog for registered users to guarantee visibility during testing
-                        val showDebug = remember { mutableStateOf(true) }
-                        if (showDebug.value) {
-                            androidx.compose.material3.AlertDialog(
-                                onDismissRequest = { showDebug.value = false },
-                                title = { Text("Debug: Current User") },
-                                text = { Text("username=${user.username}\nrole=${user.role}\nid=${user.id}") },
-                                confirmButton = {
-                                    Button(onClick = { showDebug.value = false }) { Text("OK") }
-                                }
-                            )
-                        }
-                    }
-                }
+                DashboardScreen(
+                    user = user,
+                    callRecords = uiState.callRecords,
+                    users = uiState.users,
+                    message = uiState.message,
+                    isBusy = uiState.isBusy,
+                    onLogout = viewModel::logout,
+                    onRefresh = viewModel::refreshDashboard,
+                    onSeedData = viewModel::seedSampleData,
+                    onNavigateToSummary = viewModel::navigateToSummary,
+                    systemController = systemController
+                )
             }
         }
     }

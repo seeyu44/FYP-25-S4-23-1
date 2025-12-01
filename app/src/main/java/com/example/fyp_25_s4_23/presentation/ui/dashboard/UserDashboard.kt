@@ -76,13 +76,6 @@ fun UserDashboard(
             }
         }
 
-        // Summary navigation for users
-        Button(onClick = {
-            Log.d("UserDashboard", "Summary button clicked by user=${user.username}, role=${user.role}")
-            onNavigateToSummary()
-        }, modifier = Modifier.padding(top = 12.dp)) {
-            Text("View Daily/Weekly Summary")
-        }
         val uptime = remember { mutableStateOf("00:00:00") }
         val isSystemHealthy = remember { mutableStateOf(true) }
         val lastUpdateTime = remember { mutableStateOf(System.currentTimeMillis()) }
