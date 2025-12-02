@@ -7,19 +7,22 @@ import androidx.room.RoomDatabase
 import com.example.fyp_25_s4_23.data.dao.AlertEventDao
 import com.example.fyp_25_s4_23.data.dao.CallRecordDao
 import com.example.fyp_25_s4_23.data.dao.UserDao
+import com.example.fyp_25_s4_23.data.dao.UserSettingsDao
 import com.example.fyp_25_s4_23.data.entities.AlertEventEntity
 import com.example.fyp_25_s4_23.data.entities.CallRecordEntity
 import com.example.fyp_25_s4_23.data.entities.UserEntity
+import com.example.fyp_25_s4_23.data.entities.UserSettingsEntity
 
 @Database(
-    entities = [UserEntity::class, CallRecordEntity::class, AlertEventEntity::class],
-    version = 1,
+    entities = [UserEntity::class, CallRecordEntity::class, AlertEventEntity::class, UserSettingsEntity::class],
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
     abstract fun callRecordDao(): CallRecordDao
     abstract fun alertEventDao(): AlertEventDao
+    abstract fun userSettingsDao(): UserSettingsDao
 
     companion object {
         @Volatile
@@ -38,4 +41,3 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
-

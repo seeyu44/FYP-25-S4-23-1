@@ -1,5 +1,7 @@
 package com.example.fyp_25_s4_23.presentation.ui.dashboard
 
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.runtime.*
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
@@ -20,62 +22,73 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import com.example.fyp_25_s4_23.domain.entities.CallRecord
-import com.example.fyp_25_s4_23.domain.entities.UserAccount
-import com.example.fyp_25_s4_23.control.controllers.SystemController
-import android.util.Log
-import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
+import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
+import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
+import com.example.fyp_25_s4_23.control.controllers.SystemController
+import com.example.fyp_25_s4_23.entity.ml.ModelRunner
+import com.example.fyp_25_s4_23.presentation.ui.debug.ModelTestScreen
 
 /**
- * User dashboard showing recent calls and system health.
+ * Merged dashboard: based on master DashboardScreen but restores UserDashboard/test navigation helpers
+ * and adds toast/logging from the test branch for easier debugging.
  */
 @Composable
-fun UserDashboard(
+fun DashboardScreen(
     user: UserAccount,
-    callRecords: List<CallRecord>,
-    message: String?,
-    isBusy: Boolean,
-    onLogout: () -> Unit,
-    onRefresh: () -> Unit,
-    onSeedData: () -> Unit,
-    onNavigateToSummary: () -> Unit,
-    onNavigateToCallHistory: () -> Unit,
-    systemController: SystemController
+    callRecords: List<CallRecord> = emptyList(),
+    users: List<UserAccount> = emptyList(),
+    message: String? = null,
+    isBusy: Boolean = false,
+    userSettings: UserSettings? = null,
+    onLogout: () -> Unit = {},
+    onRefresh: () -> Unit = {},
+    onToggleDetection: ((Boolean) -> Unit)? = null,
+    modelRunner: ModelRunner? = null,
+    onSeedData: (() -> Unit)? = null,
+    systemController: SystemController = SystemController(),
+    // restored navigation helpers from test branch (optional)
+    onNavigateToSummary: (() -> Unit)? = null,
+    onNavigateToCallHistory: (() -> Unit)? = null
 ) {
     val ctx = LocalContext.current
+    // show a quick toast when the dashboard is shown (keeps test debug behavior)
     LaunchedEffect(user.role) {
         Toast.makeText(ctx, "Dashboard role: ${user.role}", Toast.LENGTH_SHORT).show()
     }
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .padding(16.dp)) {
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text(text = "Welcome, ${user.displayName}", style = MaterialTheme.typography.titleLarge)
-                Text(text = "User Dashboard", style = MaterialTheme.typography.bodyMedium)
-                // Debug: show resolved role to help verify which dashboard is rendered
-                Text(text = "Role: ${user.role}", style = MaterialTheme.typography.bodySmall)
+                Text(text = "Role: ${user.role}")
             }
             Column(horizontalAlignment = Alignment.End) {
                 Button(onClick = onRefresh, enabled = !isBusy) { Text("Refresh") }
                 Button(onClick = onLogout, modifier = Modifier.padding(top = 4.dp)) { Text("Logout") }
-                // Ensure the summary button is visible even if layout compresses below: show here for registered users
+                // restore the summary/call-history quick buttons from test branch for REGISTERED users
                 if (user.role.name == "REGISTERED") {
                     Button(onClick = {
                         Log.d("UserDashboard", "Summary header button clicked by user=${user.username}, role=${user.role}")
-                        onNavigateToSummary()
+                        onNavigateToSummary?.invoke()
                     }, modifier = Modifier.padding(top = 8.dp)) {
                         Text("View Daily/Weekly Summary")
                     }
                     Button(onClick = {
                         Log.d("UserDashboard", "Call History button clicked by user=${user.username}, role=${user.role}")
-                        onNavigateToCallHistory()
+                        onNavigateToCallHistory?.invoke()
                     }, modifier = Modifier.padding(top = 4.dp)) {
                         Text("View Call History")
                     }
@@ -143,11 +156,17 @@ fun UserDashboard(
             Text(text = message, modifier = Modifier.padding(top = 8.dp))
         }
 
+        if (userSettings != null && onToggleDetection != null) {
+            DetectionToggleCard(
+                enabled = userSettings.realTimeDetectionEnabled,
+                onToggleDetection = onToggleDetection
+            )
+        }
+
         LazyColumn(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(top = 12.dp)
         ) {
-            // Recent Calls Section
             item {
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors()) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -167,10 +186,92 @@ fun UserDashboard(
                 }
             }
 
-            // Testing Panel
-            item {
-                TestingPanel(onSeedData = onSeedData)
+            modelRunner?.let { runner ->
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("Model Test", style = MaterialTheme.typography.titleMedium)
+                            ModelTestScreen(
+                                modelRunner = runner,
+                                detectionEnabled = userSettings?.realTimeDetectionEnabled ?: true
+                            )
+                        }
+                    }
+                }
             }
+
+            if (user.role == UserRole.ADMIN) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Registered Users", style = MaterialTheme.typography.titleMedium)
+                            if (users.isEmpty()) {
+                                Text("No users found")
+                            } else {
+                                users.forEach {
+                                    Text("${it.username} (${it.role})")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            onSeedData?.let { seed ->
+                item {
+                    TestingPanel(onSeedData = seed)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TestingPanel(onSeedData: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Testing Lab", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Use these helpers to seed SQLite data so each teammate can work on their feature without touching git history."
+            )
+            Button(onClick = onSeedData, modifier = Modifier.padding(top = 8.dp)) {
+                Text("Add sample call & alert")
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetectionToggleCard(enabled: Boolean, onToggleDetection: (Boolean) -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Real-time Deepfake Detection", style = MaterialTheme.typography.titleMedium)
+                Text("Automatically monitors calls for synthetic voices. Disable when you need to save battery.")
+            }
+            Switch(checked = enabled, onCheckedChange = onToggleDetection)
         }
     }
 }

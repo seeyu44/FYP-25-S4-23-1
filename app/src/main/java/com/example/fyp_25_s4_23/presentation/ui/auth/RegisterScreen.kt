@@ -20,7 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.example.fyp_25_s4_23.domain.valueobjects.UserRole
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 
 @Composable
 fun RegisterScreen(
