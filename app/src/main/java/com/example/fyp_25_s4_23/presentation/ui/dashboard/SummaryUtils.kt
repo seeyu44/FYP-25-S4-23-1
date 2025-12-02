@@ -1,7 +1,7 @@
 package com.example.fyp_25_s4_23.presentation.ui.dashboard
 
-import com.example.fyp_25_s4_23.domain.entities.CallRecord
-import com.example.fyp_25_s4_23.domain.valueobjects.CallStatus
+import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.CallStatus
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId

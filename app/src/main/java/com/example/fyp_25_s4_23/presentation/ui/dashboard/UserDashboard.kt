@@ -235,25 +235,6 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun TestingPanel(onSeedData: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Testing Lab", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Use these helpers to seed SQLite data so each teammate can work on their feature without touching git history."
-            )
-            Button(onClick = onSeedData, modifier = Modifier.padding(top = 8.dp)) {
-                Text("Add sample call & alert")
-            }
-        }
-    }
-}
-
-@Composable
 private fun DetectionToggleCard(enabled: Boolean, onToggleDetection: (Boolean) -> Unit) {
     Card(
         modifier = Modifier

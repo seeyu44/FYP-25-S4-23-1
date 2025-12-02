@@ -10,9 +10,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
-import com.example.fyp_25_s4_23.domain.entities.CallRecord
-import com.example.fyp_25_s4_23.domain.entities.UserAccount
-import com.example.fyp_25_s4_23.domain.valueobjects.UserRole
+import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
+import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 import com.example.fyp_25_s4_23.control.controllers.SystemController
 
 /**
