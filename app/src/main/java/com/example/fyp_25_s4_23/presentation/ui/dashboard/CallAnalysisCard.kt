@@ -14,7 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.fyp_25_s4_23.domain.entities.CallRecord
+import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
 import kotlin.math.roundToInt
 
 /**

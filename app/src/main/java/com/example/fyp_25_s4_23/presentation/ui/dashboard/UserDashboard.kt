@@ -38,11 +38,10 @@ import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.presentation.ui.debug.ModelTestScreen
 
 /**
- * Merged dashboard: based on master DashboardScreen but restores UserDashboard/test navigation helpers
- * and adds toast/logging from the test branch for easier debugging.
+ * User dashboard: shows recent calls, navigation to Summary and Call History for registered users
  */
 @Composable
-fun DashboardScreen(
+fun UserDashboard(
     user: UserAccount,
     callRecords: List<CallRecord> = emptyList(),
     users: List<UserAccount> = emptyList(),
