@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
 import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
+import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 import com.example.fyp_25_s4_23.control.controllers.SystemController
+import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 
 /**
  * Main dashboard router that displays the appropriate dashboard based on user role.
@@ -30,7 +32,10 @@ fun DashboardScreen(
     onSeedData: () -> Unit,
     onNavigateToSummary: () -> Unit,
     onNavigateToCallHistory: () -> Unit,
-    systemController: SystemController
+    systemController: SystemController,
+    userSettings: UserSettings? = null,
+    onToggleDetection: ((Boolean) -> Unit)? = null,
+    modelRunner: ModelRunner? = null
 ) {
     when (user.role) {
         UserRole.ADMIN -> {
@@ -57,7 +62,10 @@ fun DashboardScreen(
                 onSeedData = onSeedData,
                 onNavigateToSummary = onNavigateToSummary,
                 onNavigateToCallHistory = onNavigateToCallHistory,
-                systemController = systemController
+                systemController = systemController,
+                userSettings = userSettings,
+                onToggleDetection = onToggleDetection,
+                modelRunner = modelRunner
             )
         }
     }

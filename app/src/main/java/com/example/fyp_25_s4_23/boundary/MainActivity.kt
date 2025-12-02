@@ -24,6 +24,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fyp_25_s4_23.boundary.auth.LoginScreen
 import com.example.fyp_25_s4_23.boundary.auth.RegisterScreen
+import com.example.fyp_25_s4_23.control.controllers.SystemController
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.presentation.ui.dashboard.DashboardScreen
 import com.example.fyp_25_s4_23.presentation.viewmodel.AppMainViewModel
@@ -107,14 +108,20 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             if (user == null) {
                 viewModel.navigateToLogin()
             } else {
+                val systemController = remember { SystemController() }
                 DashboardScreen(
                     user = user,
-                    userSettings = uiState.userSettings,
+                    callRecords = uiState.callRecords,
                     users = uiState.users,
                     message = uiState.message,
                     isBusy = uiState.isBusy,
                     onLogout = viewModel::logout,
                     onRefresh = viewModel::refreshDashboard,
+                    onSeedData = viewModel::seedSampleData,
+                    onNavigateToSummary = viewModel::navigateToSummary,
+                    onNavigateToCallHistory = viewModel::navigateToCallHistory,
+                    systemController = systemController,
+                    userSettings = uiState.userSettings,
                     onToggleDetection = detectionToggleHandler,
                     modelRunner = modelRunner
                 )
