@@ -20,27 +20,34 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.example.fyp_25_s4_23.domain.entities.CallRecord
-import com.example.fyp_25_s4_23.domain.entities.UserAccount
-import com.example.fyp_25_s4_23.domain.valueobjects.UserRole
+import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
+import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
+import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 import com.example.fyp_25_s4_23.control.controllers.SystemController
+import com.example.fyp_25_s4_23.entity.ml.ModelRunner
+import com.example.fyp_25_s4_23.presentation.ui.debug.ModelTestScreen
 
 @Composable
 fun DashboardScreen(
     user: UserAccount,
-    callRecords: List<CallRecord>,
-    users: List<UserAccount>,
-    message: String?,
-    isBusy: Boolean,
-    onLogout: () -> Unit,
-    onRefresh: () -> Unit,
-    onSeedData: () -> Unit,
-    systemController: SystemController
+    callRecords: List<CallRecord> = emptyList(),
+    users: List<UserAccount> = emptyList(),
+    message: String? = null,
+    isBusy: Boolean = false,
+    userSettings: UserSettings? = null,
+    onLogout: () -> Unit = {},
+    onRefresh: () -> Unit = {},
+    onToggleDetection: ((Boolean) -> Unit)? = null,
+    modelRunner: ModelRunner? = null,
+    onSeedData: (() -> Unit)? = null,
+    systemController: SystemController = SystemController()
 ) {
     Column(modifier = Modifier
         .fillMaxSize()
@@ -116,6 +123,13 @@ fun DashboardScreen(
             Text(text = message, modifier = Modifier.padding(top = 8.dp))
         }
 
+        if (userSettings != null && onToggleDetection != null) {
+            DetectionToggleCard(
+                enabled = userSettings.realTimeDetectionEnabled,
+                onToggleDetection = onToggleDetection
+            )
+        }
+
         LazyColumn(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(top = 12.dp)
@@ -134,6 +148,24 @@ fun DashboardScreen(
                                 }
                                 Divider()
                             }
+                        }
+                    }
+                }
+            }
+
+            modelRunner?.let { runner ->
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("Model Test", style = MaterialTheme.typography.titleMedium)
+                            ModelTestScreen(
+                                modelRunner = runner,
+                                detectionEnabled = userSettings?.realTimeDetectionEnabled ?: true
+                            )
                         }
                     }
                 }
@@ -160,8 +192,10 @@ fun DashboardScreen(
                 }
             }
 
-            item {
-                TestingPanel(onSeedData = onSeedData)
+            onSeedData?.let { seed ->
+                item {
+                    TestingPanel(onSeedData = seed)
+                }
             }
         }
     }
@@ -182,6 +216,29 @@ private fun TestingPanel(onSeedData: () -> Unit) {
             Button(onClick = onSeedData, modifier = Modifier.padding(top = 8.dp)) {
                 Text("Add sample call & alert")
             }
+        }
+    }
+}
+
+@Composable
+private fun DetectionToggleCard(enabled: Boolean, onToggleDetection: (Boolean) -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Real-time Deepfake Detection", style = MaterialTheme.typography.titleMedium)
+                Text("Automatically monitors calls for synthetic voices. Disable when you need to save battery.")
+            }
+            Switch(checked = enabled, onCheckedChange = onToggleDetection)
         }
     }
 }
