@@ -10,15 +10,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
 import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
@@ -29,13 +27,11 @@ import com.example.fyp_25_s4_23.presentation.ui.debug.ModelTestScreen
 fun DashboardScreen(
     user: UserAccount,
     userSettings: UserSettings,
-    callRecords: List<CallRecord>,
     users: List<UserAccount>,
     message: String?,
     isBusy: Boolean,
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
-    onSeedData: () -> Unit,
     onToggleDetection: (Boolean) -> Unit,
     modelRunner: ModelRunner? = null
 ) {
@@ -88,7 +84,7 @@ fun DashboardScreen(
             }
 
             if (modelRunner != null) {
-                item { ModelTestScreen(modelRunner = modelRunner) }
+                item { ModelTestScreen(modelRunner = modelRunner, detectionEnabled = userSettings.realTimeDetectionEnabled) }
             }
         }
     }

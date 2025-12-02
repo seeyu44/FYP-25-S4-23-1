@@ -101,13 +101,11 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                 DashboardScreen(
                     user = user,
                     userSettings = uiState.userSettings,
-                    callRecords = uiState.callRecords,
                     users = uiState.users,
                     message = uiState.message,
                     isBusy = uiState.isBusy,
                     onLogout = viewModel::logout,
                     onRefresh = viewModel::refreshDashboard,
-                    onSeedData = viewModel::seedSampleData,
                     onToggleDetection = detectionToggleHandler,
                     modelRunner = modelRunner
                 )

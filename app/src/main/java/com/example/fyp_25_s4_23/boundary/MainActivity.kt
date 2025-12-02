@@ -11,7 +11,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,10 +24,10 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fyp_25_s4_23.boundary.auth.LoginScreen
 import com.example.fyp_25_s4_23.boundary.auth.RegisterScreen
-import com.example.fyp_25_s4_23.boundary.dashboard.DashboardScreen
-import com.example.fyp_25_s4_23.control.viewmodel.AppMainViewModel
-import com.example.fyp_25_s4_23.control.viewmodel.AppScreen
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
+import com.example.fyp_25_s4_23.presentation.ui.dashboard.DashboardScreen
+import com.example.fyp_25_s4_23.presentation.viewmodel.AppMainViewModel
+import com.example.fyp_25_s4_23.presentation.viewmodel.AppScreen
 import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
 
 class MainActivity : ComponentActivity() {
@@ -35,7 +36,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FYP25S423Theme {
-                Scaffold(modifier = Modifier.fillMaxSize()) {
+                // A surface container using the 'background' color from the theme
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     AntiDeepfakeApp()
                 }
             }
@@ -98,13 +100,11 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                 DashboardScreen(
                     user = user,
                     userSettings = uiState.userSettings,
-                    callRecords = uiState.callRecords,
                     users = uiState.users,
                     message = uiState.message,
                     isBusy = uiState.isBusy,
                     onLogout = viewModel::logout,
                     onRefresh = viewModel::refreshDashboard,
-                    onSeedData = viewModel::seedSampleData,
                     onToggleDetection = detectionToggleHandler,
                     modelRunner = modelRunner
                 )

@@ -1,17 +1,21 @@
 package com.example.fyp_25_s4_23.presentation.ui.debug
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import kotlinx.coroutines.Dispatchers
@@ -29,17 +34,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 
-/**
- * Debug UI to pick an audio file and run it through the model,
- * showing confidence and a spectrogram preview.
- */
 @Composable
 fun ModelTestScreen(
-    modelRunner: ModelRunner
+    modelRunner: ModelRunner,
+    detectionEnabled: Boolean = true
 ) {
     var status by remember { mutableStateOf("Idle") }
     var score by remember { mutableStateOf<Float?>(null) }
     var spectrogram by remember { mutableStateOf<Bitmap?>(null) }
+    var spectrogramFrames by remember { mutableStateOf<Int?>(null) }
+    val context = LocalContext.current
+    val bundledClips = remember { loadBundledClips(context) }
+    var menuExpanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -48,12 +54,14 @@ fun ModelTestScreen(
         status = "Running..."
         score = null
         spectrogram = null
+        spectrogramFrames = null
         scope.launch {
             val result = withContext(Dispatchers.IO) { modelRunner.inferFromUri(uri) }
             if (result != null) {
                 score = result.score
+                spectrogramFrames = result.mel[0].size
                 spectrogram = melToBitmap(result.mel)
-                status = "Done"
+                status = if (result.score != null) "Done" else "Done (no confidence output)"
             } else {
                 status = "Failed (see logcat)"
             }
@@ -67,9 +75,69 @@ fun ModelTestScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Model Test", style = MaterialTheme.typography.headlineSmall)
-        Button(onClick = { launcher.launch("audio/*") }) { Text("Pick audio and run") }
+        Box {
+            Button(
+                onClick = {
+                    if (!detectionEnabled) {
+                        status = "Deepfake detection is OFF. Enable it to run tests."
+                    } else {
+                        menuExpanded = true
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Pick bundled audio and run") }
+            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                if (bundledClips.isEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text("No assets found. Add files under assets/demo_audio/") },
+                        onClick = { menuExpanded = false },
+                        enabled = false
+                    )
+                } else {
+                    bundledClips.forEach { clip ->
+                        DropdownMenuItem(
+                            text = { Text(clip) },
+                            onClick = {
+                                menuExpanded = false
+                                status = "Running..."
+                                score = null
+                                spectrogram = null
+                                spectrogramFrames = null
+                                scope.launch {
+                                    val result = withContext(Dispatchers.IO) {
+                                        modelRunner.inferFromAsset("demo_audio/$clip")
+                                    }
+                                    if (result != null) {
+                                        score = result.score
+                                        spectrogramFrames = result.mel[0].size
+                                        spectrogram = melToBitmap(result.mel)
+                                        status = if (result.score != null) "Done" else "Done (no confidence output)"
+                                    } else {
+                                        status = "Failed (see logcat)"
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+        Button(
+            onClick = {
+                if (!detectionEnabled) {
+                    status = "Deepfake detection is OFF. Enable it to run tests."
+                } else {
+                    launcher.launch("audio/*")
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Pick device audio and run") }
         Text("Status: $status")
-        score?.let { Text("Confidence: ${String.format("%.3f", it)}") }
+        score?.let {
+            val percent = it * 100f
+            val verdict = if (it >= 0.5f) "Likely deepfake" else "Likely human"
+            Text("$verdict • Confidence: ${String.format("%.1f", percent)}% (${String.format("%.3f", it)})")
+        } ?: Text("Confidence: unavailable (model did not return a score)")
         spectrogram?.let { bmp ->
             Text("Spectrogram (mel):", style = MaterialTheme.typography.labelLarge)
             Image(
@@ -77,8 +145,15 @@ fun ModelTestScreen(
                 contentDescription = "Mel spectrogram",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
+                    .height(240.dp)
             )
+            spectrogramFrames?.let { frames ->
+                val seconds = frames * 256f / 16_000f
+                Text(
+                    "Resolution: 64 mel bands x $frames frames (~${String.format("%.2f", seconds)} s, hop=256, sr=16 kHz, log-dB, normalized).",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
         Text(
             "Supports common audio (WAV/MP3/MP4/M4A/FLAC via platform decoder). Preprocessing matches training: 16k, 3s pad/crop, mel (n_fft=1024, hop=256, n_mels=64), log-dB, normalize.",
@@ -86,6 +161,13 @@ fun ModelTestScreen(
         )
     }
 }
+
+private fun loadBundledClips(context: Context): List<String> =
+    runCatching {
+        context.assets.list("demo_audio")
+            ?.filter { it.endsWith(".wav", true) || it.endsWith(".flac", true) }
+            ?: emptyList()
+    }.getOrDefault(emptyList())
 
 private fun melToBitmap(mel: Array<FloatArray>): Bitmap {
     val height = mel.size
@@ -102,7 +184,7 @@ private fun melToBitmap(mel: Array<FloatArray>): Bitmap {
     val pixels = IntArray(width * height)
     var idx = 0
     for (y in 0 until height) {
-        val m = height - 1 - y // flip so low freqs at bottom
+        val m = height - 1 - y
         for (x in 0 until width) {
             val norm = ((mel[m][x] - minVal) / range).coerceIn(0f, 1f)
             val c = (norm * 255).toInt()

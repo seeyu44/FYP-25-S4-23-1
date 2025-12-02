@@ -10,13 +10,9 @@ import com.example.fyp_25_s4_23.control.controllers.DetectionController
 import com.example.fyp_25_s4_23.control.usecases.LoginUser
 import com.example.fyp_25_s4_23.control.usecases.LogoutUser
 import com.example.fyp_25_s4_23.control.usecases.RegisterUser
-import com.example.fyp_25_s4_23.control.usecases.SeedSampleData
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
-import com.example.fyp_25_s4_23.entity.data.repositories.AlertRepository
-import com.example.fyp_25_s4_23.entity.data.repositories.CallRepository
 import com.example.fyp_25_s4_23.entity.data.repositories.SettingsRepository
 import com.example.fyp_25_s4_23.entity.data.repositories.UserRepository
-import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
 import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
@@ -39,7 +35,6 @@ data class AppUiState(
     val currentUser: UserAccount? = null,
     val userSettings: UserSettings = UserSettings(),
     val users: List<UserAccount> = emptyList(),
-    val callRecords: List<CallRecord> = emptyList(),
     val message: String? = null,
     val isBusy: Boolean = false
 )
@@ -48,15 +43,12 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
     private val db = AppDatabase.getInstance(application)
     private val userRepository = UserRepository(db.userDao())
-    private val callRepository = CallRepository(db.callRecordDao())
-    private val alertRepository = AlertRepository(db.alertEventDao())
     private val settingsRepository = SettingsRepository(db.userSettingsDao())
     private val detectionController = DetectionController(application, ModelRunner(application))
 
     private val registerUser = RegisterUser(userRepository)
     private val loginUser = LoginUser(userRepository)
     private val logoutUser = LogoutUser()
-    private val seedSampleData = SeedSampleData(callRepository, alertRepository)
 
     private val _state = MutableStateFlow(AppUiState())
     val state: StateFlow<AppUiState> = _state.asStateFlow()
@@ -139,8 +131,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 currentUser = logoutUser(it.currentUser),
                 userSettings = UserSettings(),
                 screen = AppScreen.Login,
-                message = "Logged out",
-                callRecords = emptyList()
+                message = "Logged out"
             )
         }
     }
@@ -149,9 +140,11 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         val user = _state.value.currentUser ?: return
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true) }
-            val users = if (user.role == UserRole.ADMIN) userRepository.listUsers() else emptyList()
-            val calls = callRepository.listRecent()
-            _state.update { it.copy(users = users, callRecords = calls, isBusy = false) }
+            if (user.role == UserRole.ADMIN) {
+                val users = userRepository.listUsers()
+                _state.update { it.copy(users = users) }
+            }
+            _state.update { it.copy(isBusy = false) }
         }
     }
 
@@ -177,21 +170,6 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         }
         viewModelScope.launch {
             settingsRepository.update(user.id, _state.value.userSettings)
-        }
-    }
-
-    fun seedSampleData() {
-        val user = _state.value.currentUser ?: return
-        viewModelScope.launch {
-            _state.update { it.copy(isBusy = true, message = null) }
-            runCatching { seedSampleData(user) }
-                .onSuccess {
-                    refreshDashboard()
-                    _state.update { it.copy(message = "Sample data added", isBusy = false) }
-                }
-                .onFailure { throwable ->
-                    _state.update { it.copy(message = throwable.message, isBusy = false) }
-                }
         }
     }
 

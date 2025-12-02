@@ -6,8 +6,10 @@ import android.media.MediaFormat
 import android.net.Uri
 import android.content.Context
 import android.util.Log
+import android.content.res.AssetFileDescriptor
 import java.io.BufferedInputStream
 import java.io.InputStream
+import java.io.File
 import kotlin.math.*
 import org.jtransforms.fft.FloatFFT_1D
 
@@ -31,6 +33,18 @@ class AudioPreprocessor(private val context: Context) {
             .onFailure { Log.e(TAG, "Failed to load wav asset $assetName", it) }
             .getOrNull()
 
+    /** Decode common formats (mp3/mp4/m4a/flac) from assets via platform decoder. */
+    fun loadAudioFromAsset(assetName: String): FloatArray? =
+        runCatching {
+            context.assets.openFd(assetName).use { fd -> decodeWithMediaExtractor(assetFd = fd) }
+        }.recoverCatching {
+            // Asset may be stored compressed; copy to a temp file then decode from file path.
+            val temp = File.createTempFile("asset_audio_", assetName.substringAfterLast('.', ".tmp"), context.cacheDir)
+            context.assets.open(assetName).use { input -> temp.outputStream().use { output -> input.copyTo(output) } }
+            decodeWithMediaExtractor(filePath = temp.absolutePath)
+        }.onFailure { Log.e(TAG, "Failed to load audio asset $assetName", it) }
+            .getOrNull()
+
     fun loadWavFromStream(stream: InputStream): FloatArray? =
         runCatching { decodeWav16Mono(stream) }
             .onFailure { Log.e(TAG, "Failed to load wav stream", it) }
@@ -38,7 +52,7 @@ class AudioPreprocessor(private val context: Context) {
 
     /** Decode common formats (mp3/mp4/m4a/flac) via platform decoder. */
     fun loadAudioFromUri(uri: Uri): FloatArray? =
-        runCatching { decodeWithMediaExtractor(uri) }
+        runCatching { decodeWithMediaExtractor(uri = uri) }
             .onFailure { Log.e(TAG, "Failed to decode uri=$uri", it) }
             .getOrNull()
 
@@ -77,9 +91,14 @@ class AudioPreprocessor(private val context: Context) {
         return if (sr != sampleRate) resampleLinear(out, sr, sampleRate) else out
     }
 
-    private fun decodeWithMediaExtractor(uri: Uri): FloatArray {
+    private fun decodeWithMediaExtractor(uri: Uri? = null, assetFd: AssetFileDescriptor? = null, filePath: String? = null): FloatArray {
+        require(uri != null || assetFd != null || filePath != null) { "Provide either uri, assetFd, or filePath" }
         val extractor = MediaExtractor()
-        extractor.setDataSource(context, uri, null)
+        when {
+            assetFd != null -> extractor.setDataSource(assetFd.fileDescriptor, assetFd.startOffset, assetFd.length)
+            uri != null -> extractor.setDataSource(context, uri, null)
+            filePath != null -> extractor.setDataSource(filePath)
+        }
         var trackIndex = -1
         for (i in 0 until extractor.trackCount) {
             val fmt = extractor.getTrackFormat(i)
