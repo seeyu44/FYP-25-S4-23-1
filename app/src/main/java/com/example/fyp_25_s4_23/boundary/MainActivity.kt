@@ -92,6 +92,16 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             onNavigateToLogin = viewModel::navigateToLogin
         )
 
+        AppScreen.Summary -> {
+            // Summary screen not implemented in boundary package
+            viewModel.navigateToDashboard()
+        }
+
+        AppScreen.CallHistory -> {
+            // Call History screen not implemented in boundary package
+            viewModel.navigateToDashboard()
+        }
+
         AppScreen.Dashboard -> {
             val user = uiState.currentUser
             if (user == null) {
