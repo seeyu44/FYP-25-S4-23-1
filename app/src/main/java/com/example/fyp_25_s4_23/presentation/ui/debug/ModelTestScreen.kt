@@ -2,9 +2,6 @@ package com.example.fyp_25_s4_23.presentation.ui.debug
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,6 +31,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 
+private const val DEEPFAKE_THRESHOLD = 0.7f
+
 @Composable
 fun ModelTestScreen(
     modelRunner: ModelRunner,
@@ -43,30 +42,11 @@ fun ModelTestScreen(
     var score by remember { mutableStateOf<Float?>(null) }
     var spectrogram by remember { mutableStateOf<Bitmap?>(null) }
     var spectrogramFrames by remember { mutableStateOf<Int?>(null) }
+    var lastSelection by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val bundledClips = remember { loadBundledClips(context) }
     var menuExpanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        status = "Running..."
-        score = null
-        spectrogram = null
-        spectrogramFrames = null
-        scope.launch {
-            val result = withContext(Dispatchers.IO) { modelRunner.inferFromUri(uri) }
-            if (result != null) {
-                score = result.score
-                spectrogramFrames = result.mel[0].size
-                spectrogram = melToBitmap(result.mel)
-                status = if (result.score != null) "Done" else "Done (no confidence output)"
-            } else {
-                status = "Failed (see logcat)"
-            }
-        }
-    }
 
     Column(
         modifier = Modifier
@@ -103,6 +83,7 @@ fun ModelTestScreen(
                                 score = null
                                 spectrogram = null
                                 spectrogramFrames = null
+                                lastSelection = clip
                                 scope.launch {
                                     val result = withContext(Dispatchers.IO) {
                                         modelRunner.inferFromAsset("demo_audio/$clip")
@@ -122,22 +103,20 @@ fun ModelTestScreen(
                 }
             }
         }
-        Button(
-            onClick = {
-                if (!detectionEnabled) {
-                    status = "Deepfake detection is OFF. Enable it to run tests."
-                } else {
-                    launcher.launch("audio/*")
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Pick device audio and run") }
+        lastSelection?.let { Text("Selected: $it", style = MaterialTheme.typography.bodyMedium) }
         Text("Status: $status")
-        score?.let {
-            val percent = it * 100f
-            val verdict = if (it >= 0.5f) "Likely deepfake" else "Likely human"
-            Text("$verdict • Confidence: ${String.format("%.1f", percent)}% (${String.format("%.3f", it)})")
-        } ?: Text("Confidence: unavailable (model did not return a score)")
+        if (status.startsWith("Done")) {
+            score?.let {
+                val percent = it * 100f
+                val verdict = if (it >= DEEPFAKE_THRESHOLD) "Likely deepfake" else "Likely human"
+                Text(
+                    "$verdict - Confidence: ${String.format("%.1f", percent)}% "
+                )
+            } ?: run {
+                val selectionLabel = lastSelection ?: "selection"
+                Text("Confidence: unavailable for $selectionLabel")
+            }
+        }
         spectrogram?.let { bmp ->
             Text("Spectrogram (mel):", style = MaterialTheme.typography.labelLarge)
             Image(
