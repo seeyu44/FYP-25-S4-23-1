@@ -1,4 +1,4 @@
-package com.example.fyp_25_s4_23.boundary.handlers
+package com.example.fyp_25_s4_23.presentation.handlers
 
 import android.content.Intent
 import android.telecom.Call
@@ -6,9 +6,9 @@ import android.telecom.InCallService
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
-import com.example.fyp_25_s4_23.control.call.ActiveCallStore
-import com.example.fyp_25_s4_23.control.call.InCallServiceHolder
-import com.example.fyp_25_s4_23.boundary.call.CallInProgressActivity
+import com.example.fyp_25_s4_23.presentation.call.ActiveCallStore
+import com.example.fyp_25_s4_23.presentation.call.InCallServiceHolder
+import com.example.fyp_25_s4_23.presentation.ui.call.CallInProgressActivity
 
 class AntiDeepfakeInCallService : InCallService() {
     private val callback = object : Call.Callback() {

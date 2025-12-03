@@ -1,7 +1,7 @@
-package com.example.fyp_25_s4_23.entity.domain.entities
+package com.example.fyp_25_s4_23.domain.entities
 
-import com.example.fyp_25_s4_23.entity.domain.valueobjects.AlertAction
-import com.example.fyp_25_s4_23.entity.domain.valueobjects.AlertSeverity
+import com.example.fyp_25_s4_23.domain.valueobjects.AlertAction
+import com.example.fyp_25_s4_23.domain.valueobjects.AlertSeverity
 
 /**
  * Captures an intervention or notification triggered by detection outcomes.

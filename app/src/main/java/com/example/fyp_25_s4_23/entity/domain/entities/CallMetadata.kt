@@ -1,7 +1,7 @@
-package com.example.fyp_25_s4_23.entity.domain.entities
+package com.example.fyp_25_s4_23.domain.entities
 
-import com.example.fyp_25_s4_23.entity.domain.valueobjects.CallDirection
-import com.example.fyp_25_s4_23.entity.domain.valueobjects.LocationTag
+import com.example.fyp_25_s4_23.domain.valueobjects.CallDirection
+import com.example.fyp_25_s4_23.domain.valueobjects.LocationTag
 
 /**
  * Describes contextual information about a call independent of detections.

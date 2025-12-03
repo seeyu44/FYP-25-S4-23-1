@@ -1,6 +1,6 @@
-package com.example.fyp_25_s4_23.entity.domain.entities
+package com.example.fyp_25_s4_23.domain.entities
 
-import com.example.fyp_25_s4_23.entity.domain.valueobjects.CallStatus
+import com.example.fyp_25_s4_23.domain.valueobjects.CallStatus
 
 /**
  * Aggregates metadata and detection history for a single call.

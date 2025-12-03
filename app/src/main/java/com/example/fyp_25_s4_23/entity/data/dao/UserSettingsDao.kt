@@ -1,10 +1,10 @@
-package com.example.fyp_25_s4_23.entity.data.dao
+package com.example.fyp_25_s4_23.data.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import com.example.fyp_25_s4_23.entity.data.entities.UserSettingsEntity
+import com.example.fyp_25_s4_23.data.entities.UserSettingsEntity
 
 @Dao
 interface UserSettingsDao {

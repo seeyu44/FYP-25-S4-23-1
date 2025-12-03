@@ -1,6 +1,6 @@
-package com.example.fyp_25_s4_23.entity.domain.entities
+package com.example.fyp_25_s4_23.domain.entities
 
-import com.example.fyp_25_s4_23.entity.domain.valueobjects.DetectionSessionStatus
+import com.example.fyp_25_s4_23.domain.valueobjects.DetectionSessionStatus
 
 /**
  * Represents a continuous inference session tied to a call.

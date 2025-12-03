@@ -1,4 +1,4 @@
-package com.example.fyp_25_s4_23.boundary.auth
+package com.example.fyp_25_s4_23.presentation.ui.auth
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

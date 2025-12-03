@@ -1,11 +1,11 @@
-package com.example.fyp_25_s4_23.entity.data.mappers
+package com.example.fyp_25_s4_23.data.mappers
 
-import com.example.fyp_25_s4_23.entity.data.entities.CallRecordEntity
-import com.example.fyp_25_s4_23.entity.domain.entities.CallMetadata
-import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
-import com.example.fyp_25_s4_23.entity.domain.entities.DetectionResult
-import com.example.fyp_25_s4_23.entity.domain.valueobjects.CallDirection
-import com.example.fyp_25_s4_23.entity.domain.valueobjects.CallStatus
+import com.example.fyp_25_s4_23.data.entities.CallRecordEntity
+import com.example.fyp_25_s4_23.domain.entities.CallMetadata
+import com.example.fyp_25_s4_23.domain.entities.CallRecord
+import com.example.fyp_25_s4_23.domain.entities.DetectionResult
+import com.example.fyp_25_s4_23.domain.valueobjects.CallDirection
+import com.example.fyp_25_s4_23.domain.valueobjects.CallStatus
 
 fun CallRecordEntity.toDomain(): CallRecord {
     val metadata = CallMetadata(

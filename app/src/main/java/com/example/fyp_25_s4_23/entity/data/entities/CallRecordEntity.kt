@@ -1,4 +1,4 @@
-package com.example.fyp_25_s4_23.entity.data.entities
+package com.example.fyp_25_s4_23.data.entities
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity

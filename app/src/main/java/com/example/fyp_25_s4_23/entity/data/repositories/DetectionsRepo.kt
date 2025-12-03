@@ -1,6 +1,6 @@
-package com.example.fyp_25_s4_23.entity.data.repositories
+package com.example.fyp_25_s4_23.data.repositories
 
-import com.example.fyp_25_s4_23.entity.domain.entities.DetectionResult
+import com.example.fyp_25_s4_23.domain.entities.DetectionResult
 
 /**
  * Simple in-memory repository placeholder for detections.

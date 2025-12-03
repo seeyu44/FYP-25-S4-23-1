@@ -1,9 +1,9 @@
-package com.example.fyp_25_s4_23.entity.data.mappers
+package com.example.fyp_25_s4_23.data.mappers
 
-import com.example.fyp_25_s4_23.entity.data.entities.AlertEventEntity
-import com.example.fyp_25_s4_23.entity.domain.entities.AlertEvent
-import com.example.fyp_25_s4_23.entity.domain.valueobjects.AlertAction
-import com.example.fyp_25_s4_23.entity.domain.valueobjects.AlertSeverity
+import com.example.fyp_25_s4_23.data.entities.AlertEventEntity
+import com.example.fyp_25_s4_23.domain.entities.AlertEvent
+import com.example.fyp_25_s4_23.domain.valueobjects.AlertAction
+import com.example.fyp_25_s4_23.domain.valueobjects.AlertSeverity
 
 fun AlertEventEntity.toDomain(): AlertEvent = AlertEvent(
     id = id,
