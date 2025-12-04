@@ -31,6 +31,8 @@ sealed interface AppScreen {
     data object Loading : AppScreen
     data object Login : AppScreen
     data object Register : AppScreen
+    data object Summary : AppScreen
+    data object CallHistory : AppScreen
     data object Dashboard : AppScreen
 }
 
@@ -74,6 +76,18 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
     fun navigateToLogin() {
         _state.update { it.copy(screen = AppScreen.Login, message = null) }
+    }
+
+    fun navigateToSummary() {
+        _state.update { it.copy(screen = AppScreen.Summary, message = null) }
+    }
+
+    fun navigateToCallHistory() {
+        _state.update { it.copy(screen = AppScreen.CallHistory, message = null) }
+    }
+
+    fun navigateToDashboard() {
+        _state.update { it.copy(screen = AppScreen.Dashboard, message = null) }
     }
 
     fun login(username: String, password: String) {
@@ -195,6 +209,23 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 .onFailure { throwable ->
                     _state.update { it.copy(message = throwable.message, isBusy = false) }
                 }
+        }
+    }
+
+    suspend fun aggregateSummary(startMillis: Long, endMillis: Long, periodDaily: Boolean): List<com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics> {
+        val threshold = 0.5
+        val rows = if (periodDaily) callRepository.dailyAggregates(startMillis, endMillis, threshold) else callRepository.weeklyAggregates(startMillis, endMillis, threshold)
+        return rows.map { r ->
+            com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics(
+                label = r.period,
+                totalCalls = r.total,
+                answered = r.answered,
+                missed = r.missed,
+                suspicious = r.suspicious,
+                blocked = r.blocked,
+                warned = (r.suspicious - r.blocked).coerceAtLeast(0),
+                avgConfidence = r.avgConfidence ?: -1.0
+            )
         }
     }
 

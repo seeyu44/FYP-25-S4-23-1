@@ -29,9 +29,9 @@ import com.example.fyp_25_s4_23.boundary.callhistory.CallHistoryScreen
 import com.example.fyp_25_s4_23.boundary.dashboard.DashboardScreen
 import com.example.fyp_25_s4_23.boundary.dashboard.SummaryScreen
 import com.example.fyp_25_s4_23.control.controllers.SystemController
+import com.example.fyp_25_s4_23.control.viewmodel.AppMainViewModel
+import com.example.fyp_25_s4_23.control.viewmodel.AppScreen
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
-import com.example.fyp_25_s4_23.presentation.viewmodel.AppMainViewModel
-import com.example.fyp_25_s4_23.presentation.viewmodel.AppScreen
 import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
 
 class MainActivity : ComponentActivity() {
