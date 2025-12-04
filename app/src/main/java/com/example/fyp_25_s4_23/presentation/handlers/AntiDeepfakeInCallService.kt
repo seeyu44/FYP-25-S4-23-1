@@ -8,7 +8,7 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import com.example.fyp_25_s4_23.presentation.call.ActiveCallStore
 import com.example.fyp_25_s4_23.presentation.call.InCallServiceHolder
-import com.example.fyp_25_s4_23.presentation.ui.call.CallInProgressActivity
+import com.example.fyp_25_s4_23.boundary.call.CallInProgressActivity
 
 class AntiDeepfakeInCallService : InCallService() {
     private val callback = object : Call.Callback() {

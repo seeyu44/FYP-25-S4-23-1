@@ -1,4 +1,4 @@
-package com.example.fyp_25_s4_23.presentation.ui.dashboard
+package com.example.fyp_25_s4_23.boundary.dashboard
 
 import android.util.Log
 import android.widget.Toast
@@ -35,7 +35,7 @@ import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 import com.example.fyp_25_s4_23.control.controllers.SystemController
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
-import com.example.fyp_25_s4_23.presentation.ui.debug.ModelTestScreen
+import com.example.fyp_25_s4_23.boundary.debug.ModelTestScreen
 
 /**
  * User dashboard: shows recent calls, navigation to Summary and Call History for registered users

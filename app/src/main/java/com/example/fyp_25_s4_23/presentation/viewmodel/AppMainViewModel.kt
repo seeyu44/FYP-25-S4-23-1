@@ -167,11 +167,11 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     }
 
     // Fetch aggregated summaries from repository and map to SummaryMetrics for UI (test behavior)
-    suspend fun aggregateSummary(startMillis: Long, endMillis: Long, periodDaily: Boolean): List<com.example.fyp_25_s4_23.presentation.ui.dashboard.SummaryMetrics> {
+    suspend fun aggregateSummary(startMillis: Long, endMillis: Long, periodDaily: Boolean): List<com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics> {
         val threshold = 0.5
         val rows = if (periodDaily) callRepository.dailyAggregates(startMillis, endMillis, threshold) else callRepository.weeklyAggregates(startMillis, endMillis, threshold)
         return rows.map { r ->
-            com.example.fyp_25_s4_23.presentation.ui.dashboard.SummaryMetrics(
+            com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics(
                 label = r.period,
                 totalCalls = r.total,
                 answered = r.answered,

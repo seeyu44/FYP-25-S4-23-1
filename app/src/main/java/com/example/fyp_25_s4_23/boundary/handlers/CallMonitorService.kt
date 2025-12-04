@@ -15,7 +15,8 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import com.example.fyp_25_s4_23.entity.ml.ModelRunner
+import com.example.fyp_25_s4_23.ml.AudioFeatureExtractor
+import com.example.fyp_25_s4_23.ml.ModelRunner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -98,11 +99,10 @@ class CallMonitorService : Service() {
                 val read = audioRecord?.read(shortBuffer, 0, FRAME_SIZE) ?: 0
                 if (read > 0) {
                     val frame = shortBuffer.copyOf(read)
-                    // TODO: hook up real streaming inference. Placeholder keeps build green.
-                    val probability = 0f
-                    if (probability >= ALERT_THRESHOLD &&
-                        System.currentTimeMillis() - lastAlertTime > ALERT_COOLDOWN
-                    ) {
+                    val energy = AudioFeatureExtractor.energy(frame)
+                    val zcr = AudioFeatureExtractor.zeroCrossRate(frame)
+                    val probability = modelRunner.infer(floatArrayOf(energy, zcr))
+                    if (probability >= ALERT_THRESHOLD && System.currentTimeMillis() - lastAlertTime > ALERT_COOLDOWN) {
                         val notification = NotificationCompat.Builder(this@CallMonitorService, MONITOR_CHANNEL_ID)
                             .setContentTitle("Possible deepfake detected")
                             .setContentText("Confidence ${(probability * 100).toInt()}%")
