@@ -1,16 +1,16 @@
 package com.example.fyp_25_s4_23.control.usecases
 
-import com.example.fyp_25_s4_23.data.repositories.AlertRepository
-import com.example.fyp_25_s4_23.data.repositories.CallRepository
-import com.example.fyp_25_s4_23.domain.entities.AlertEvent
-import com.example.fyp_25_s4_23.domain.entities.CallMetadata
-import com.example.fyp_25_s4_23.domain.entities.CallRecord
-import com.example.fyp_25_s4_23.domain.entities.DetectionResult
-import com.example.fyp_25_s4_23.domain.entities.UserAccount
-import com.example.fyp_25_s4_23.domain.valueobjects.AlertAction
-import com.example.fyp_25_s4_23.domain.valueobjects.AlertSeverity
-import com.example.fyp_25_s4_23.domain.valueobjects.CallDirection
-import com.example.fyp_25_s4_23.domain.valueobjects.CallStatus
+import com.example.fyp_25_s4_23.entity.data.repositories.AlertRepository
+import com.example.fyp_25_s4_23.entity.data.repositories.CallRepository
+import com.example.fyp_25_s4_23.entity.domain.entities.AlertEvent
+import com.example.fyp_25_s4_23.entity.domain.entities.CallMetadata
+import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
+import com.example.fyp_25_s4_23.entity.domain.entities.DetectionResult
+import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.AlertAction
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.AlertSeverity
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.CallDirection
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.CallStatus
 import java.util.UUID
 
 class SeedSampleData(
