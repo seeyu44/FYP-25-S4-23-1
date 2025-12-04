@@ -52,9 +52,14 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation("com.google.android.material:material:1.12.0")
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    // ONNX runtime for on-device inference
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.19.2")
+    // FFT utilities for mel spectrogram calculations
+    implementation("com.github.wendykierp:JTransforms:3.1")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

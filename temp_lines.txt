@@ -1,0 +1,177 @@
+1	package com.example.fyp_25_s4_23.presentation.ui.debug
+2	
+3	import android.content.Context
+4	import android.graphics.Bitmap
+5	import androidx.compose.foundation.Image
+6	import androidx.compose.foundation.layout.Arrangement
+7	import androidx.compose.foundation.layout.Box
+8	import androidx.compose.foundation.layout.Column
+9	import androidx.compose.foundation.layout.fillMaxSize
+10	import androidx.compose.foundation.layout.fillMaxWidth
+11	import androidx.compose.foundation.layout.height
+12	import androidx.compose.foundation.layout.padding
+13	import androidx.compose.material3.Button
+14	import androidx.compose.material3.DropdownMenu
+15	import androidx.compose.material3.DropdownMenuItem
+16	import androidx.compose.material3.MaterialTheme
+17	import androidx.compose.material3.Text
+18	import androidx.compose.runtime.Composable
+19	import androidx.compose.runtime.getValue
+20	import androidx.compose.runtime.mutableStateOf
+21	import androidx.compose.runtime.remember
+22	import androidx.compose.runtime.rememberCoroutineScope
+23	import androidx.compose.runtime.setValue
+24	import androidx.compose.ui.Modifier
+25	import androidx.compose.ui.graphics.asImageBitmap
+26	import androidx.compose.ui.platform.LocalContext
+27	import androidx.compose.ui.unit.dp
+28	import com.example.fyp_25_s4_23.entity.ml.ModelRunner
+29	import kotlinx.coroutines.Dispatchers
+30	import kotlinx.coroutines.launch
+31	import kotlinx.coroutines.withContext
+32	import kotlin.math.max
+33	
+34	private const val DEEPFAKE_THRESHOLD = 0.7f
+35	
+36	@Composable
+37	fun ModelTestScreen(
+38	    modelRunner: ModelRunner,
+39	    detectionEnabled: Boolean = true
+40	) {
+41	    var status by remember { mutableStateOf("Idle") }
+42	    var score by remember { mutableStateOf<Float?>(null) }
+43	    var spectrogram by remember { mutableStateOf<Bitmap?>(null) }
+44	    var spectrogramFrames by remember { mutableStateOf<Int?>(null) }
+45	    var lastSelection by remember { mutableStateOf<String?>(null) }
+46	    var attempted by remember { mutableStateOf(false) }
+47	    val context = LocalContext.current
+48	    val bundledClips = remember { loadBundledClips(context) }
+49	    var menuExpanded by remember { mutableStateOf(false) }
+50	    val scope = rememberCoroutineScope()
+51	
+52	    Column(
+53	        modifier = Modifier
+54	            .fillMaxSize()
+55	            .padding(24.dp),
+56	        verticalArrangement = Arrangement.spacedBy(12.dp)
+57	    ) {
+58	        Text("Model Test", style = MaterialTheme.typography.headlineSmall)
+59	        Box {
+60	            Button(
+61	                onClick = {
+62	                    if (!detectionEnabled) {
+63	                        status = "Deepfake detection is OFF. Enable it to run tests."
+64	                    } else {
+65	                        menuExpanded = true
+66	                    }
+67	                },
+68	                modifier = Modifier.fillMaxWidth()
+69	            ) { Text("Pick bundled audio and run") }
+70	            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+71	                if (bundledClips.isEmpty()) {
+72	                    DropdownMenuItem(
+73	                        text = { Text("No assets found. Add files under assets/demo_audio/") },
+74	                        onClick = { menuExpanded = false },
+75	                        enabled = false
+76	                    )
+77	                } else {
+78	                    bundledClips.forEach { clip ->
+79	                        DropdownMenuItem(
+80	                            text = { Text(clip) },
+81	                            onClick = {
+82	                                menuExpanded = false
+83	                                status = "Running..."
+84	                                score = null
+85	                                spectrogram = null
+86	                                spectrogramFrames = null
+87	                                attempted = true
+88	                                lastSelection = clip
+89	                                scope.launch {
+90	                                    val result = withContext(Dispatchers.IO) {
+91	                                        modelRunner.inferFromAsset("demo_audio/$clip")
+92	                                    }
+93	                                    if (result != null) {
+94	                                        score = result.score
+95	                                        spectrogramFrames = result.mel[0].size
+96	                                        spectrogram = melToBitmap(result.mel)
+97	                                        status = if (result.score != null) "Done" else "Done (no confidence output)"
+98	                                    } else {
+99	                                        status = "Failed (see logcat)"
+100	                                    }
+101	                                }
+102	                            }
+103	                        )
+104	                    }
+105	                }
+106	            }
+107	        }
+108	        lastSelection?.let { Text("Selected: $it", style = MaterialTheme.typography.bodyMedium) }
+109	        Text("Status: $status")
+110	        if (attempted) {
+111	            score?.let {
+112	                val percent = it * 100f
+113	                val verdict = if (it >= DEEPFAKE_THRESHOLD) "Likely deepfake" else "Likely human"
+114	                Text(
+115	                    "$verdict - Confidence: ${String.format("%.1f", percent)}% " +
+116	                        "(${String.format("%.3f", it)}) - Threshold: ${String.format("%.2f", DEEPFAKE_THRESHOLD)}"
+117	                )
+118	            } else {
+119	                Text("Confidence: unavailable for ${lastSelection ?: "selection"}")
+120	            }
+121	        }
+122	        spectrogram?.let { bmp ->
+123	            Text("Spectrogram (mel):", style = MaterialTheme.typography.labelLarge)
+124	            Image(
+125	                bitmap = bmp.asImageBitmap(),
+126	                contentDescription = "Mel spectrogram",
+127	                modifier = Modifier
+128	                    .fillMaxWidth()
+129	                    .height(240.dp)
+130	            )
+131	            spectrogramFrames?.let { frames ->
+132	                val seconds = frames * 256f / 16_000f
+133	                Text(
+134	                    "Resolution: 64 mel bands x $frames frames (~${String.format("%.2f", seconds)} s, hop=256, sr=16 kHz, log-dB, normalized).",
+135	                    style = MaterialTheme.typography.bodySmall
+136	                )
+137	            }
+138	        }
+139	        Text(
+140	            "Supports common audio (WAV/MP3/MP4/M4A/FLAC via platform decoder). Preprocessing matches training: 16k, 3s pad/crop, mel (n_fft=1024, hop=256, n_mels=64), log-dB, normalize.",
+141	            style = MaterialTheme.typography.bodySmall
+142	        )
+143	    }
+144	}
+145	
+146	private fun loadBundledClips(context: Context): List<String> =
+147	    runCatching {
+148	        context.assets.list("demo_audio")
+149	            ?.filter { it.endsWith(".wav", true) || it.endsWith(".flac", true) }
+150	            ?: emptyList()
+151	    }.getOrDefault(emptyList())
+152	
+153	private fun melToBitmap(mel: Array<FloatArray>): Bitmap {
+154	    val height = mel.size
+155	    val width = mel[0].size
+156	    var minVal = Float.MAX_VALUE
+157	    var maxVal = -Float.MAX_VALUE
+158	    for (m in mel.indices) for (t in mel[m].indices) {
+159	        val v = mel[m][t]
+160	        if (v < minVal) minVal = v
+161	        if (v > maxVal) maxVal = v
+162	    }
+163	    val range = max(1e-5f, maxVal - minVal)
+164	    val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+165	    val pixels = IntArray(width * height)
+166	    var idx = 0
+167	    for (y in 0 until height) {
+168	        val m = height - 1 - y
+169	        for (x in 0 until width) {
+170	            val norm = ((mel[m][x] - minVal) / range).coerceIn(0f, 1f)
+171	            val c = (norm * 255).toInt()
+172	            pixels[idx++] = 0xFF shl 24 or (c shl 16) or (c shl 8) or c
+173	        }
+174	    }
+175	    bmp.setPixels(pixels, 0, width, 0, 0, width, height)
+176	    return bmp
+177	}
