@@ -1,0 +1,339 @@
+Index: app/src/main/java/com/example/fyp_25_s4_23/presentation/handlers/CallMonitorService.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.fyp_25_s4_23.presentation.handlers\n\nimport android.app.Notification\nimport android.app.NotificationChannel\nimport android.app.NotificationManager\nimport android.app.Service\nimport android.content.Context\nimport android.content.Intent\nimport android.os.Build\nimport android.os.IBinder\nimport androidx.core.app.NotificationCompat\n\n/**\n * Foreground service placeholder for monitoring audio during calls.\n * Does not capture audio yet; scaffolding only.\n */\nclass CallMonitorService : Service() {\n    override fun onBind(intent: Intent?): IBinder? = null\n\n    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {\n        startForeground(NOTIF_ID, buildNotification())\n        // TODO: wire AudioRecord + feature extraction + model inference\n        return START_STICKY\n    }\n\n    override fun onDestroy() {\n        stopForeground(STOP_FOREGROUND_REMOVE)\n        super.onDestroy()\n    }\n\n    private fun buildNotification(): Notification {\n        val channelId = \"call_monitor_channel\"\n        val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager\n        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {\n            val channel = NotificationChannel(\n                channelId,\n                \"Call Monitoring\",\n                NotificationManager.IMPORTANCE_LOW\n            )\n            mgr.createNotificationChannel(channel)\n        }\n        return NotificationCompat.Builder(this, channelId)\n            .setContentTitle(\"Monitoring active\")\n            .setContentText(\"Deepfake detection running\")\n            .setSmallIcon(android.R.drawable.ic_menu_call)\n            .build()\n    }\n\n    companion object {\n        private const val NOTIF_ID = 1001\n    }\n}\n\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/fyp_25_s4_23/presentation/handlers/CallMonitorService.kt b/app/src/main/java/com/example/fyp_25_s4_23/presentation/handlers/CallMonitorService.kt
+--- a/app/src/main/java/com/example/fyp_25_s4_23/presentation/handlers/CallMonitorService.kt	(revision 354d5aa77cfeed339baef29c86d3fa396c8af0ac)
++++ b/app/src/main/java/com/example/fyp_25_s4_23/presentation/handlers/CallMonitorService.kt	(date 1763611606537)
+@@ -10,6 +10,7 @@
+ import android.os.IBinder
+ import androidx.core.app.NotificationCompat
+ 
++
+ /**
+  * Foreground service placeholder for monitoring audio during calls.
+  * Does not capture audio yet; scaffolding only.
+@@ -18,8 +19,9 @@
+     override fun onBind(intent: Intent?): IBinder? = null
+ 
+     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+-        startForeground(NOTIF_ID, buildNotification())
++        //startForeground(NOTIF_ID, buildNotification())
+         // TODO: wire AudioRecord + feature extraction + model inference
++
+         return START_STICKY
+     }
+ 
+@@ -46,6 +48,7 @@
+             .build()
+     }
+ 
++
+     companion object {
+         private const val NOTIF_ID = 1001
+     }
+Index: app/src/main/java/com/example/fyp_25_s4_23/control/controllers/DetectionController.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.fyp_25_s4_23.control.controllers\n\nimport android.content.Context\nimport android.content.Intent\nimport com.example.fyp_25_s4_23.ml.ModelRunner\nimport com.example.fyp_25_s4_23.presentation.handlers.CallMonitorService\n\n/**\n * Orchestrates starting/stopping monitoring and delegating to ML runtime.\n */\nclass DetectionController(private val context: Context, private val runner: ModelRunner) {\n    fun startMonitoring() {\n        val i = Intent(context, CallMonitorService::class.java)\n        context.startForegroundService(i)\n    }\n\n    fun stopMonitoring() {\n        val i = Intent(context, CallMonitorService::class.java)\n        context.stopService(i)\n    }\n}\n\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/fyp_25_s4_23/control/controllers/DetectionController.kt b/app/src/main/java/com/example/fyp_25_s4_23/control/controllers/DetectionController.kt
+--- a/app/src/main/java/com/example/fyp_25_s4_23/control/controllers/DetectionController.kt	(revision 354d5aa77cfeed339baef29c86d3fa396c8af0ac)
++++ b/app/src/main/java/com/example/fyp_25_s4_23/control/controllers/DetectionController.kt	(date 1763566005888)
+@@ -1,22 +1,68 @@
+ package com.example.fyp_25_s4_23.control.controllers
+ 
+ import android.content.Context
++import androidx.core.content.ContextCompat
+ import android.content.Intent
+ import com.example.fyp_25_s4_23.ml.ModelRunner
+ import com.example.fyp_25_s4_23.presentation.handlers.CallMonitorService
++import com.example.fyp_25_s4_23.data.repositories.DetectionsRepo
++import com.example.fyp_25_s4_23.data.repositories.TrustedContactsRepo
++import com.example.fyp_25_s4_23.data.repositories.AlertRepository
++import com.example.fyp_25_s4_23.domain.entities.DetectionResult
++import com.example.fyp_25_s4_23.domain.entities.AlertEvent
++import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.launch
++import java.util.UUID
+ 
+ /**
+  * Orchestrates starting/stopping monitoring and delegating to ML runtime.
+  */
+-class DetectionController(private val context: Context, private val runner: ModelRunner) {
++
++class DetectionController(
++    private val context: Context,
++    private val runner: ModelRunner,
++    private val detectionsRepo: DetectionsRepo = DetectionsRepo()
++) {
++
+     fun startMonitoring() {
+         val i = Intent(context, CallMonitorService::class.java)
+-        context.startForegroundService(i)
++        ContextCompat.startForegroundService(context, i)
+     }
+ 
+     fun stopMonitoring() {
+         val i = Intent(context, CallMonitorService::class.java)
+         context.stopService(i)
+     }
++
++    fun handleDetectionResult(
++        callerId: String,
++        probability: Float,
++        threshold: Float = 0.80f,
++        alertRepo: AlertRepository? = null
++    ) {
++        val isDeepfake = probability >= threshold
++        val isTrusted = TrustedContactsRepo.isTrusted(callerId)
++
++        val detection = DetectionResult(
++            probability = probability,
++            isDeepfake = isDeepfake
++        )
++        detectionsRepo.add(detection)
++
++        if (isTrusted || !isDeepfake) return
++
++        if (alertRepo != null) {
++            val alert = AlertEvent(
++                id = UUID.randomUUID().toString(),
++                callId = callerId,
++                probability = probability,
++                message = "Deepfake suspected for caller $callerId (p=$probability)"
++            )
++            CoroutineScope(Dispatchers.IO).launch {
++                alertRepo.upsert(event = alert)
++            }
++        }
++    }
+ }
+ 
+Index: app/src/main/java/com/example/fyp_25_s4_23/MainActivity.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.fyp_25_s4_23\n\nimport android.os.Bundle\nimport androidx.activity.ComponentActivity\nimport androidx.activity.compose.setContent\nimport androidx.activity.enableEdgeToEdge\nimport androidx.compose.foundation.layout.Box\nimport androidx.compose.foundation.layout.fillMaxSize\nimport androidx.compose.material3.CircularProgressIndicator\nimport androidx.compose.material3.Scaffold\nimport androidx.compose.runtime.Composable\nimport androidx.compose.runtime.getValue\nimport androidx.compose.runtime.collectAsState\nimport androidx.compose.ui.Alignment\nimport androidx.compose.ui.Modifier\nimport androidx.lifecycle.viewmodel.compose.viewModel\nimport com.example.fyp_25_s4_23.presentation.ui.auth.LoginScreen\nimport com.example.fyp_25_s4_23.presentation.ui.auth.RegisterScreen\nimport com.example.fyp_25_s4_23.presentation.ui.dashboard.DashboardScreen\nimport com.example.fyp_25_s4_23.presentation.viewmodel.AppMainViewModel\nimport com.example.fyp_25_s4_23.presentation.viewmodel.AppScreen\nimport com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme\n\nclass MainActivity : ComponentActivity() {\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        enableEdgeToEdge()\n        setContent {\n            FYP25S423Theme {\n                Scaffold(modifier = Modifier.fillMaxSize()) {\n                    AntiDeepfakeApp()\n                }\n            }\n        }\n    }\n}\n\n@Composable\nfun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {\n    val uiState by viewModel.state.collectAsState()\n\n    when (uiState.screen) {\n        AppScreen.Loading -> Box(\n            modifier = Modifier.fillMaxSize(),\n            contentAlignment = Alignment.Center\n        ) {\n            CircularProgressIndicator()\n        }\n\n        AppScreen.Login -> LoginScreen(\n            isBusy = uiState.isBusy,\n            message = uiState.message,\n            onLogin = viewModel::login,\n            onNavigateToRegister = viewModel::navigateToRegister\n        )\n\n        AppScreen.Register -> RegisterScreen(\n            isBusy = uiState.isBusy,\n            message = uiState.message,\n            onRegister = viewModel::register,\n            onNavigateToLogin = viewModel::navigateToLogin\n        )\n\n        AppScreen.Dashboard -> {\n            val user = uiState.currentUser\n            if (user == null) {\n                viewModel.navigateToLogin()\n            } else {\n                DashboardScreen(\n                    user = user,\n                    callRecords = uiState.callRecords,\n                    users = uiState.users,\n                    message = uiState.message,\n                    isBusy = uiState.isBusy,\n                    onLogout = viewModel::logout,\n                    onRefresh = viewModel::refreshDashboard,\n                    onSeedData = viewModel::seedSampleData\n                )\n            }\n        }\n    }\n}\n\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/fyp_25_s4_23/MainActivity.kt b/app/src/main/java/com/example/fyp_25_s4_23/MainActivity.kt
+--- a/app/src/main/java/com/example/fyp_25_s4_23/MainActivity.kt	(revision 354d5aa77cfeed339baef29c86d3fa396c8af0ac)
++++ b/app/src/main/java/com/example/fyp_25_s4_23/MainActivity.kt	(date 1763611513980)
+@@ -21,13 +21,18 @@
+ import com.example.fyp_25_s4_23.presentation.viewmodel.AppScreen
+ import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
+ 
++import com.example.fyp_25_s4_23.control.controllers.DetectionController
++import com.example.fyp_25_s4_23.ml.ModelRunner
++
++
+ class MainActivity : ComponentActivity() {
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+         enableEdgeToEdge()
++
+         setContent {
+             FYP25S423Theme {
+-                Scaffold(modifier = Modifier.fillMaxSize()) {
++                Scaffold(modifier = Modifier.fillMaxSize()) { _ ->
+                     AntiDeepfakeApp()
+                 }
+             }
+Index: app/build.gradle.kts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>plugins {\n    alias(libs.plugins.android.application)\n    alias(libs.plugins.kotlin.android)\n    alias(libs.plugins.kotlin.compose)\n    alias(libs.plugins.ksp)\n}\n\nandroid {\n    namespace = \"com.example.fyp_25_s4_23\"\n    compileSdk {\n        version = release(36)\n    }\n\n    defaultConfig {\n        applicationId = \"com.example.fyp_25_s4_23\"\n        minSdk = 24\n        targetSdk = 36\n        versionCode = 1\n        versionName = \"1.0\"\n\n        testInstrumentationRunner = \"androidx.test.runner.AndroidJUnitRunner\"\n    }\n\n    buildTypes {\n        release {\n            isMinifyEnabled = false\n            proguardFiles(\n                getDefaultProguardFile(\"proguard-android-optimize.txt\"),\n                \"proguard-rules.pro\"\n            )\n        }\n    }\n    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_11\n        targetCompatibility = JavaVersion.VERSION_11\n    }\n    kotlinOptions {\n        jvmTarget = \"11\"\n    }\n    buildFeatures {\n        compose = true\n    }\n}\n\ndependencies {\n    implementation(libs.androidx.core.ktx)\n    implementation(libs.androidx.lifecycle.runtime.ktx)\n    implementation(libs.androidx.lifecycle.viewmodel.compose)\n    implementation(libs.androidx.activity.compose)\n    implementation(platform(libs.androidx.compose.bom))\n    implementation(libs.androidx.compose.ui)\n    implementation(libs.androidx.compose.ui.graphics)\n    implementation(libs.androidx.compose.ui.tooling.preview)\n    implementation(libs.androidx.compose.material3)\n    implementation(libs.androidx.room.runtime)\n    implementation(libs.androidx.room.ktx)\n    ksp(libs.androidx.room.compiler)\n    testImplementation(libs.junit)\n    androidTestImplementation(libs.androidx.junit)\n    androidTestImplementation(libs.androidx.espresso.core)\n    androidTestImplementation(platform(libs.androidx.compose.bom))\n    androidTestImplementation(libs.androidx.compose.ui.test.junit4)\n    debugImplementation(libs.androidx.compose.ui.tooling)\n    debugImplementation(libs.androidx.compose.ui.test.manifest)\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+--- a/app/build.gradle.kts	(revision 354d5aa77cfeed339baef29c86d3fa396c8af0ac)
++++ b/app/build.gradle.kts	(date 1763614633332)
+@@ -56,6 +56,8 @@
+     implementation(libs.androidx.room.ktx)
+     ksp(libs.androidx.room.compiler)
+     testImplementation(libs.junit)
++    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
++    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
+     androidTestImplementation(libs.androidx.junit)
+     androidTestImplementation(libs.androidx.espresso.core)
+     androidTestImplementation(platform(libs.androidx.compose.bom))
+Index: app/src/main/java/com/example/fyp_25_s4_23/domain/entities/AlertEvent.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.fyp_25_s4_23.domain.entities\n\nimport com.example.fyp_25_s4_23.domain.valueobjects.AlertAction\nimport com.example.fyp_25_s4_23.domain.valueobjects.AlertSeverity\n\n/**\n * Captures an intervention or notification triggered by detection outcomes.\n */\ndata class AlertEvent(\n    val id: String,\n    val callId: String,\n    val triggerMillis: Long = System.currentTimeMillis(),\n    val severity: AlertSeverity = AlertSeverity.WARNING,\n    val probability: Float,\n    val message: String,\n    val actionsTaken: Set<AlertAction> = emptySet(),\n    val acknowledged: Boolean = false,\n    val acknowledgedMillis: Long? = null\n)\n\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/fyp_25_s4_23/domain/entities/AlertEvent.kt b/app/src/main/java/com/example/fyp_25_s4_23/domain/entities/AlertEvent.kt
+--- a/app/src/main/java/com/example/fyp_25_s4_23/domain/entities/AlertEvent.kt	(revision 354d5aa77cfeed339baef29c86d3fa396c8af0ac)
++++ b/app/src/main/java/com/example/fyp_25_s4_23/domain/entities/AlertEvent.kt	(date 1763563335687)
+@@ -17,4 +17,3 @@
+     val acknowledged: Boolean = false,
+     val acknowledgedMillis: Long? = null
+ )
+-
+Index: build.gradle.kts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>// Top-level build file where you can add configuration options common to all sub-projects/modules.\nplugins {\n    alias(libs.plugins.android.application) apply false\n    alias(libs.plugins.kotlin.android) apply false\n    alias(libs.plugins.kotlin.compose) apply false\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/build.gradle.kts b/build.gradle.kts
+--- a/build.gradle.kts	(revision 354d5aa77cfeed339baef29c86d3fa396c8af0ac)
++++ b/build.gradle.kts	(date 1763614459039)
+@@ -3,4 +3,5 @@
+     alias(libs.plugins.android.application) apply false
+     alias(libs.plugins.kotlin.android) apply false
+     alias(libs.plugins.kotlin.compose) apply false
+-}
+\ No newline at end of file
++}
++
+Index: .idea/markdown.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/markdown.xml b/.idea/markdown.xml
+new file mode 100644
+--- /dev/null	(date 1763001747952)
++++ b/.idea/markdown.xml	(date 1763001747952)
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="MarkdownSettings">
++    <option name="previewPanelProviderInfo">
++      <ProviderInfo name="Compose (experimental)" className="com.intellij.markdown.compose.preview.ComposePanelProvider" />
++    </option>
++  </component>
++</project>
+\ No newline at end of file
+Index: .idea/misc.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project version=\"4\">\n  <component name=\"ExternalStorageConfigurationManager\" enabled=\"true\" />\n  <component name=\"ProjectRootManager\" version=\"2\" languageLevel=\"JDK_21\" default=\"true\" project-jdk-name=\"jbr-21\" project-jdk-type=\"JavaSDK\" />\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/misc.xml b/.idea/misc.xml
+--- a/.idea/misc.xml	(revision 354d5aa77cfeed339baef29c86d3fa396c8af0ac)
++++ b/.idea/misc.xml	(date 1764771985152)
+@@ -1,4 +1,3 @@
+-<?xml version="1.0" encoding="UTF-8"?>
+ <project version="4">
+   <component name="ExternalStorageConfigurationManager" enabled="true" />
+   <component name="ProjectRootManager" version="2" languageLevel="JDK_21" default="true" project-jdk-name="jbr-21" project-jdk-type="JavaSDK" />
+Index: app/src/main/java/com/example/fyp_25_s4_23/control/controllers/DetectionControllerTest.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/fyp_25_s4_23/control/controllers/DetectionControllerTest.kt b/app/src/main/java/com/example/fyp_25_s4_23/control/controllers/DetectionControllerTest.kt
+new file mode 100644
+--- /dev/null	(date 1764223065971)
++++ b/app/src/main/java/com/example/fyp_25_s4_23/control/controllers/DetectionControllerTest.kt	(date 1764223065971)
+@@ -0,0 +1,94 @@
++package com.example.fyp_25_s4_23.control.controllers
++
++import android.content.Context
++// ... (기존 Import 유지)
++import com.example.fyp_25_s4_23.data.repositories.AlertRepository
++import com.example.fyp_25_s4_23.data.repositories.DetectionsRepo
++import com.example.fyp_25_s4_23.data.repositories.TrustedContactsRepo
++import com.example.fyp_25_s4_23.domain.entities.TrustedContact
++import com.example.fyp_25_s4_23.ml.ModelRunner
++import kotlinx.coroutines.test.runTest
++import org.junit.Before
++import org.junit.Test
++import org.mockito.kotlin.*
++
++class DetectionControllerTest {
++
++    // Mock 객체 및 Controller는 그대로 유지
++    private lateinit var mockContext: Context
++    private lateinit var mockRunner: ModelRunner
++    private lateinit var mockDetectionsRepo: DetectionsRepo
++    private lateinit var mockAlertRepo: AlertRepository
++    private lateinit var controller: DetectionController
++
++    @Before
++    fun setup() {
++        // setup도 그대로 유지
++        mockContext = mock(Context::class.java)
++        mockRunner = mock(ModelRunner::class.java)
++        mockDetectionsRepo = mock(DetectionsRepo::class.java)
++        mockAlertRepo = mock(AlertRepository::class.java)
++        TrustedContactsRepo.getAll().forEach { contact ->
++            TrustedContactsRepo.remove(contact.phoneNumber)
++        }
++        controller = DetectionController(
++            context = mockContext,
++            runner = mockRunner,
++            detectionsRepo = mockDetectionsRepo
++        )
++    }
++
++    /**
++     * 핵심 로직: handleDetectionResult의 세 가지 주요 시나리오를 통합하여 테스트합니다.
++     */
++    @Test
++    fun `handleDetectionResult_Should_HandleAllAlertScenariosCorrectly`() = runTest {
++        val trustedId = "1234567890"
++        val untrustedId = "9876543210"
++        val threshold = 0.80f
++
++        // ----------------------------------------------------
++        // 1. 시나리오: Trusted Contact (Trusted List에 등록)
++        // 기대 결과: Deepfake여도 Alert를 발생시키지 않음 (MN01-3 유스케이스)
++        // ----------------------------------------------------
++        TrustedContactsRepo.add(TrustedContact(phoneNumber = trustedId))
++        controller.handleDetectionResult(
++            callerId = trustedId,
++            probability = 0.95f, // 높음
++            threshold = threshold,
++            alertRepo = mockAlertRepo
++        )
++        // Trusted Contact이므로 upsert가 호출되지 않았는지 확인
++        verify(mockAlertRepo, never()).upsert(any())
++
++
++        // ----------------------------------------------------
++        // 2. 시나리오: Non-Trusted & High Probability (일반 알림 발생)
++        // 기대 결과: Alert를 정확히 1번 발생시킴 (MN01-1 유스케이스)
++        // ----------------------------------------------------
++        controller.handleDetectionResult(
++            callerId = untrustedId,
++            probability = 0.90f, // 임계값 초과
++            threshold = threshold,
++            alertRepo = mockAlertRepo
++        )
++        // Alert가 1번 호출되었는지 확인
++        verify(mockAlertRepo, times(1)).upsert(any())
++
++
++        // ----------------------------------------------------
++        // 3. 시나리오: Non-Trusted & Low Probability (무시)
++        // 기대 결과: Alert를 발생시키지 않음
++        // ----------------------------------------------------
++        controller.handleDetectionResult(
++            callerId = untrustedId,
++            probability = 0.75f, // 임계값 미만
++            threshold = threshold,
++            alertRepo = mockAlertRepo
++        )
++        // AlertRepo의 upsert는 총 1번(시나리오 2에서만) 호출되었어야 함
++        verify(mockAlertRepo, times(1)).upsert(any())
++    }
++
++    // 이외의 다른 @Test 함수는 모두 제거할 수 있습니다.
++}
+\ No newline at end of file
