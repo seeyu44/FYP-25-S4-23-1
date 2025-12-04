@@ -48,7 +48,7 @@
         </service>
 
         <activity
-            android:name=".presentation.ui.call.CallInProgressActivity"
+            android:name=".boundary.call.CallInProgressActivity"
             android:exported="false"
             android:showOnLockScreen="true"
             android:turnScreenOn="true"

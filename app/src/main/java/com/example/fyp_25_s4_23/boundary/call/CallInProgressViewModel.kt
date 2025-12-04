@@ -1,11 +1,11 @@
-package com.example.fyp_25_s4_23.presentation.ui.call
+package com.example.fyp_25_s4_23.boundary.call
 
 import android.telecom.Call
 import android.telecom.VideoProfile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.fyp_25_s4_23.presentation.call.ActiveCallStore
-import com.example.fyp_25_s4_23.presentation.call.InCallServiceHolder
+import com.example.fyp_25_s4_23.boundary.call.ActiveCallStore
+import com.example.fyp_25_s4_23.boundary.call.InCallServiceHolder
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 
 data class CallUiState(
     val handle: String = "",
-    val stateLabel: String = "Connecting…",
+    val stateLabel: String = "Connectingï¿½",
     val isMuted: Boolean = false,
     val call: Call? = null
 )

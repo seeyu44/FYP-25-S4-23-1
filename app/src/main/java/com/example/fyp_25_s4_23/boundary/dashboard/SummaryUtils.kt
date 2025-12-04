@@ -1,4 +1,4 @@
-package com.example.fyp_25_s4_23.presentation.ui.dashboard
+package com.example.fyp_25_s4_23.boundary.dashboard
 
 import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.CallStatus

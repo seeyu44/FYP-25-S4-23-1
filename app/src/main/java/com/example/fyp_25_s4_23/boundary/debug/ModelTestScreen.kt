@@ -1,4 +1,4 @@
-package com.example.fyp_25_s4_23.presentation.ui.debug
+package com.example.fyp_25_s4_23.boundary.debug
 
 import android.content.Context
 import android.graphics.Bitmap
