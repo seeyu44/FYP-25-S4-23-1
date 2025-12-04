@@ -155,17 +155,19 @@ fun UserDashboard(
             Text(text = message, modifier = Modifier.padding(top = 8.dp))
         }
 
-        if (userSettings != null && onToggleDetection != null) {
-            DetectionToggleCard(
-                enabled = userSettings.realTimeDetectionEnabled,
-                onToggleDetection = onToggleDetection
-            )
-        }
-
         LazyColumn(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(top = 12.dp)
         ) {
+            if (userSettings != null && onToggleDetection != null) {
+                item {
+                    DetectionToggleCard(
+                        enabled = userSettings.realTimeDetectionEnabled,
+                        onToggleDetection = onToggleDetection
+                    )
+                }
+            }
+
             item {
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors()) {
                     Column(modifier = Modifier.padding(16.dp)) {

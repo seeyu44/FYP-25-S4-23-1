@@ -102,10 +102,13 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                         if (hasRecordAudioPermission()) {
                             detectionController.startMonitoring()
                         } else {
-                            _state.update {
-                                it.copy(
-                                    message = "Enable microphone permission to resume detection"
-                                )
+                            // Only show microphone permission message for non-admin users
+                            if (user.role != UserRole.ADMIN) {
+                                _state.update {
+                                    it.copy(
+                                        message = "Enable microphone permission to resume detection"
+                                    )
+                                }
                             }
                         }
                     }
