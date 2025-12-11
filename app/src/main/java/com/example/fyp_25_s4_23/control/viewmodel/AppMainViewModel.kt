@@ -50,7 +50,11 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
     private val db = AppDatabase.getInstance(application)
     private val userRepository = UserRepository(db.userDao())
-    private val callRepository = CallRepository(db.callRecordDao())
+    private val callRepository = CallRepository(
+        db.callDao(),
+        db.callMetadataDao(),
+        db.detectionResultDao()
+    )
     private val alertRepository = AlertRepository(db.alertEventDao())
     private val settingsRepository = SettingsRepository(db.userSettingsDao())
     private val detectionController = DetectionController(application, ModelRunner(application))

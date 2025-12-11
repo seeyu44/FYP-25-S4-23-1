@@ -19,9 +19,10 @@ fun AlertEventEntity.toDomain(): AlertEvent = AlertEvent(
     acknowledgedMillis = acknowledgedMillis
 )
 
-fun AlertEvent.toEntity(): AlertEventEntity = AlertEventEntity(
+fun AlertEvent.toEntity(detectionId: String? = null): AlertEventEntity = AlertEventEntity(
     id = id,
     callId = callId,
+    detectionId = detectionId,
     triggerMillis = triggerMillis,
     severity = severity.name,
     probability = probability,
