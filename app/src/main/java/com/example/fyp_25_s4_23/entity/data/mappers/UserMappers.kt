@@ -9,7 +9,7 @@ fun UserEntity.toDomain(): UserAccount = UserAccount(
     username = username,
     displayName = displayName,
     role = UserRole.valueOf(role),
-    createdAtMillis = createdAtMillis
+    createdAtSeconds = createdAtSeconds
 )
 
 fun UserAccount.toEntity(passwordHash: String): UserEntity = UserEntity(
@@ -18,6 +18,6 @@ fun UserAccount.toEntity(passwordHash: String): UserEntity = UserEntity(
     passwordHash = passwordHash,
     displayName = displayName,
     role = role.name,
-    createdAtMillis = createdAtMillis
+    createdAtSeconds = createdAtSeconds
 )
 

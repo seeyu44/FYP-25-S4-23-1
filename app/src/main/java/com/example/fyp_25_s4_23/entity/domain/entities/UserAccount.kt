@@ -7,6 +7,6 @@ data class UserAccount(
     val username: String,
     val displayName: String,
     val role: UserRole,
-    val createdAtMillis: Long
+    val createdAtSeconds: Long
 )
 
