@@ -22,7 +22,7 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.SET_NULL
         )
     ],
-    indices = [Index(value = ["call_id"]), Index(value = ["detection_id"]), Index(value = ["trigger_millis"])]
+    indices = [Index(value = ["call_id"]), Index(value = ["detection_id"]), Index(value = ["trigger_seconds"])]
 )
 data class AlertEventEntity(
     @PrimaryKey val id: String,
