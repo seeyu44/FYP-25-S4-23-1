@@ -52,7 +52,7 @@ fun CallAnalysisCard(callRecords: List<CallRecord>) {
             // Metric: Average Analysis Time
             MetricRow(
                 label = "Avg. Analysis Time",
-                value = if (averageAnalysisTime >= 0) "${averageAnalysisTime.roundToInt()} ms" else "N/A",
+                value = if (averageAnalysisTime >= 0) "${averageAnalysisTime.roundToInt()} sec" else "N/A",
                 description = "Average time to analyze a single call"
             )
 
