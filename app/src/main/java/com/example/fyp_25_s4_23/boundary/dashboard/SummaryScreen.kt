@@ -109,7 +109,7 @@ fun SummaryScreen(
             }, modifier = Modifier.padding(start = 8.dp)) { Text("Custom") }
         }
 
-        val filtered = callRecords.filter { it.metadata.startTimeMillis in startMillis..endMillis }
+        val filtered = callRecords.filter { it.metadata.startTimeSeconds * 1000 in startMillis..endMillis }
 
         if (localError != null) {
             Text(text = localError!!, color = androidx.compose.material3.MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))

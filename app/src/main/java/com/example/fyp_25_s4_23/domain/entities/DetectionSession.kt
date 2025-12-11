@@ -8,16 +8,16 @@ import com.example.fyp_25_s4_23.domain.valueobjects.DetectionSessionStatus
 data class DetectionSession(
     val sessionId: String,
     val callId: String,
-    val startedMillis: Long = System.currentTimeMillis(),
-    val endedMillis: Long? = null,
+    val startedSeconds: Long = System.currentTimeMillis() / 1000,
+    val endedSeconds: Long? = null,
     val status: DetectionSessionStatus = DetectionSessionStatus.RUNNING,
     val probabilities: List<Float> = emptyList(),
     val finalResult: DetectionResult? = null,
     val modelInfo: ModelInfo? = null
 ) {
-    val durationMillis: Long?
-        get() = endedMillis?.let { end ->
-            val duration = end - startedMillis
+    val durationSeconds: Long?
+        get() = endedSeconds?.let { end ->
+            val duration = end - startedSeconds
             if (duration >= 0) duration else null
         }
 }

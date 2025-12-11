@@ -18,8 +18,8 @@ fun CompleteCallRecord.toDomain(): CallRecord {
     val metadata = CallMetadata(
         phoneNumber = this.metadata?.phoneNumber ?: "Unknown",
         displayName = this.metadata?.displayName,
-        startTimeMillis = this.metadata?.startTimeMillis ?: call.createdMillis,
-        endTimeMillis = this.metadata?.endTimeMillis,
+        startTimeSeconds = this.metadata?.startTimeSeconds ?: call.createdSeconds,
+        endTimeSeconds = this.metadata?.endTimeSeconds,
         direction = this.metadata?.direction?.let { 
             runCatching { CallDirection.valueOf(it) }.getOrDefault(CallDirection.UNKNOWN) 
         } ?: CallDirection.UNKNOWN
@@ -33,8 +33,8 @@ fun CompleteCallRecord.toDomain(): CallRecord {
         status = runCatching { CallStatus.valueOf(call.status) }.getOrDefault(CallStatus.UNKNOWN),
         detections = detectionResults,
         notes = call.notes,
-        createdMillis = call.createdMillis,
-        updatedMillis = call.updatedMillis
+        createdSeconds = call.createdSeconds,
+        updatedSeconds = call.updatedSeconds
     )
 }
 
@@ -46,8 +46,8 @@ fun CallRecord.toEntities(userId: Long? = null): Triple<CallEntity, CallMetadata
         id = id,
         userId = userId,
         status = status.name,
-        createdMillis = createdMillis,
-        updatedMillis = updatedMillis,
+        createdSeconds = createdSeconds,
+        updatedSeconds = updatedSeconds,
         notes = notes
     )
     
@@ -55,11 +55,11 @@ fun CallRecord.toEntities(userId: Long? = null): Triple<CallEntity, CallMetadata
         callId = id,
         phoneNumber = metadata.phoneNumber,
         displayName = metadata.displayName,
-        startTimeMillis = metadata.startTimeMillis,
-        endTimeMillis = metadata.endTimeMillis,
+        startTimeSeconds = metadata.startTimeSeconds,
+        endTimeSeconds = metadata.endTimeSeconds,
         direction = metadata.direction.name,
-        durationSeconds = metadata.endTimeMillis?.let { 
-            ((it - metadata.startTimeMillis) / 1000).toInt() 
+        durationSeconds = metadata.endTimeSeconds?.let { 
+            (it - metadata.startTimeSeconds).toInt() 
         }
     )
     
@@ -69,7 +69,7 @@ fun CallRecord.toEntities(userId: Long? = null): Triple<CallEntity, CallMetadata
             callId = id,
             probability = detection.probability,
             isDeepfake = detection.isDeepfake,
-            timestampMillis = detection.timestampMillis,
+            timestampSeconds = detection.timestampSeconds,
             modelVersion = detection.modelVersion,
             confidenceLevel = when {
                 detection.probability >= 0.8f -> "HIGH"
@@ -89,7 +89,7 @@ fun DetectionResultEntity.toDomain(): DetectionResult {
     return DetectionResult(
         probability = probability,
         isDeepfake = isDeepfake,
-        timestampMillis = timestampMillis,
+        timestampSeconds = timestampSeconds,
         modelVersion = modelVersion
     )
 }
@@ -103,7 +103,7 @@ fun DetectionResult.toEntity(callId: String, detectionId: String = UUID.randomUU
         callId = callId,
         probability = probability,
         isDeepfake = isDeepfake,
-        timestampMillis = timestampMillis,
+        timestampSeconds = timestampSeconds,
         modelVersion = modelVersion,
         confidenceLevel = when {
             probability >= 0.8f -> "HIGH"

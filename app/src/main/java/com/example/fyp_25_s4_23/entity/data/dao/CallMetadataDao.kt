@@ -14,7 +14,7 @@ interface CallMetadataDao {
     @Query("SELECT * FROM call_metadata WHERE call_id = :callId LIMIT 1")
     suspend fun getByCallId(callId: String): CallMetadataEntity?
 
-    @Query("SELECT * FROM call_metadata WHERE phone_number = :phoneNumber ORDER BY start_time_millis DESC")
+    @Query("SELECT * FROM call_metadata WHERE phone_number = :phoneNumber ORDER BY start_time_seconds DESC")
     suspend fun getByPhoneNumber(phoneNumber: String): List<CallMetadataEntity>
 
     @Query("DELETE FROM call_metadata")

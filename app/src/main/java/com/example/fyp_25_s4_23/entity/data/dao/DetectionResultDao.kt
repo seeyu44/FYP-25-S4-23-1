@@ -11,13 +11,13 @@ interface DetectionResultDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(detection: DetectionResultEntity)
 
-    @Query("SELECT * FROM detection_results WHERE call_id = :callId ORDER BY timestamp_millis ASC")
+    @Query("SELECT * FROM detection_results WHERE call_id = :callId ORDER BY timestamp_seconds ASC")
     suspend fun getByCallId(callId: String): List<DetectionResultEntity>
 
-    @Query("SELECT * FROM detection_results WHERE call_id = :callId ORDER BY timestamp_millis DESC LIMIT 1")
+    @Query("SELECT * FROM detection_results WHERE call_id = :callId ORDER BY timestamp_seconds DESC LIMIT 1")
     suspend fun getLatestByCallId(callId: String): DetectionResultEntity?
 
-    @Query("SELECT * FROM detection_results WHERE is_deepfake = 1 ORDER BY timestamp_millis DESC")
+    @Query("SELECT * FROM detection_results WHERE is_deepfake = 1 ORDER BY timestamp_seconds DESC")
     suspend fun getAllDeepfakes(): List<DetectionResultEntity>
 
     @Query("DELETE FROM detection_results")

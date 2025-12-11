@@ -28,12 +28,12 @@ data class AlertEventEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "call_id") val callId: String,
     @ColumnInfo(name = "detection_id") val detectionId: String? = null,
-    @ColumnInfo(name = "trigger_millis") val triggerMillis: Long,
+    @ColumnInfo(name = "trigger_seconds") val triggerSeconds: Long,
     @ColumnInfo(name = "severity") val severity: String,
     @ColumnInfo(name = "probability") val probability: Float,
     @ColumnInfo(name = "message") val message: String,
     @ColumnInfo(name = "actions") val actions: String,
     @ColumnInfo(name = "acknowledged") val acknowledged: Boolean,
-    @ColumnInfo(name = "ack_millis") val acknowledgedMillis: Long? = null
+    @ColumnInfo(name = "ack_seconds") val acknowledgedSeconds: Long? = null
 )
 

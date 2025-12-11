@@ -23,8 +23,8 @@ data class CallMetadataEntity(
     @ColumnInfo(name = "phone_number") val phoneNumber: String,
     @ColumnInfo(name = "display_name") val displayName: String?,
     @ColumnInfo(name = "contact_id") val contactId: String? = null,
-    @ColumnInfo(name = "start_time_millis") val startTimeMillis: Long,
-    @ColumnInfo(name = "end_time_millis") val endTimeMillis: Long?,
+    @ColumnInfo(name = "start_time_seconds") val startTimeSeconds: Long,
+    @ColumnInfo(name = "end_time_seconds") val endTimeSeconds: Long?,
     @ColumnInfo(name = "direction") val direction: String,
     @ColumnInfo(name = "duration_seconds") val durationSeconds: Int? = null
 )

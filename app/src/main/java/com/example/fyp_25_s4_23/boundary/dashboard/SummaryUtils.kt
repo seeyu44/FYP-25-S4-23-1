@@ -22,7 +22,7 @@ data class SummaryMetrics(
 fun buildDailySummary(callRecords: List<CallRecord>): List<SummaryMetrics> {
     val zone = ZoneId.systemDefault()
     val grouped = callRecords.groupBy { record ->
-        Instant.ofEpochMilli(record.metadata.startTimeMillis).atZone(zone).toLocalDate()
+        Instant.ofEpochSecond(record.metadata.startTimeSeconds).atZone(zone).toLocalDate()
     }
 
     return grouped.entries.map { (date, records) ->
@@ -36,7 +36,7 @@ fun buildWeeklySummary(callRecords: List<CallRecord>): List<SummaryMetrics> {
     val wf = WeekFields.of(Locale.getDefault())
 
     val grouped = callRecords.groupBy { record ->
-        val local = Instant.ofEpochMilli(record.metadata.startTimeMillis).atZone(zone).toLocalDate()
+        val local = Instant.ofEpochSecond(record.metadata.startTimeSeconds).atZone(zone).toLocalDate()
         val week = local.get(wf.weekOfWeekBasedYear())
         val year = local.get(wf.weekBasedYear())
         Pair(year, week)

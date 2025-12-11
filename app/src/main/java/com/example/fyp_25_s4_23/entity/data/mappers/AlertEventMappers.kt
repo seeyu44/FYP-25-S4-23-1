@@ -8,7 +8,7 @@ import com.example.fyp_25_s4_23.entity.domain.valueobjects.AlertSeverity
 fun AlertEventEntity.toDomain(): AlertEvent = AlertEvent(
     id = id,
     callId = callId,
-    triggerMillis = triggerMillis,
+    triggerSeconds = triggerSeconds,
     severity = runCatching { AlertSeverity.valueOf(severity) }.getOrDefault(AlertSeverity.WARNING),
     probability = probability,
     message = message,
@@ -16,19 +16,19 @@ fun AlertEventEntity.toDomain(): AlertEvent = AlertEvent(
         .mapNotNull { runCatching { AlertAction.valueOf(it) }.getOrNull() }
         .toSet(),
     acknowledged = acknowledged,
-    acknowledgedMillis = acknowledgedMillis
+    acknowledgedSeconds = acknowledgedSeconds
 )
 
 fun AlertEvent.toEntity(detectionId: String? = null): AlertEventEntity = AlertEventEntity(
     id = id,
     callId = callId,
     detectionId = detectionId,
-    triggerMillis = triggerMillis,
+    triggerSeconds = triggerSeconds,
     severity = severity.name,
     probability = probability,
     message = message,
     actions = actionsTaken.joinToString(",") { it.name },
     acknowledged = acknowledged,
-    acknowledgedMillis = acknowledgedMillis
+    acknowledgedSeconds = acknowledgedSeconds
 )
 

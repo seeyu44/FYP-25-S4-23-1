@@ -11,8 +11,8 @@ fun CallRecordEntity.toDomain(): CallRecord {
     val metadata = CallMetadata(
         phoneNumber = phoneNumber,
         displayName = displayName,
-        startTimeMillis = startTimeMillis,
-        endTimeMillis = endTimeMillis,
+        startTimeSeconds = startTimeMillis,
+        endTimeSeconds = endTimeMillis,
         direction = runCatching { CallDirection.valueOf(direction) }.getOrDefault(CallDirection.UNKNOWN)
     )
     val detection = DetectionResult(
@@ -33,8 +33,8 @@ fun CallRecord.toEntity(): CallRecordEntity {
         id = id,
         phoneNumber = metadata.phoneNumber,
         displayName = metadata.displayName,
-        startTimeMillis = metadata.startTimeMillis,
-        endTimeMillis = metadata.endTimeMillis,
+        startTimeMillis = metadata.startTimeSeconds,
+        endTimeMillis = metadata.endTimeSeconds,
         direction = metadata.direction.name,
         status = status.name,
         probability = detections.lastOrNull()?.probability ?: 0f,

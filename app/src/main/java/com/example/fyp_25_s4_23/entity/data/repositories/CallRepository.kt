@@ -61,14 +61,14 @@ class CallRepository(
      * Get daily aggregated statistics
      */
     suspend fun dailyAggregates(startMillis: Long, endMillis: Long, threshold: Double = 0.5): List<com.example.fyp_25_s4_23.entity.data.dao.AggregateResult> {
-        return callDao.dailyAggregates(startMillis, endMillis, threshold)
+        return callDao.dailyAggregates(startMillis / 1000, endMillis / 1000, threshold)
     }
 
     /**
      * Get weekly aggregated statistics
      */
     suspend fun weeklyAggregates(startMillis: Long, endMillis: Long, threshold: Double = 0.5): List<com.example.fyp_25_s4_23.entity.data.dao.AggregateResult> {
-        return callDao.weeklyAggregates(startMillis, endMillis, threshold)
+        return callDao.weeklyAggregates(startMillis / 1000, endMillis / 1000, threshold)
     }
 }
 

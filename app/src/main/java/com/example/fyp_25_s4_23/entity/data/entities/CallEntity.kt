@@ -22,7 +22,7 @@ data class CallEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "user_id") val userId: Long?,
     @ColumnInfo(name = "status") val status: String,
-    @ColumnInfo(name = "created_millis") val createdMillis: Long,
-    @ColumnInfo(name = "updated_millis") val updatedMillis: Long,
+    @ColumnInfo(name = "created_seconds") val createdSeconds: Long,
+    @ColumnInfo(name = "updated_seconds") val updatedSeconds: Long,
     @ColumnInfo(name = "notes") val notes: String? = null
 )
