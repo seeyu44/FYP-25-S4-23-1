@@ -59,15 +59,3 @@ interface CallRecordDao {
     suspend fun weeklyAggregates(startMillis: Long, endMillis: Long, threshold: Double): List<AggregateResult>
 }
 
-// POJO for aggregation results
-data class AggregateResult(
-    val period: String,
-    val total: Int,
-    val answered: Int,
-    val missed: Int,
-    val suspicious: Int,
-    val blocked: Int,
-    @ColumnInfo(name = "avg_confidence")
-    val avgConfidence: Double?
-)
-
