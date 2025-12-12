@@ -17,7 +17,7 @@ class SaveDetectionAlertUseCase(
         val alert = AlertEvent(
             id = UUID.randomUUID().toString(),
             callId = callId,
-            triggerMillis = System.currentTimeMillis(),
+            triggerSeconds = System.currentTimeMillis() / 1000,
             severity = severity,
             probability = probability,
             message = message,
