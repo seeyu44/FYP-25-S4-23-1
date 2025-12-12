@@ -116,10 +116,10 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 }.getOrNull()
 
                 val probability = modelRunResult?.score ?: 0.0f
-                val ALERT_THRESHOLD = 0.70f
-                val isDeepfake = probability >= ALERT_THRESHOLD
+                val threshold = _state.value.userSettings.detectionThreshold
+                val isDeepfake = probability >= threshold
 
-                Log.d("ViewModelAlert", "Model Test Probability: $probability (Threshold: $ALERT_THRESHOLD) for file: $audioFile")
+                Log.d("ViewModelAlert", "Model Test Probability: $probability (Threshold: $threshold) for file: $audioFile")
 
                 if (isDeepfake) {
                     // Generate a test call ID for model testing
@@ -316,7 +316,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     }
 
     suspend fun aggregateSummary(startMillis: Long, endMillis: Long, periodDaily: Boolean): List<com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics> {
-        val threshold = 0.5
+        val threshold = _state.value.userSettings.detectionThreshold
         val rows = if (periodDaily) callRepository.dailyAggregates(startMillis, endMillis, threshold) else callRepository.weeklyAggregates(startMillis, endMillis, threshold)
         return rows.map { r ->
             com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics(
