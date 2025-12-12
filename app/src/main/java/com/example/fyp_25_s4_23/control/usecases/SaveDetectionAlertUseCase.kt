@@ -1,6 +1,6 @@
 package com.example.fyp_25_s4_23.control.usecases
 
-import com.example.fyp_25_s4_23.data.repositories.AlertRepository
+import com.example.fyp_25_s4_23.entity.data.repositories.AlertRepository
 import com.example.fyp_25_s4_23.domain.entities.AlertEvent
 import com.example.fyp_25_s4_23.domain.valueobjects.AlertAction
 import com.example.fyp_25_s4_23.domain.valueobjects.AlertSeverity
