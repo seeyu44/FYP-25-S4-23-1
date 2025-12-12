@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.example.fyp_25_s4_23.control.AlertHandlerHolder
 import com.example.fyp_25_s4_23.boundary.handlers.InCallAlertHandler
 import android.util.Log
@@ -93,58 +95,80 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
     // AppMainViewModel.kt (runModelTest 함수)
     fun runModelTest(audioFile: String) {
-        viewModelScope.launch {
-            // 1. UI 상태를 Running으로 업데이트
-            _state.update {
-                it.copy(
-                    isBusy = true,
-                    message = null,
-                    modelTest = ModelTestResult(
-                        status = "Running...",
-                        selectedFile = audioFile
-                    )
-                )
-            }
-
-            val modelRunResult = runCatching {
-                modelRunner.inferFromAsset("demo_audio/$audioFile")
-            }.getOrNull()
-
-            val probability = modelRunResult?.score ?: 0.0f
-            val ALERT_THRESHOLD = 0.75f
-            val isDeepfake = probability >= ALERT_THRESHOLD
-
-            Log.d("ViewModelAlert", "Model Test Probability: $probability (Threshold: $ALERT_THRESHOLD) for file: $audioFile")
-
-            if (isDeepfake) {
-                // Generate a test call ID for model testing
-                val testCallId = "TEST_${System.currentTimeMillis()}"
-                
-                // Save alert to database
-                runCatching {
-                    saveDetectionAlert(testCallId, probability)
-                    Log.i("ViewModelAlert", "Alert saved to database for Model Test.")
-                }.onFailure { e ->
-                    Log.e("ViewModelAlert", "Failed to save alert to database", e)
+        viewModelScope.launch(Dispatchers.Default) {
+            try {
+                // 1. UI 상태를 Running으로 업데이트
+                withContext(Dispatchers.Main) {
+                    _state.update {
+                        it.copy(
+                            isBusy = true,
+                            message = null,
+                            modelTest = ModelTestResult(
+                                status = "Running...",
+                                selectedFile = audioFile
+                            )
+                        )
+                    }
                 }
-                
-                // Display UI alert (toast + vibration)
-                AlertHandlerHolder.handler?.displayCriticalAlert(probability)
-                Log.i("ViewModelAlert", "Alert displayed for Model Test.")
-            }
 
-            val statusText = if (modelRunResult != null) "Done" else "Failed (see logcat)"
+                val modelRunResult = runCatching {
+                    modelRunner.inferFromAsset("demo_audio/$audioFile")
+                }.getOrNull()
 
-            _state.update {
-                it.copy(
-                    isBusy = false,
-                    message = if (isDeepfake) "Alert triggered by model test." else null,
-                    modelTest = ModelTestResult(
-                        status = statusText,
-                        selectedFile = audioFile,
-                        score = probability
-                    )
-                )
+                val probability = modelRunResult?.score ?: 0.0f
+                val ALERT_THRESHOLD = 0.75f
+                val isDeepfake = probability >= ALERT_THRESHOLD
+
+                Log.d("ViewModelAlert", "Model Test Probability: $probability (Threshold: $ALERT_THRESHOLD) for file: $audioFile")
+
+                if (isDeepfake) {
+                    // Generate a test call ID for model testing
+                    val testCallId = "TEST_${System.currentTimeMillis()}"
+                    
+                    // Save alert to database
+                    runCatching {
+                        saveDetectionAlert(testCallId, probability)
+                        Log.i("ViewModelAlert", "Alert saved to database for Model Test.")
+                    }.onFailure { e ->
+                        Log.e("ViewModelAlert", "Failed to save alert to database", e)
+                    }
+                    
+                    // Display UI alert (toast + vibration) on Main thread
+                    withContext(Dispatchers.Main) {
+                        AlertHandlerHolder.handler?.displayCriticalAlert(probability)
+                        Log.i("ViewModelAlert", "Alert displayed for Model Test.")
+                    }
+                }
+
+                val statusText = if (modelRunResult != null) "Done" else "Failed (see logcat)"
+
+                withContext(Dispatchers.Main) {
+                    _state.update {
+                        it.copy(
+                            isBusy = false,
+                            message = if (isDeepfake) "Alert triggered by model test." else null,
+                            modelTest = ModelTestResult(
+                                status = statusText,
+                                selectedFile = audioFile,
+                                score = probability
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ViewModelAlert", "Error during model test", e)
+                withContext(Dispatchers.Main) {
+                    _state.update {
+                        it.copy(
+                            isBusy = false,
+                            message = "Error: ${e.message}",
+                            modelTest = ModelTestResult(
+                                status = "Failed",
+                                selectedFile = audioFile
+                            )
+                        )
+                    }
+                }
             }
         }
     }
