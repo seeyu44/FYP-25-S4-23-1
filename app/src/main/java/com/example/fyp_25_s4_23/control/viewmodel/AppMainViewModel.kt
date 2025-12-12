@@ -121,11 +121,16 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 val testCallId = "TEST_${System.currentTimeMillis()}"
                 
                 // Save alert to database
-                saveDetectionAlert(testCallId, probability)
+                runCatching {
+                    saveDetectionAlert(testCallId, probability)
+                    Log.i("ViewModelAlert", "Alert saved to database for Model Test.")
+                }.onFailure { e ->
+                    Log.e("ViewModelAlert", "Failed to save alert to database", e)
+                }
                 
                 // Display UI alert (toast + vibration)
                 AlertHandlerHolder.handler?.displayCriticalAlert(probability)
-                Log.i("ViewModelAlert", "Alert saved and displayed for Model Test.")
+                Log.i("ViewModelAlert", "Alert displayed for Model Test.")
             }
 
             val statusText = if (modelRunResult != null) "Done" else "Failed (see logcat)"
