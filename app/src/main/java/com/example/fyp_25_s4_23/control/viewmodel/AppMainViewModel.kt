@@ -116,7 +116,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 }.getOrNull()
 
                 val probability = modelRunResult?.score ?: 0.0f
-                val ALERT_THRESHOLD = 0.75f
+                val ALERT_THRESHOLD = 0.70f
                 val isDeepfake = probability >= ALERT_THRESHOLD
 
                 Log.d("ViewModelAlert", "Model Test Probability: $probability (Threshold: $ALERT_THRESHOLD) for file: $audioFile")
