@@ -16,6 +16,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,9 +27,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
+import com.example.fyp_25_s4_23.control.viewmodel.ModelTestResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlin.math.max
 
 private const val DEEPFAKE_THRESHOLD = 0.7f
@@ -36,17 +37,46 @@ private const val DEEPFAKE_THRESHOLD = 0.7f
 @Composable
 fun ModelTestScreen(
     modelRunner: ModelRunner,
-    detectionEnabled: Boolean = true
+    detectionEnabled: Boolean = true,
+    onRunModelTest: ((String) -> Unit)? = null,
+    modelTestResult: ModelTestResult
 ) {
-    var status by remember { mutableStateOf("Idle") }
-    var score by remember { mutableStateOf<Float?>(null) }
+    val status = modelTestResult.status
+    val score = modelTestResult.score
+    val lastSelection = modelTestResult.selectedFile
+
     var spectrogram by remember { mutableStateOf<Bitmap?>(null) }
     var spectrogramFrames by remember { mutableStateOf<Int?>(null) }
-    var lastSelection by remember { mutableStateOf<String?>(null) }
+
     val context = LocalContext.current
     val bundledClips = remember { loadBundledClips(context) }
     var menuExpanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(modelTestResult) {
+        if (modelTestResult.status == "Done" && modelTestResult.score != null && lastSelection != null) {
+            scope.launch(Dispatchers.Default) {
+                runCatching {
+                    val audioData = modelRunner.loadAudioFromAsset("demo_audio/$lastSelection")
+
+                    if (audioData != null) {
+                        val mel = modelRunner.preprocess(audioData)
+
+                        spectrogram = melToBitmap(mel)
+                        spectrogramFrames = mel[0].size
+                    } else {
+                        throw IllegalStateException("Failed to load audio data.")
+                    }
+                }.onFailure {
+                    spectrogram = null
+                    spectrogramFrames = null
+                }
+            }
+        } else if (modelTestResult.status == "Running..." || modelTestResult.status == "Idle") {
+            spectrogram = null
+            spectrogramFrames = null
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -59,7 +89,7 @@ fun ModelTestScreen(
             Button(
                 onClick = {
                     if (!detectionEnabled) {
-                        status = "Deepfake detection is OFF. Enable it to run tests."
+                        // Message handling an be delegated to the ViewModel’s message field.
                     } else {
                         menuExpanded = true
                     }
@@ -79,23 +109,8 @@ fun ModelTestScreen(
                             text = { Text(clip) },
                             onClick = {
                                 menuExpanded = false
-                                status = "Running..."
-                                score = null
-                                spectrogram = null
-                                spectrogramFrames = null
-                                lastSelection = clip
-                                scope.launch {
-                                    val result = withContext(Dispatchers.IO) {
-                                        modelRunner.inferFromAsset("demo_audio/$clip")
-                                    }
-                                    if (result != null) {
-                                        score = result.score
-                                        spectrogramFrames = result.mel[0].size
-                                        spectrogram = melToBitmap(result.mel)
-                                        status = if (result.score != null) "Done" else "Done (no confidence output)"
-                                    } else {
-                                        status = "Failed (see logcat)"
-                                    }
+                                if (onRunModelTest != null) {
+                                    onRunModelTest.invoke(clip)
                                 }
                             }
                         )

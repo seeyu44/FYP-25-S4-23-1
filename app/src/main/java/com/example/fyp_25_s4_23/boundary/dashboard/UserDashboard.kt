@@ -36,10 +36,8 @@ import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 import com.example.fyp_25_s4_23.control.controllers.SystemController
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.boundary.debug.ModelTestScreen
+import com.example.fyp_25_s4_23.control.viewmodel.ModelTestResult
 
-/**
- * User dashboard: shows recent calls, navigation to Summary and Call History for registered users
- */
 @Composable
 fun UserDashboard(
     user: UserAccount,
@@ -54,12 +52,12 @@ fun UserDashboard(
     modelRunner: ModelRunner? = null,
     onSeedData: (() -> Unit)? = null,
     systemController: SystemController = SystemController(),
-    // restored navigation helpers from test branch (optional)
     onNavigateToSummary: (() -> Unit)? = null,
-    onNavigateToCallHistory: (() -> Unit)? = null
+    onNavigateToCallHistory: (() -> Unit)? = null,
+    onRunModelTest: ((String) -> Unit)? = null,
+    modelTestResult: ModelTestResult = ModelTestResult()
 ) {
     val ctx = LocalContext.current
-    // show a quick toast when the dashboard is shown (keeps test debug behavior)
     LaunchedEffect(user.role) {
         Toast.makeText(ctx, "Dashboard role: ${user.role}", Toast.LENGTH_SHORT).show()
     }
@@ -77,7 +75,6 @@ fun UserDashboard(
             Column(horizontalAlignment = Alignment.End) {
                 Button(onClick = onRefresh, enabled = !isBusy) { Text("Refresh") }
                 Button(onClick = onLogout, modifier = Modifier.padding(top = 4.dp)) { Text("Logout") }
-                // restore the summary/call-history quick buttons from test branch for REGISTERED users
                 if (user.role.name == "REGISTERED") {
                     Button(onClick = {
                         Log.d("UserDashboard", "Summary header button clicked by user=${user.username}, role=${user.role}")
@@ -112,10 +109,9 @@ fun UserDashboard(
             }
         }
 
-        // Monitor if uptime stops updating (system down)
         LaunchedEffect(Unit) {
             while (true) {
-                delay(3000) // Check every 3 seconds
+                delay(3000)
                 val timeSinceLastUpdate = System.currentTimeMillis() - lastUpdateTime.value
                 if (timeSinceLastUpdate > 3000) {
                     isSystemHealthy.value = false
@@ -127,7 +123,6 @@ fun UserDashboard(
             modifier = Modifier.padding(top = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Status indicator circle
             Box(
                 modifier = Modifier
                     .size(12.dp)
@@ -188,18 +183,22 @@ fun UserDashboard(
             }
 
             modelRunner?.let { runner ->
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("Model Test", style = MaterialTheme.typography.titleMedium)
-                            ModelTestScreen(
-                                modelRunner = runner,
-                                detectionEnabled = userSettings?.realTimeDetectionEnabled ?: true
-                            )
+                if (onRunModelTest != null) {
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("Model Test", style = MaterialTheme.typography.titleMedium)
+                                ModelTestScreen(
+                                    modelRunner = runner,
+                                    detectionEnabled = userSettings?.realTimeDetectionEnabled ?: true,
+                                    onRunModelTest = onRunModelTest,
+                                    modelTestResult = modelTestResult
+                                )
+                            }
                         }
                     }
                 }

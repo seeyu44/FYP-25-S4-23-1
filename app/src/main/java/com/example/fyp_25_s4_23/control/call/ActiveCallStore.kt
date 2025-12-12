@@ -26,4 +26,3 @@ object ActiveCallStore {
         _state.value = null
     }
 }
-

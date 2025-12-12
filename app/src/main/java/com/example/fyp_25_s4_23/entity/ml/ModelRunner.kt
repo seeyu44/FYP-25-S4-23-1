@@ -34,6 +34,15 @@ class ModelRunner(
 
     data class ModelOutput(val score: Float?, val mel: Array<FloatArray>)
 
+    fun loadAudioFromAsset(assetName: String): FloatArray? {
+        return preprocessor.loadAudioFromAsset(assetName)
+    }
+
+    fun preprocess(wav: FloatArray): Array<FloatArray> {
+        return preprocessor.preprocess(wav)
+    }
+
+
     fun inferFromUri(uri: Uri): ModelOutput? {
         val wav = preprocessor.loadAudioFromUri(uri) ?: return null
         val mel = preprocessor.preprocess(wav)
