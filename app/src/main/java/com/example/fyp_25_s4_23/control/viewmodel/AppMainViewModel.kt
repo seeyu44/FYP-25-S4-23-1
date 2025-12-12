@@ -11,6 +11,7 @@ import com.example.fyp_25_s4_23.control.usecases.LoginUser
 import com.example.fyp_25_s4_23.control.usecases.LogoutUser
 import com.example.fyp_25_s4_23.control.usecases.RegisterUser
 import com.example.fyp_25_s4_23.control.usecases.SeedSampleData
+import com.example.fyp_25_s4_23.control.usecases.SaveDetectionAlertUseCase
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.AlertRepository
 import com.example.fyp_25_s4_23.entity.data.repositories.CallRepository
@@ -77,6 +78,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val loginUser = LoginUser(userRepository)
     private val logoutUser = LogoutUser()
     private val seedSampleData = SeedSampleData(callRepository, alertRepository)
+    private val saveDetectionAlert = SaveDetectionAlertUseCase(alertRepository)
 
     private val _state = MutableStateFlow(AppUiState())
     val state: StateFlow<AppUiState> = _state.asStateFlow()
@@ -115,8 +117,15 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
             Log.d("ViewModelAlert", "Model Test Probability: $probability (Threshold: $ALERT_THRESHOLD) for file: $audioFile")
 
             if (isDeepfake) {
+                // Generate a test call ID for model testing
+                val testCallId = "TEST_${System.currentTimeMillis()}"
+                
+                // Save alert to database
+                saveDetectionAlert(testCallId, probability)
+                
+                // Display UI alert (toast + vibration)
                 AlertHandlerHolder.handler?.displayCriticalAlert(probability)
-                Log.i("ViewModelAlert", "AlertHandler called successfully for Model Test.")
+                Log.i("ViewModelAlert", "Alert saved and displayed for Model Test.")
             }
 
             val statusText = if (modelRunResult != null) "Done" else "Failed (see logcat)"
