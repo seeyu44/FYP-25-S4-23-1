@@ -26,6 +26,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.example.fyp_25_s4_23.control.AlertHandlerHolder
+import com.example.fyp_25_s4_23.boundary.handlers.InCallAlertHandler
+import android.util.Log
 
 sealed interface AppScreen {
     data object Loading : AppScreen
@@ -36,6 +39,13 @@ sealed interface AppScreen {
     data object Dashboard : AppScreen
 }
 
+data class ModelTestResult(
+    val status: String = "Idle",
+    val selectedFile: String? = null,
+    val score: Float? = null,
+    val spectrogramBitmap: android.graphics.Bitmap? = null,
+    val spectrogramFrames: Int? = null
+)
 data class AppUiState(
     val screen: AppScreen = AppScreen.Loading,
     val currentUser: UserAccount? = null,
@@ -43,7 +53,9 @@ data class AppUiState(
     val users: List<UserAccount> = emptyList(),
     val callRecords: List<CallRecord> = emptyList(),
     val message: String? = null,
-    val isBusy: Boolean = false
+    val isBusy: Boolean = false,
+//    val modelTestResult: String? = null
+    val modelTest: ModelTestResult = ModelTestResult()
 )
 
 class AppMainViewModel(application: Application) : AndroidViewModel(application) {
@@ -57,8 +69,10 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     )
     private val alertRepository = AlertRepository(db.alertEventDao())
     private val settingsRepository = SettingsRepository(db.userSettingsDao())
+    private val alertHandler = InCallAlertHandler(application)
     private val detectionController = DetectionController(application, ModelRunner(application))
 
+    private val modelRunner = ModelRunner(application)
     private val registerUser = RegisterUser(userRepository)
     private val loginUser = LoginUser(userRepository)
     private val logoutUser = LogoutUser()
@@ -68,9 +82,56 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     val state: StateFlow<AppUiState> = _state.asStateFlow()
 
     init {
+        AlertHandlerHolder.handler = alertHandler
         viewModelScope.launch {
             userRepository.ensureDefaultAdmin()
             _state.update { it.copy(screen = AppScreen.Login) }
+        }
+    }
+
+    // AppMainViewModel.kt (runModelTest 함수)
+    fun runModelTest(audioFile: String) {
+        viewModelScope.launch {
+            // 1. UI 상태를 Running으로 업데이트
+            _state.update {
+                it.copy(
+                    isBusy = true,
+                    message = null,
+                    modelTest = ModelTestResult(
+                        status = "Running...",
+                        selectedFile = audioFile
+                    )
+                )
+            }
+
+            val modelRunResult = runCatching {
+                modelRunner.inferFromAsset("demo_audio/$audioFile")
+            }.getOrNull()
+
+            val probability = modelRunResult?.score ?: 0.0f
+            val ALERT_THRESHOLD = 0.75f
+            val isDeepfake = probability >= ALERT_THRESHOLD
+
+            Log.d("ViewModelAlert", "Model Test Probability: $probability (Threshold: $ALERT_THRESHOLD) for file: $audioFile")
+
+            if (isDeepfake) {
+                AlertHandlerHolder.handler?.displayCriticalAlert(probability)
+                Log.i("ViewModelAlert", "AlertHandler called successfully for Model Test.")
+            }
+
+            val statusText = if (modelRunResult != null) "Done" else "Failed (see logcat)"
+
+            _state.update {
+                it.copy(
+                    isBusy = false,
+                    message = if (isDeepfake) "Alert triggered by model test." else null,
+                    modelTest = ModelTestResult(
+                        status = statusText,
+                        selectedFile = audioFile,
+                        score = probability
+                    )
+                )
+            }
         }
     }
 

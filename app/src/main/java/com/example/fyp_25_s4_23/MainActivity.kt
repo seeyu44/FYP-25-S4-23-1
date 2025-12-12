@@ -79,82 +79,84 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
     }
 
     when (uiState.screen) {
-            AppScreen.Loading -> Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
+        AppScreen.Loading -> Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
 
-            AppScreen.Login -> LoginScreen(
-                isBusy = uiState.isBusy,
-                message = uiState.message,
-                onLogin = viewModel::login,
-                onNavigateToRegister = viewModel::navigateToRegister
-            )
+        AppScreen.Login -> LoginScreen(
+            isBusy = uiState.isBusy,
+            message = uiState.message,
+            onLogin = viewModel::login,
+            onNavigateToRegister = viewModel::navigateToRegister
+        )
 
-            AppScreen.Register -> RegisterScreen(
-                isBusy = uiState.isBusy,
-                message = uiState.message,
-                onRegister = viewModel::register,
-                onNavigateToLogin = viewModel::navigateToLogin
-            )
+        AppScreen.Register -> RegisterScreen(
+            isBusy = uiState.isBusy,
+            message = uiState.message,
+            onRegister = viewModel::register,
+            onNavigateToLogin = viewModel::navigateToLogin
+        )
 
-            AppScreen.Summary -> {
-                val user = uiState.currentUser
-                if (user == null) {
-                    viewModel.navigateToLogin()
-                } else {
-                    SummaryScreen(
-                        user = user,
-                        callRecords = uiState.callRecords,
-                        onBack = viewModel::navigateToDashboard,
-                        fetchAggregates = { start, end, daily ->
-                            kotlinx.coroutines.runBlocking {
-                                viewModel.aggregateSummary(start, end, daily)
-                            }
+        AppScreen.Summary -> {
+            val user = uiState.currentUser
+            if (user == null) {
+                viewModel.navigateToLogin()
+            } else {
+                SummaryScreen(
+                    user = user,
+                    callRecords = uiState.callRecords,
+                    onBack = viewModel::navigateToDashboard,
+                    fetchAggregates = { start, end, daily ->
+                        kotlinx.coroutines.runBlocking {
+                            viewModel.aggregateSummary(start, end, daily)
                         }
-                    )
-                }
-            }
-
-            AppScreen.CallHistory -> {
-                val user = uiState.currentUser
-                if (user == null) {
-                    viewModel.navigateToLogin()
-                } else {
-                    CallHistoryScreen(
-                        user = user,
-                        callRecords = uiState.callRecords,
-                        onBack = viewModel::navigateToDashboard
-                    )
-                }
-            }
-
-            AppScreen.Dashboard -> {
-                val user = uiState.currentUser
-                if (user == null) {
-                    viewModel.navigateToLogin()
-                } else {
-                    val systemController = remember { SystemController() }
-
-                    DashboardScreen(
-                        user = user,
-                        callRecords = uiState.callRecords,
-                        userSettings = uiState.userSettings,
-                        users = uiState.users,
-                        message = uiState.message,
-                        isBusy = uiState.isBusy,
-                        onLogout = viewModel::logout,
-                        onRefresh = viewModel::refreshDashboard,
-                        onSeedData = viewModel::seedSampleData,
-                        onNavigateToSummary = viewModel::navigateToSummary,
-                        onNavigateToCallHistory = viewModel::navigateToCallHistory,
-                        onToggleDetection = detectionToggleHandler,
-                        systemController = systemController,
-                        modelRunner = modelRunner
-                    )
-                }
+                    }
+                )
             }
         }
+
+        AppScreen.CallHistory -> {
+            val user = uiState.currentUser
+            if (user == null) {
+                viewModel.navigateToLogin()
+            } else {
+                CallHistoryScreen(
+                    user = user,
+                    callRecords = uiState.callRecords,
+                    onBack = viewModel::navigateToDashboard
+                )
+            }
+        }
+
+        AppScreen.Dashboard -> {
+            val user = uiState.currentUser
+            if (user == null) {
+                viewModel.navigateToLogin()
+            } else {
+                val systemController = remember { SystemController() }
+
+                DashboardScreen(
+                    user = user,
+                    callRecords = uiState.callRecords,
+                    userSettings = uiState.userSettings,
+                    users = uiState.users,
+                    message = uiState.message,
+                    isBusy = uiState.isBusy,
+                    onLogout = viewModel::logout,
+                    onRefresh = viewModel::refreshDashboard,
+                    onSeedData = viewModel::seedSampleData,
+                    onNavigateToSummary = viewModel::navigateToSummary,
+                    onNavigateToCallHistory = viewModel::navigateToCallHistory,
+                    onToggleDetection = detectionToggleHandler,
+                    systemController = systemController,
+                    modelRunner = modelRunner,
+                    onRunModelTest = viewModel::runModelTest,
+                    modelTestResult = uiState.modelTest
+                )
+            }
+        }
+    }
 }
