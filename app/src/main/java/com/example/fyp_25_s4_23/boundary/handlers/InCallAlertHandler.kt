@@ -18,7 +18,6 @@ class InCallAlertHandler(private val context: Context) : AlertHandler {
         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
 
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // Android 12 (API 31) 이상
             val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
             vibratorManager.defaultVibrator
         } else {

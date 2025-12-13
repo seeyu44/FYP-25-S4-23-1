@@ -54,7 +54,6 @@ data class AppUiState(
     val callRecords: List<CallRecord> = emptyList(),
     val message: String? = null,
     val isBusy: Boolean = false,
-//    val modelTestResult: String? = null
     val modelTest: ModelTestResult = ModelTestResult()
 )
 
@@ -85,10 +84,8 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // AppMainViewModel.kt (runModelTest 함수)
     fun runModelTest(audioFile: String) {
         viewModelScope.launch {
-            // 1. UI 상태를 Running으로 업데이트
             _state.update {
                 it.copy(
                     isBusy = true,
