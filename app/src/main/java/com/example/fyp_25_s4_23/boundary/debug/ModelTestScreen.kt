@@ -159,7 +159,7 @@ fun ModelTestScreen(
 private fun loadBundledClips(context: Context): List<String> =
     runCatching {
         context.assets.list("demo_audio")
-            ?.filter { it.endsWith(".wav", true) || it.endsWith(".flac", true) }
+            ?.filter { it.endsWith(".wav", true) || it.endsWith(".flac", true) || it.endsWith(".mp3", true) || it.endsWith(".mp4", true) || it.endsWith(".m4a", true) }
             ?: emptyList()
     }.getOrDefault(emptyList())
 
