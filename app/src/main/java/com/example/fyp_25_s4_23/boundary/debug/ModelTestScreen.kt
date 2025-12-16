@@ -2,6 +2,7 @@ package com.example.fyp_25_s4_23.boundary.debug
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -89,7 +90,7 @@ fun ModelTestScreen(
             Button(
                 onClick = {
                     if (!detectionEnabled) {
-                        // Message handling an be delegated to the ViewModel’s message field.
+                        Toast.makeText(context, "Real-time detection is disabled.", Toast.LENGTH_SHORT).show()
                     } else {
                         menuExpanded = true
                     }
