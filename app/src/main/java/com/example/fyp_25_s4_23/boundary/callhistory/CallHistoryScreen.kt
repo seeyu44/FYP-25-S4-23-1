@@ -91,14 +91,14 @@ fun CallHistoryCard(record: CallRecord) {
 
             // Call timestamp
             val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault())
-            val startTime = dateFormat.format(Date(record.metadata.startTimeMillis))
+            val startTime = dateFormat.format(Date(record.metadata.startTimeSeconds * 1000))
             Text(text = "Time: $startTime", style = MaterialTheme.typography.bodyMedium)
 
             // Call duration
-            val duration = record.metadata.durationMillis
+            val duration = record.metadata.durationSeconds
             if (duration != null) {
-                val minutes = TimeUnit.MILLISECONDS.toMinutes(duration)
-                val seconds = TimeUnit.MILLISECONDS.toSeconds(duration) % 60
+                val minutes = duration / 60
+                val seconds = duration % 60
                 Text(
                     text = "Duration: ${minutes}m ${seconds}s",
                     style = MaterialTheme.typography.bodyMedium

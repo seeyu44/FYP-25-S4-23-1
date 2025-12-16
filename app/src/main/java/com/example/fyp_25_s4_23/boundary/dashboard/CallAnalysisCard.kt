@@ -52,7 +52,7 @@ fun CallAnalysisCard(callRecords: List<CallRecord>) {
             // Metric: Average Analysis Time
             MetricRow(
                 label = "Avg. Analysis Time",
-                value = if (averageAnalysisTime >= 0) "${averageAnalysisTime.roundToInt()} ms" else "N/A",
+                value = if (averageAnalysisTime >= 0) "${averageAnalysisTime.roundToInt()} sec" else "N/A",
                 description = "Average time to analyze a single call"
             )
 
@@ -136,10 +136,10 @@ private fun calculateAverageAnalysisTime(callRecords: List<CallRecord>): Double 
     val analysisTimes = callRecords.mapNotNull { record ->
         // Calculate analysis time as the difference between detection time and call start time
         val detection = record.lastDetection
-        if (detection != null && record.metadata.endTimeMillis != null) {
+        if (detection != null && record.metadata.endTimeSeconds != null) {
             // Analysis time is roughly from when the call ended to when detection was recorded
             // For now, we use detection timestamp - call start time as proxy for processing time
-            (detection.timestampMillis - record.metadata.startTimeMillis).toDouble()
+            (detection.timestampSeconds - record.metadata.startTimeSeconds).toDouble()
         } else {
             null
         }

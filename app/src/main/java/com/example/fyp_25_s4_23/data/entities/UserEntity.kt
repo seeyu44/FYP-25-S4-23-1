@@ -11,6 +11,6 @@ data class UserEntity(
     @ColumnInfo(name = "password_hash") val passwordHash: String,
     @ColumnInfo(name = "display_name") val displayName: String,
     @ColumnInfo(name = "role") val role: String,
-    @ColumnInfo(name = "created_at") val createdAtMillis: Long = System.currentTimeMillis()
+    @ColumnInfo(name = "created_at") val createdAtSeconds: Long = System.currentTimeMillis() / 1000
 )
 

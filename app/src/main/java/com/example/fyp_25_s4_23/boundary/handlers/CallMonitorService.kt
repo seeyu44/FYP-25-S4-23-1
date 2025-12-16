@@ -23,6 +23,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import com.example.fyp_25_s4_23.control.AlertHandlerHolder
 
 /**
  * Foreground service placeholder for monitoring audio during calls.
@@ -94,7 +95,7 @@ class CallMonitorService : Service() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         currentJob = serviceScope.launch {
             val shortBuffer = ShortArray(FRAME_SIZE)
-            var alertId = ALERT_NOTIF_ID
+//            var alertId = ALERT_NOTIF_ID
             while (isActive && audioRecord != null) {
                 val read = audioRecord?.read(shortBuffer, 0, FRAME_SIZE) ?: 0
                 if (read > 0) {
@@ -103,13 +104,13 @@ class CallMonitorService : Service() {
                     val zcr = AudioFeatureExtractor.zeroCrossRate(frame)
                     val probability = modelRunner.infer(floatArrayOf(energy, zcr))
                     if (probability >= ALERT_THRESHOLD && System.currentTimeMillis() - lastAlertTime > ALERT_COOLDOWN) {
-                        val notification = NotificationCompat.Builder(this@CallMonitorService, MONITOR_CHANNEL_ID)
-                            .setContentTitle("Possible deepfake detected")
-                            .setContentText("Confidence ${(probability * 100).toInt()}%")
-                            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                            .setPriority(NotificationCompat.PRIORITY_HIGH)
-                            .build()
-                        manager.notify(alertId++, notification)
+//                        val notification = NotificationCompat.Builder(this@CallMonitorService, MONITOR_CHANNEL_ID)
+//                            .setContentTitle("Possible deepfake detected")
+//                            .setContentText("Confidence ${(probability * 100).toInt()}%")
+//                            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+//                            .setPriority(NotificationCompat.PRIORITY_HIGH)
+//                            .build()
+//                        manager.notify(alertId++, notification)
                         lastAlertTime = System.currentTimeMillis()
                     }
                 }

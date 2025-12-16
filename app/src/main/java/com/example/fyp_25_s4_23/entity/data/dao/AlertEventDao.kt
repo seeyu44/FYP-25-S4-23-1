@@ -11,7 +11,7 @@ interface AlertEventDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(alert: AlertEventEntity)
 
-    @Query("SELECT * FROM alerts ORDER BY trigger_millis DESC")
+    @Query("SELECT * FROM alerts ORDER BY trigger_seconds DESC")
     suspend fun listRecent(): List<AlertEventEntity>
 
     @Query("DELETE FROM alerts")

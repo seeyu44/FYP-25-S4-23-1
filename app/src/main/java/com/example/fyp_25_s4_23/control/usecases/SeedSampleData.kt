@@ -25,8 +25,8 @@ class SeedSampleData(
             metadata = CallMetadata(
                 phoneNumber = "+1 222 333 4444",
                 displayName = "Unknown",
-                startTimeMillis = System.currentTimeMillis() - 120_000,
-                endTimeMillis = System.currentTimeMillis() - 60_000,
+                startTimeSeconds = System.currentTimeMillis() / 1000 - 120,
+                endTimeSeconds = System.currentTimeMillis() / 1000 - 60,
                 direction = CallDirection.INCOMING
             ),
             status = CallStatus.COMPLETED,

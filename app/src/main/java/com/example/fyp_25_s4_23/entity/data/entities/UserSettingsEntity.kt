@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "user_settings")
 data class UserSettingsEntity(
     @PrimaryKey @ColumnInfo(name = "user_id") val userId: Long,
-    @ColumnInfo(name = "realtime_detection_enabled") val realTimeDetectionEnabled: Boolean = true
+    @ColumnInfo(name = "realtime_detection_enabled") val realTimeDetectionEnabled: Boolean = true,
+    @ColumnInfo(name = "detection_threshold") val detectionThreshold: Double = 0.7
 )
 

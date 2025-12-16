@@ -11,6 +11,7 @@ import com.example.fyp_25_s4_23.control.usecases.LoginUser
 import com.example.fyp_25_s4_23.control.usecases.LogoutUser
 import com.example.fyp_25_s4_23.control.usecases.RegisterUser
 import com.example.fyp_25_s4_23.control.usecases.SeedSampleData
+import com.example.fyp_25_s4_23.control.usecases.SaveDetectionAlertUseCase
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.AlertRepository
 import com.example.fyp_25_s4_23.entity.data.repositories.CallRepository
@@ -26,6 +27,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.example.fyp_25_s4_23.control.AlertHandlerHolder
+import com.example.fyp_25_s4_23.boundary.handlers.InCallAlertHandler
+import android.util.Log
 
 sealed interface AppScreen {
     data object Loading : AppScreen
@@ -36,6 +42,13 @@ sealed interface AppScreen {
     data object Dashboard : AppScreen
 }
 
+data class ModelTestResult(
+    val status: String = "Idle",
+    val selectedFile: String? = null,
+    val score: Float? = null,
+    val spectrogramBitmap: android.graphics.Bitmap? = null,
+    val spectrogramFrames: Int? = null
+)
 data class AppUiState(
     val screen: AppScreen = AppScreen.Loading,
     val currentUser: UserAccount? = null,
@@ -43,30 +56,120 @@ data class AppUiState(
     val users: List<UserAccount> = emptyList(),
     val callRecords: List<CallRecord> = emptyList(),
     val message: String? = null,
-    val isBusy: Boolean = false
+    val isBusy: Boolean = false,
+//    val modelTestResult: String? = null
+    val modelTest: ModelTestResult = ModelTestResult()
 )
 
 class AppMainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getInstance(application)
     private val userRepository = UserRepository(db.userDao())
-    private val callRepository = CallRepository(db.callRecordDao())
+    private val callRepository = CallRepository(
+        db.callDao(),
+        db.callMetadataDao(),
+        db.detectionResultDao()
+    )
     private val alertRepository = AlertRepository(db.alertEventDao())
     private val settingsRepository = SettingsRepository(db.userSettingsDao())
+    private val alertHandler = InCallAlertHandler(application)
     private val detectionController = DetectionController(application, ModelRunner(application))
 
+    private val modelRunner = ModelRunner(application)
     private val registerUser = RegisterUser(userRepository)
     private val loginUser = LoginUser(userRepository)
     private val logoutUser = LogoutUser()
     private val seedSampleData = SeedSampleData(callRepository, alertRepository)
+    private val saveDetectionAlert = SaveDetectionAlertUseCase(alertRepository)
 
     private val _state = MutableStateFlow(AppUiState())
     val state: StateFlow<AppUiState> = _state.asStateFlow()
 
     init {
+        AlertHandlerHolder.handler = alertHandler
         viewModelScope.launch {
             userRepository.ensureDefaultAdmin()
             _state.update { it.copy(screen = AppScreen.Login) }
+        }
+    }
+
+    // AppMainViewModel.kt (runModelTest 함수)
+    fun runModelTest(audioFile: String) {
+        viewModelScope.launch(Dispatchers.Default) {
+            try {
+                // 1. UI 상태를 Running으로 업데이트
+                withContext(Dispatchers.Main) {
+                    _state.update {
+                        it.copy(
+                            isBusy = true,
+                            message = null,
+                            modelTest = ModelTestResult(
+                                status = "Running...",
+                                selectedFile = audioFile
+                            )
+                        )
+                    }
+                }
+
+                val modelRunResult = runCatching {
+                    modelRunner.inferFromAsset("demo_audio/$audioFile")
+                }.getOrNull()
+
+                val probability = modelRunResult?.score ?: 0.0f
+                val threshold = _state.value.userSettings.detectionThreshold
+                val isDeepfake = probability >= threshold
+
+                Log.d("ViewModelAlert", "Model Test Probability: $probability (Threshold: $threshold) for file: $audioFile")
+
+                if (isDeepfake) {
+                    // Generate a test call ID for model testing
+                    val testCallId = "TEST_${System.currentTimeMillis()}"
+                    
+                    // Save alert to database
+                    runCatching {
+                        saveDetectionAlert(testCallId, probability)
+                        Log.i("ViewModelAlert", "Alert saved to database for Model Test.")
+                    }.onFailure { e ->
+                        Log.e("ViewModelAlert", "Failed to save alert to database", e)
+                    }
+                    
+                    // Display UI alert (toast + vibration) on Main thread
+                    withContext(Dispatchers.Main) {
+                        AlertHandlerHolder.handler?.displayCriticalAlert(probability)
+                        Log.i("ViewModelAlert", "Alert displayed for Model Test.")
+                    }
+                }
+
+                val statusText = if (modelRunResult != null) "Done" else "Failed (see logcat)"
+
+                withContext(Dispatchers.Main) {
+                    _state.update {
+                        it.copy(
+                            isBusy = false,
+                            message = if (isDeepfake) "Alert triggered by model test." else null,
+                            modelTest = ModelTestResult(
+                                status = statusText,
+                                selectedFile = audioFile,
+                                score = probability
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ViewModelAlert", "Error during model test", e)
+                withContext(Dispatchers.Main) {
+                    _state.update {
+                        it.copy(
+                            isBusy = false,
+                            message = "Error: ${e.message}",
+                            modelTest = ModelTestResult(
+                                status = "Failed",
+                                selectedFile = audioFile
+                            )
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -213,7 +316,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     }
 
     suspend fun aggregateSummary(startMillis: Long, endMillis: Long, periodDaily: Boolean): List<com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics> {
-        val threshold = 0.5
+        val threshold = _state.value.userSettings.detectionThreshold
         val rows = if (periodDaily) callRepository.dailyAggregates(startMillis, endMillis, threshold) else callRepository.weeklyAggregates(startMillis, endMillis, threshold)
         return rows.map { r ->
             com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics(

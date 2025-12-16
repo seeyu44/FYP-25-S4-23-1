@@ -9,12 +9,12 @@ import com.example.fyp_25_s4_23.entity.domain.valueobjects.AlertSeverity
 data class AlertEvent(
     val id: String,
     val callId: String,
-    val triggerMillis: Long = System.currentTimeMillis(),
+    val triggerSeconds: Long = System.currentTimeMillis() / 1000,
     val severity: AlertSeverity = AlertSeverity.WARNING,
     val probability: Float,
     val message: String,
     val actionsTaken: Set<AlertAction> = emptySet(),
     val acknowledged: Boolean = false,
-    val acknowledgedMillis: Long? = null
+    val acknowledgedSeconds: Long? = null
 )
 

@@ -9,16 +9,16 @@ import com.example.fyp_25_s4_23.entity.domain.valueobjects.LocationTag
 data class CallMetadata(
     val phoneNumber: String,
     val displayName: String? = null,
-    val startTimeMillis: Long,
-    val endTimeMillis: Long? = null,
+    val startTimeSeconds: Long,
+    val endTimeSeconds: Long? = null,
     val direction: CallDirection = CallDirection.UNKNOWN,
     val location: LocationTag? = null,
     val carrier: String? = null,
     val callTypeLabel: String? = null
 ) {
-    val durationMillis: Long?
-        get() = endTimeMillis?.let { end ->
-            val duration = end - startTimeMillis
+    val durationSeconds: Long?
+        get() = endTimeSeconds?.let { end ->
+            val duration = end - startTimeSeconds
             if (duration >= 0) duration else null
         }
 }
