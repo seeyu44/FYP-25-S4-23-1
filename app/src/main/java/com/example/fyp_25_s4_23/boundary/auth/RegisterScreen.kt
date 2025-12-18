@@ -82,14 +82,6 @@ fun RegisterScreen(
                 .padding(top = 8.dp)
         )
 
-        Text(text = "Role", modifier = Modifier.padding(top = 12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(selected = role == UserRole.REGISTERED, onClick = { role = UserRole.REGISTERED })
-            Text(text = "Registered user", modifier = Modifier.padding(end = 16.dp))
-            RadioButton(selected = role == UserRole.ADMIN, onClick = { role = UserRole.ADMIN })
-            Text(text = "Admin")
-        }
-
         val resolvedMessage = message ?: localError
         if (resolvedMessage != null) {
             Text(text = resolvedMessage, modifier = Modifier.padding(top = 8.dp))

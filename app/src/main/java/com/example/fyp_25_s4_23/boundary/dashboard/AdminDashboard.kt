@@ -14,10 +14,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +56,8 @@ fun AdminDashboard(
     LaunchedEffect(user.role) {
         Toast.makeText(ctx, "Dashboard role: ${user.role}", Toast.LENGTH_SHORT).show()
     }
+    var menuExpanded by remember { mutableStateOf(false) }
+    
     Column(modifier = Modifier
         .fillMaxSize()
         .padding(16.dp)) {
@@ -60,9 +68,30 @@ fun AdminDashboard(
                 // Debug: show resolved role for clarity
                 Text(text = "Role: ${user.role}", style = MaterialTheme.typography.bodySmall)
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Button(onClick = onRefresh, enabled = !isBusy) { Text("Refresh") }
-                Button(onClick = onLogout, modifier = Modifier.padding(top = 4.dp)) { Text("Logout") }
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "Menu")
+                }
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Refresh") },
+                        onClick = {
+                            menuExpanded = false
+                            onRefresh()
+                        },
+                        enabled = !isBusy
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Logout") },
+                        onClick = {
+                            menuExpanded = false
+                            onLogout()
+                        }
+                    )
+                }
             }
         }
 
