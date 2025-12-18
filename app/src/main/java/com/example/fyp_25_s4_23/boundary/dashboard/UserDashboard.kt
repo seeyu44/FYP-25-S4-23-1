@@ -50,7 +50,6 @@ fun UserDashboard(
     onRefresh: () -> Unit = {},
     onToggleDetection: ((Boolean) -> Unit)? = null,
     modelRunner: ModelRunner? = null,
-    onSeedData: (() -> Unit)? = null,
     systemController: SystemController = SystemController(),
     onNavigateToSummary: (() -> Unit)? = null,
     onNavigateToCallHistory: (() -> Unit)? = null,
@@ -222,12 +221,6 @@ fun UserDashboard(
                             }
                         }
                     }
-                }
-            }
-
-            onSeedData?.let { seed ->
-                item {
-                    TestingPanel(onSeedData = seed)
                 }
             }
         }

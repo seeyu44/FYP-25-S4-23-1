@@ -30,7 +30,6 @@ fun DashboardScreen(
     isBusy: Boolean,
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
-    onSeedData: () -> Unit,
     onNavigateToSummary: () -> Unit,
     onNavigateToCallHistory: () -> Unit,
     systemController: SystemController,
@@ -50,7 +49,6 @@ fun DashboardScreen(
                 isBusy = isBusy,
                 onLogout = onLogout,
                 onRefresh = onRefresh,
-                onSeedData = onSeedData,
                 systemController = systemController
             )
         }
@@ -62,7 +60,6 @@ fun DashboardScreen(
                 isBusy = isBusy,
                 onLogout = onLogout,
                 onRefresh = onRefresh,
-                onSeedData = onSeedData,
                 onNavigateToSummary = onNavigateToSummary,
                 onNavigateToCallHistory = onNavigateToCallHistory,
                 systemController = systemController,
@@ -76,21 +73,3 @@ fun DashboardScreen(
     }
 }
 
-@Composable
-fun TestingPanel(onSeedData: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Testing Lab", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Use these helpers to seed SQLite data so each teammate can work on their feature without touching git history."
-            )
-            Button(onClick = onSeedData, modifier = Modifier.padding(top = 8.dp)) {
-                Text("Add sample call & alert")
-            }
-        }
-    }
-}

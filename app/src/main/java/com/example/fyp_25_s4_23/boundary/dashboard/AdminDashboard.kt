@@ -44,7 +44,6 @@ fun AdminDashboard(
     isBusy: Boolean,
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
-    onSeedData: () -> Unit,
     systemController: SystemController
 ) {
     val ctx = LocalContext.current
@@ -155,11 +154,6 @@ fun AdminDashboard(
                         }
                     }
                 }
-            }
-
-            // Testing Panel
-            item {
-                TestingPanel(onSeedData = onSeedData)
             }
         }
     }

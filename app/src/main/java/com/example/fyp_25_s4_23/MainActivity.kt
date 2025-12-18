@@ -147,7 +147,6 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                     isBusy = uiState.isBusy,
                     onLogout = viewModel::logout,
                     onRefresh = viewModel::refreshDashboard,
-                    onSeedData = viewModel::seedSampleData,
                     onNavigateToSummary = viewModel::navigateToSummary,
                     onNavigateToCallHistory = viewModel::navigateToCallHistory,
                     onToggleDetection = detectionToggleHandler,
