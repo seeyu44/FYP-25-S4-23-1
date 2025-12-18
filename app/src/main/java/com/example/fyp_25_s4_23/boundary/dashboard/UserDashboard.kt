@@ -16,10 +16,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Switch
@@ -66,27 +72,46 @@ fun UserDashboard(
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        var menuExpanded by remember { mutableStateOf(false) }
+        
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text(text = "Welcome, ${user.displayName}", style = MaterialTheme.typography.titleLarge)
                 Text(text = "Role: ${user.role}")
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Button(onClick = onRefresh, enabled = !isBusy) { Text("Refresh") }
-                Button(onClick = onLogout, modifier = Modifier.padding(top = 4.dp)) { Text("Logout") }
-                if (user.role.name == "REGISTERED") {
-                    Button(onClick = {
-                        Log.d("UserDashboard", "Summary header button clicked by user=${user.username}, role=${user.role}")
-                        onNavigateToSummary?.invoke()
-                    }, modifier = Modifier.padding(top = 8.dp)) {
-                        Text("View Daily/Weekly Summary")
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "Menu")
+                }
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Refresh") },
+                        onClick = {
+                            menuExpanded = false
+                            onRefresh()
+                        },
+                        enabled = !isBusy
+                    )
+                    if (user.role.name == "REGISTERED") {
+                        DropdownMenuItem(
+                            text = { Text("View Daily/Weekly Summary") },
+                            onClick = {
+                                menuExpanded = false
+                                Log.d("UserDashboard", "Summary menu item clicked by user=${user.username}, role=${user.role}")
+                                onNavigateToSummary?.invoke()
+                            }
+                        )
                     }
-                    Button(onClick = {
-                        Log.d("UserDashboard", "Call History button clicked by user=${user.username}, role=${user.role}")
-                        onNavigateToCallHistory?.invoke()
-                    }, modifier = Modifier.padding(top = 4.dp)) {
-                        Text("View Call History")
-                    }
+                    DropdownMenuItem(
+                        text = { Text("Logout") },
+                        onClick = {
+                            menuExpanded = false
+                            onLogout()
+                        }
+                    )
                 }
             }
         }
@@ -170,7 +195,24 @@ fun UserDashboard(
                     colors = CardDefaults.cardColors()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Recent Calls", style = MaterialTheme.typography.titleMedium)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Recent Calls", style = MaterialTheme.typography.titleMedium)
+                            if (user.role.name == "REGISTERED" && onNavigateToCallHistory != null) {
+                                Button(
+                                    onClick = {
+                                        Log.d("UserDashboard", "Call History button clicked by user=${user.username}, role=${user.role}")
+                                        onNavigateToCallHistory.invoke()
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                                ) {
+                                    Text("View Call History")
+                                }
+                            }
+                        }
                         if (callRecords.isEmpty()) {
                             Text("No call data yet. Use the testing panel to add samples.")
                         } else {
