@@ -163,7 +163,12 @@ fun UserDashboard(
             }
 
             item {
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    colors = CardDefaults.cardColors()
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("Recent Calls", style = MaterialTheme.typography.titleMedium)
                         if (callRecords.isEmpty()) {
@@ -187,7 +192,7 @@ fun UserDashboard(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 12.dp)
+                                .padding(top = 16.dp)
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text("Model Test", style = MaterialTheme.typography.titleMedium)
@@ -232,7 +237,7 @@ private fun DetectionToggleCard(enabled: Boolean, onToggleDetection: (Boolean) -
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 12.dp)
+            .padding(top = 16.dp)
     ) {
         Row(
             modifier = Modifier
