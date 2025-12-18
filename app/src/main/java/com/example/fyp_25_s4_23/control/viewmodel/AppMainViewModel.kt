@@ -10,7 +10,6 @@ import com.example.fyp_25_s4_23.control.controllers.DetectionController
 import com.example.fyp_25_s4_23.control.usecases.LoginUser
 import com.example.fyp_25_s4_23.control.usecases.LogoutUser
 import com.example.fyp_25_s4_23.control.usecases.RegisterUser
-import com.example.fyp_25_s4_23.control.usecases.SeedSampleData
 import com.example.fyp_25_s4_23.control.usecases.SaveDetectionAlertUseCase
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.AlertRepository
@@ -79,7 +78,6 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val registerUser = RegisterUser(userRepository)
     private val loginUser = LoginUser(userRepository)
     private val logoutUser = LogoutUser()
-    private val seedSampleData = SeedSampleData(callRepository, alertRepository)
     private val saveDetectionAlert = SaveDetectionAlertUseCase(alertRepository)
 
     private val _state = MutableStateFlow(AppUiState())
@@ -121,13 +119,50 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
                 Log.d("ViewModelAlert", "Model Test Probability: $probability (Threshold: $threshold) for file: $audioFile")
 
-                if (isDeepfake) {
-                    // Generate a test call ID for model testing
-                    val testCallId = "TEST_${System.currentTimeMillis()}"
-                    
+                // Generate a random phone number
+                val randomAreaCode = (200..999).random()
+                val randomPrefix = (200..999).random()
+                val randomLineNumber = (1000..9999).random()
+                val randomPhoneNumber = "+1 $randomAreaCode $randomPrefix $randomLineNumber"
+                
+                // Create a call record
+                val callId = java.util.UUID.randomUUID().toString()
+                val currentTimeSeconds = System.currentTimeMillis() / 1000
+                
+                val callRecord = com.example.fyp_25_s4_23.entity.domain.entities.CallRecord(
+                    id = callId,
+                    metadata = com.example.fyp_25_s4_23.entity.domain.entities.CallMetadata(
+                        phoneNumber = randomPhoneNumber,
+                        displayName = "Test Audio Call",
+                        startTimeSeconds = currentTimeSeconds - 60,
+                        endTimeSeconds = currentTimeSeconds - 30,
+                        direction = com.example.fyp_25_s4_23.entity.domain.valueobjects.CallDirection.INCOMING
+                    ),
+                    status = com.example.fyp_25_s4_23.entity.domain.valueobjects.CallStatus.COMPLETED,
+                    detections = listOf(
+                        com.example.fyp_25_s4_23.entity.domain.entities.DetectionResult(
+                            probability = probability,
+                            isDeepfake = isDeepfake,
+                            modelVersion = "0.0.1"
+                        )
+                    )
+                )
+                
+                // Save call record to database (must complete before refreshing)
+                val saveSuccess = runCatching {
+                    val currentUser = _state.value.currentUser
+                    callRepository.upsert(callRecord, currentUser?.id)
+                    Log.i("ViewModelAlert", "Call record saved from model test with phone: $randomPhoneNumber")
+                    true
+                }.getOrElse { e ->
+                    Log.e("ViewModelAlert", "Failed to save call record", e)
+                    false
+                }
+                
+                if (isDeepfake && saveSuccess) {
                     // Save alert to database
                     runCatching {
-                        saveDetectionAlert(testCallId, probability)
+                        saveDetectionAlert(callId, probability)
                         Log.i("ViewModelAlert", "Alert saved to database for Model Test.")
                     }.onFailure { e ->
                         Log.e("ViewModelAlert", "Failed to save alert to database", e)
@@ -138,6 +173,11 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                         AlertHandlerHolder.handler?.displayCriticalAlert(probability)
                         Log.i("ViewModelAlert", "Alert displayed for Model Test.")
                     }
+                }
+                
+                // Refresh dashboard to show new call (must be after save completes)
+                if (saveSuccess) {
+                    refreshDashboard()
                 }
 
                 val statusText = if (modelRunResult != null) "Done" else "Failed (see logcat)"
@@ -300,20 +340,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun seedSampleData() {
-        val user = _state.value.currentUser ?: return
-        viewModelScope.launch {
-            _state.update { it.copy(isBusy = true, message = null) }
-            runCatching { seedSampleData(user) }
-                .onSuccess {
-                    refreshDashboard()
-                    _state.update { it.copy(message = "Sample data added", isBusy = false) }
-                }
-                .onFailure { throwable ->
-                    _state.update { it.copy(message = throwable.message, isBusy = false) }
-                }
-        }
-    }
+
 
     suspend fun aggregateSummary(startMillis: Long, endMillis: Long, periodDaily: Boolean): List<com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics> {
         val threshold = _state.value.userSettings.detectionThreshold
