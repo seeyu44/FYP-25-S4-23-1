@@ -8,6 +8,65 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="api.js"></script>
+  <style>
+    .form-container {
+      width: 400px;
+      margin: 50px auto 0;
+      text-align: left;
+      background: rgba(15, 31, 55, 0.5);
+      padding: 40px;
+      border-radius: 8px;
+      border: 1px solid rgba(52, 152, 219, 0.2);
+    }
+    .form-container h2 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: var(--accent);
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 4px;
+      border: 1px solid #2c3e50;
+      background: #03101a;
+      color: white;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: rgba(15, 31, 55, 0.8);
+    }
+    .feedback {
+      margin-top: 16px;
+      text-align: center;
+      min-height: 20px;
+      font-size: 14px;
+    }
+    .form-links {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 14px;
+    }
+    .form-links a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .form-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
   <div class="page">
@@ -33,25 +92,58 @@
     </header>
 
     <div class="form-container">
-      <form action="#" method="POST">
-        <h2>Login to Your Account</h2>
+      <h2>Login to Your Account</h2>
+      <form id="login-form">
         <div class="form-group">
-            <label for="username">Username</label>
-            <input type="text" id="username" name="username" required>
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
         </div>
         <div class="form-group">
             <label for="password">Password</label>
             <input type="password" id="password" name="password" required>
         </div>
         <div class="form-group">
-            <button type="submit" class="btn primary">Login</button>
+            <button type="submit" class="btn primary" style="width: 100%;">Login</button>
         </div>
       </form>
+      <div id="feedback-message" class="feedback"></div>
+      <div class="form-links">
+        <p>Don't have an account? <a href="RegistrationPage.html">Register here</a></p>
+      </div>
     </div>
 
     <footer>
       &copy; 2024 Deepfake Guard. All rights reserved.
     </footer>
   </div>
+
+  <script>
+    const loginForm = document.getElementById('login-form');
+    const feedbackMessage = document.getElementById('feedback-message');
+
+    loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      feedbackMessage.textContent = 'Logging in...';
+      feedbackMessage.style.color = 'var(--muted)';
+
+      try {
+        const result = await login(email, password);
+        feedbackMessage.textContent = 'Login successful! Redirecting...';
+        feedbackMessage.style.color = 'var(--accent)';
+        
+        // Redirect to dashboard or home page after 2 seconds
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 2000);
+      } catch (error) {
+        feedbackMessage.textContent = `Error: ${error.message}`;
+        feedbackMessage.style.color = 'red';
+      }
+    });
+  </script>
 </body>
 </html>

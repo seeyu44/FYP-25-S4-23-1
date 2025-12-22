@@ -3,11 +3,43 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Register Account | Deepfake Guard</title>
+  <title>Register | Deepfake Guard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="api.js"></script>
+  <style>
+    .form-container {
+      width: 400px;
+      margin: 0 auto;
+      text-align: left;
+    }
+    .form-container h1 {
+      text-align: center;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+    }
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #2c3e50;
+      background: #03101a;
+      color: white;
+      box-sizing: border-box; /* Ensures padding doesn't affect width */
+    }
+    .feedback {
+      margin-top: 16px;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
   <div class="page">
@@ -26,40 +58,54 @@
         <a href="index.html#faq">FAQ</a>
       </nav>
       <div class="cta">
-        <a class="btn" href="index.html#demo">Book demo</a>
-        <a class="btn primary" href="index.html#download">Get the app</a>
+        <a class="btn" href="#demo">Book demo</a>
+        <a class="btn primary" href="#download">Get the app</a>
         <a class="btn primary" href="RegistrationPage.html">Register Account</a>
       </div>
     </header>
 
-    <div class="form-container">
-      <form action="#" method="POST">
-        <h2>Create an Account</h2>
-        <div class="form-group">
-            <label for="username">Username</label>
-            <input type="text" id="username" name="username" required>
+    <section class="hero">
+        <div class="form-container">
+            <h1>Create Account</h1>
+            
+            <!-- Registration Form -->
+            <form id="register-form" style="display: block;">
+              <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+              </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                    <small style="color: var(--muted); display: block; margin-top: 4px;">
+                      Password must contain: uppercase, lowercase, number, and special character (!@#$%^&*)
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label for="confirm-password">Confirm Password</label>
+                    <input type="password" id="confirm-password" name="confirm-password" required>
+                </div>
+                <button type="submit" class="btn primary" style="width:100%;">Register</button>
+            </form>
+
+            <!-- OTP Verification Form (hidden by default) -->
+            <form id="otp-form" style="display: none;">
+              <p style="text-align: center; color: var(--muted);">Enter the OTP sent to your email</p>
+              <div class="form-group">
+                <label for="otp">OTP Code</label>
+                <input type="text" id="otp" name="otp" placeholder="000000" required>
+              </div>
+              <button type="submit" class="btn primary" style="width:100%;">Verify OTP</button>
+              <button type="button" id="resend-otp-btn" class="btn" style="width:100%; margin-top: 8px;">Resend OTP</button>
+            </form>
+            
+            <div id="feedback-message" class="feedback"></div>
         </div>
-        <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" required>
-        </div>
-        <div class="form-group">
-            <label for="phone">Phone Number</label>
-            <input type="tel" id="phone" name="phone">
-        </div>
-        <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" required>
-        </div>
-        <div class="form-group">
-            <label for="confirm-password">Confirm Password</label>
-            <input type="password" id="confirm-password" name="confirm-password" required>
-        </div>
-        <div class="form-group">
-            <button type="submit" class="btn primary">Register</button>
-        </div>
-      </form>
-    </div>
+    </section>
 
     <footer>
       &copy; 2024 Deepfake Guard. All rights reserved.
@@ -67,16 +113,83 @@
   </div>
 
   <script>
-    const form = document.querySelector('form');
-    const password = document.getElementById('password');
-    const confirmPassword = document.getElementById('confirm-password');
+    const registerForm = document.getElementById('register-form');
+    const otpForm = document.getElementById('otp-form');
+    const feedbackMessage = document.getElementById('feedback-message');
+    let userEmail = '';
 
-    form.addEventListener('submit', function(event) {
-      if (password.value !== confirmPassword.value) {
-        alert('Passwords do not match. Please try again.');
-        event.preventDefault(); // Stop the form from submitting
+    // Registration submission
+    registerForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const username = document.getElementById('username').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirm-password').value;
+
+      // Check if passwords match
+      if (password !== confirmPassword) {
+        feedbackMessage.textContent = 'Passwords do not match.';
+        feedbackMessage.style.color = 'red';
+        return;
+      }
+
+      feedbackMessage.textContent = 'Registering...';
+      feedbackMessage.style.color = 'var(--muted)';
+
+      try {
+        const result = await register(username, email, password);
+        userEmail = email;
+        feedbackMessage.textContent = 'OTP sent to your email! Enter the code below.';
+        feedbackMessage.style.color = 'var(--accent)';
+        
+        // Show OTP form, hide registration form
+        registerForm.style.display = 'none';
+        otpForm.style.display = 'block';
+      } catch (error) {
+        feedbackMessage.textContent = `Error: ${error.message}`;
+        feedbackMessage.style.color = 'red';
+      }
+    });
+
+    // OTP verification submission
+    otpForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const otp = document.getElementById('otp').value;
+      feedbackMessage.textContent = 'Verifying OTP...';
+      feedbackMessage.style.color = 'var(--muted)';
+
+      try {
+        const result = await verifyOtp(userEmail, otp);
+        feedbackMessage.textContent = 'Account created successfully! Redirecting to login...';
+        feedbackMessage.style.color = 'var(--accent)';
+        
+        // Redirect to login after 2 seconds
+        setTimeout(() => {
+          window.location.href = 'LoginPage.html';
+        }, 2000);
+      } catch (error) {
+        feedbackMessage.textContent = `Error: ${error.message}`;
+        feedbackMessage.style.color = 'red';
+      }
+    });
+
+    // Resend OTP
+    document.getElementById('resend-otp-btn').addEventListener('click', async () => {
+      feedbackMessage.textContent = 'Resending OTP...';
+      feedbackMessage.style.color = 'var(--muted)';
+
+      try {
+        const result = await resendOtp(userEmail);
+        feedbackMessage.textContent = 'OTP resent! Check your email.';
+        feedbackMessage.style.color = 'var(--accent)';
+      } catch (error) {
+        feedbackMessage.textContent = `Error: ${error.message}`;
+        feedbackMessage.style.color = 'red';
       }
     });
   </script>
+
 </body>
 </html>
