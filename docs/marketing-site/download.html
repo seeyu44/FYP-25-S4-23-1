@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Download | Deepfake Guard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .download-container {
+      text-align: center;
+      padding: 50px 20px;
+    }
+    .download-container h1 {
+        font-size: 2.5em;
+        color: var(--accent);
+        margin-bottom: 20px;
+    }
+    .download-container p {
+        font-size: 1.2em;
+        color: var(--muted);
+        margin-bottom: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <a href="index.html" class="brand" style="text-decoration: none; color: inherit;">
+        <div class="logo">DG</div>
+        <div>
+          <div style="font-weight:700; letter-spacing:-0.02em;">Deepfake Guard</div>
+          <div style="color:var(--muted); font-size:12px;">Deepfake call protection</div>
+        </div>
+      </a>
+      <nav>
+        <a href="index.html#features">Features</a>
+        <a href="index.html#how">How it works</a>
+      </nav>
+      <div class="cta">
+        <a class="btn" id="logout-button">Logout</a>
+      </div>
+    </header>
+
+    <div class="download-container">
+      <h1>Welcome!</h1>
+      <p>You have successfully logged in. Download the Deepfake Guard mobile application to protect your device.</p>
+      <a href="/path/to/your/app.apk" class="btn primary" download>Download Application</a>
+    </div>
+
+    <footer>
+      &copy; 2024 Deepfake Guard. All rights reserved.
+    </footer>
+  </div>
+
+  <script>
+    document.getElementById('logout-button').addEventListener('click', () => {
+        // Depending on your auth implementation, you might need to clear tokens.
+        // For now, we'll just redirect to the login page.
+        window.location.href = 'LoginPage.html';
+    });
+  </script>
+</body>
+</html>

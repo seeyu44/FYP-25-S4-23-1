@@ -71,13 +71,13 @@
 <body>
   <div class="page">
     <header>
-      <div class="brand">
+      <a href="index.html" class="brand" style="text-decoration: none; color: inherit;">
         <div class="logo">DG</div>
         <div>
           <div style="font-weight:700; letter-spacing:-0.02em;">Deepfake Guard</div>
           <div style="color:var(--muted); font-size:12px;">Deepfake call protection</div>
         </div>
-      </div>
+      </a>
       <nav>
         <a href="index.html#product">Product</a>
         <a href="index.html#features">Features</a>
@@ -85,9 +85,6 @@
         <a href="index.html#faq">FAQ</a>
       </nav>
       <div class="cta">
-        <a class="btn" href="index.html#demo">Book demo</a>
-        <a class="btn primary" href="index.html#download">Get the app</a>
-        <a class="btn primary" href="RegistrationPage.html">Register Account</a>
       </div>
     </header>
 
@@ -135,9 +132,9 @@
         feedbackMessage.textContent = 'Login successful! Redirecting...';
         feedbackMessage.style.color = 'var(--accent)';
         
-        // Redirect to dashboard or home page after 2 seconds
+        // Redirect to download page after 2 seconds
         setTimeout(() => {
-          window.location.href = 'index.html';
+          window.location.href = 'download.html';
         }, 2000);
       } catch (error) {
         feedbackMessage.textContent = `Error: ${error.message}`;
