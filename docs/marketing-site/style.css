@@ -106,3 +106,103 @@
       .hero-actions { flex-direction: column; align-items: stretch; }
       .btn { text-align: center; width: 100%; }
     }
+    /* Stats Banner */
+    .stats-banner {
+      display: flex;
+      justify-content: space-around;
+      background: var(--dark-blue-2);
+      text-align: center;
+      padding: 40px 20px;
+      flex-wrap: wrap;
+    }
+    .stat-item {
+      padding: 20px;
+    }
+    .stat-item h3 {
+      font-size: 2.5em;
+      color: var(--accent);
+      margin: 0 0 10px;
+    }
+    .stat-item p {
+      color: var(--muted);
+      font-size: 1em;
+    }
+
+    /* Review Slider */
+    .review-slider {
+      text-align: center;
+    }
+    .review-slider h2 {
+      margin-bottom: 30px;
+    }
+    .slider-container {
+      overflow: hidden;
+      position: relative;
+      width: 80%;
+      margin: 0 auto;
+      border-radius: 8px;
+    }
+    .slider {
+      display: flex;
+      transition: transform 0.5s ease-in-out;
+    }
+    .review-card {
+      flex: 0 0 100%;
+      box-sizing: border-box;
+      padding: 40px;
+      background: var(--dark-blue-2);
+    }
+    .review-card .stars {
+      color: #ffc107;
+      margin-bottom: 15px;
+      font-size: 1.2em;
+    }
+    .review-card p {
+      font-style: italic;
+      color: #fff;
+      font-size: 1.1em;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .review-card strong {
+      display: block;
+      margin-top: 20px;
+      color: var(--accent);
+    }
+    .slider-nav {
+      margin-top: 20px;
+    }
+    .slider-nav button {
+      background: var(--dark-blue-2);
+      color: white;
+      border: 1px solid var(--accent);
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 0 10px;
+      transition: background 0.3s;
+    }
+    .slider-nav button:hover {
+      background: var(--accent);
+      color: var(--dark-blue);
+    }
+
+    /* Video Section */
+    .video-section {
+      text-align: center;
+    }
+    .video-section h2 {
+      margin-bottom: 30px;
+    }
+    .video-container {
+      width: 80%;
+      max-width: 800px;
+      margin: 0 auto;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+    .video-container video {
+      width: 100%;
+      display: block;
+    }

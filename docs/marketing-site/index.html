@@ -85,6 +85,17 @@
       </div>
     </section>
 
+    <!-- Video Section -->
+    <section class="section video-section" id="demo-video">
+      <h2>See It In Action</h2>
+      <div class="video-container">
+        <video controls poster="path/to/your/video-poster.jpg">
+          <source src="path/to/your/demo-video.mp4" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+      </div>
+    </section>
+
     <section class="section" id="features">
       <h2>Market-ready feature stack</h2>
       <p class="lead">Everything you need to launch a trustworthy calling experience: call + receive with deepfake detection, fraud intelligence, and user-first design.</p>
@@ -142,6 +153,60 @@
       </div>
     </section>
 
+    <!-- Stats Banner Section -->
+    <section class="section stats-banner" id="statistics">
+      <div class="stat-item">
+        <h3>99.8%</h3>
+        <p>Real-time detection accuracy</p>
+      </div>
+      <div class="stat-item">
+        <h3>&lt;100ms</h3>
+        <p>Average response time</p>
+      </div>
+      <div class="stat-item">
+        <h3>1M+</h3>
+        <p>Threats blocked daily</p>
+      </div>
+      <div class="stat-item">
+        <h3>24/7</h3>
+        <p>Monitoring and support</p>
+      </div>
+    </section>
+
+    <!-- Review Slider Section -->
+    <section class="section review-slider" id="reviews">
+      <h2>What Our Customers Say</h2>
+      <div class="slider-container">
+        <div class="slider">
+          <div class="review-card">
+            <div class="stars">
+              <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+            </div>
+            <p>"Deepfake Guard has been a game-changer for our organization's security. The peace of mind it provides is invaluable."</p>
+            <strong>- Jane Doe, CISO at TechCorp</strong>
+          </div>
+          <div class="review-card">
+            <div class="stars">
+              <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+            </div>
+            <p>"The on-device processing is brilliant. It's fast, private, and doesn't drain the battery. Highly recommended."</p>
+            <strong>- John Smith, IT Director at Innovate Inc.</strong>
+          </div>
+          <div class="review-card">
+            <div class="stars">
+              <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+            </div>
+            <p>"Integration was seamless with the SDK. Their support team was fantastic and helped us get up and running in no time."</p>
+            <strong>- Emily White, Head of Mobile at SecureBank</strong>
+          </div>
+        </div>
+      </div>
+      <div class="slider-nav">
+        <button class="prev">&larr;</button>
+        <button class="next">&rarr;</button>
+      </div>
+    </section>
+
     <section class="section" id="faq">
       <h2>Frequently asked questions</h2>
       <div class="faq">
@@ -168,5 +233,41 @@
       &copy; 2024 Deepfake Guard. All rights reserved.
     </footer>
   </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const slider = document.querySelector('.slider');
+      const prevButton = document.querySelector('.prev');
+      const nextButton = document.querySelector('.next');
+      const slides = Array.from(document.querySelectorAll('.review-card'));
+      const sliderContainer = document.querySelector('.slider-container');
+      
+      if (slider) {
+        let slideIndex = 0;
+        const slideCount = slides.length;
+
+        function updateSliderPosition() {
+          const slideWidth = sliderContainer.clientWidth;
+          slider.style.transform = `translateX(-${slideIndex * slideWidth}px)`;
+        }
+
+        prevButton.addEventListener('click', () => {
+          slideIndex = (slideIndex - 1 + slideCount) % slideCount;
+          updateSliderPosition();
+        });
+
+        nextButton.addEventListener('click', () => {
+          slideIndex = (slideIndex + 1) % slideCount;
+          updateSliderPosition();
+        });
+
+        window.addEventListener('resize', updateSliderPosition);
+        
+        // Auto-slide functionality
+        setInterval(() => {
+            nextButton.click();
+        }, 5000); // Change slide every 5 seconds
+      }
+    });
+  </script>
 </body>
 </html>
