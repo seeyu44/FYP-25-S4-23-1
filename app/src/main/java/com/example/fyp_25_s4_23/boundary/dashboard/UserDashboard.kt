@@ -178,6 +178,10 @@ fun UserDashboard(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(top = 12.dp)
         ) {
+            item {
+                DialerCard()
+            }
+
             if (userSettings != null && onToggleDetection != null) {
                 item {
                     DetectionToggleCard(
@@ -214,7 +218,7 @@ fun UserDashboard(
                             }
                         }
                         if (callRecords.isEmpty()) {
-                            Text("No call data yet. Use the testing panel to add samples.")
+                            Text("No call data yet. Use the dialer to start protected calls.")
                         } else {
                             callRecords.take(5).forEach { record ->
                                 Column(modifier = Modifier.padding(vertical = 6.dp)) {
