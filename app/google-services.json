@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "5675548760",
+    "project_id": "fyp-deepfakeguard",
+    "storage_bucket": "fyp-deepfakeguard.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:5675548760:android:4dc6cd463b2d1b0d4aca2d",
+        "android_client_info": {
+          "package_name": "com.example.fyp_25_s4_23"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCjmLaFC1t5wipE-Y7rMnTrLthTmxF_oLM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
