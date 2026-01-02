@@ -32,6 +32,13 @@ import com.example.fyp_25_s4_23.control.AlertHandlerHolder
 import com.example.fyp_25_s4_23.boundary.handlers.InCallAlertHandler
 import android.util.Log
 
+import com.example.fyp_25_s4_23.data.remote.ApiClient
+import com.example.fyp_25_s4_23.data.remote.dto.LoginRequest
+import com.example.fyp_25_s4_23.data.remote.dto.LoginResponse
+import com.example.fyp_25_s4_23.data.remote.dto.TokenStore
+
+
+
 sealed interface AppScreen {
     data object Loading : AppScreen
     data object Login : AppScreen
@@ -81,6 +88,8 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val saveDetectionAlert = SaveDetectionAlertUseCase(alertRepository)
 
     private val _state = MutableStateFlow(AppUiState())
+
+    private val tokenStore = TokenStore(application)
     val state: StateFlow<AppUiState> = _state.asStateFlow()
 
     init {
@@ -236,10 +245,30 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     fun login(username: String, password: String) {
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true, message = null) }
+
+            // edit1
             runCatching {
-                val user = loginUser(username.trim(), password)
-                val settings = settingsRepository.get(user.id)
-                user to settings
+                val response = ApiClient.authApi.login(
+                    LoginRequest(username= username.trim(),password = password)
+                )
+            // Store JWT locally
+            tokenStore.save(response.accessToken)
+
+            //Fetch user profile To be updated!
+            //val user = userRepository.getCurrentUser(response.accessToken)
+
+                val user = UserAccount(
+                    id = System.currentTimeMillis(),
+                    username = username.trim(),
+                    displayName = username.trim(),
+                    role = UserRole.REGISTERED,
+                    createdAtSeconds = System.currentTimeMillis() / 1000
+                )
+
+            // Fetch user settings
+            val settings = settingsRepository.get(user.id)
+
+            user to settings
             }
                 .onSuccess { (user, settings) ->
                     _state.update {

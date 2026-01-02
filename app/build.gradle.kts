@@ -59,6 +59,11 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+
+    //Retrofit
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+
     // ONNX runtime for on-device inference
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.19.2")
     // FFT utilities for mel spectrogram calculations
