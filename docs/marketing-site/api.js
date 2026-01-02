@@ -46,8 +46,8 @@ async function resendOtp(email) {
   return apiCall("/auth/resend-otp", "POST", { email });
 }
 
-async function login(email, password) {
-  const data = await apiCall("/auth/login", "POST", { email, password });
+async function login(username, password) {
+  const data = await apiCall("/auth/login", "POST", { username, password });
   // Save tokens to localStorage
   localStorage.setItem("access_token", data.access_token);
   localStorage.setItem("refresh_token", data.refresh_token);
