@@ -36,6 +36,7 @@ import com.example.fyp_25_s4_23.data.remote.ApiClient
 import com.example.fyp_25_s4_23.data.remote.dto.LoginRequest
 import com.example.fyp_25_s4_23.data.remote.dto.LoginResponse
 import com.example.fyp_25_s4_23.data.remote.dto.TokenStore
+import com.example.fyp_25_s4_23.util.mapUserRole
 
 
 
@@ -248,24 +249,26 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
             // edit1
             runCatching {
-                val response = ApiClient.authApi.login(
+                val LoginResponse = ApiClient.authApi.login(
                     LoginRequest(username= username.trim(),password = password)
                 )
-            // Store JWT locally
-            tokenStore.save(response.accessToken)
+            // Store JWT
+            tokenStore.save(LoginResponse.accessToken)
 
-            //Fetch user profile To be updated!
-            //val user = userRepository.getCurrentUser(response.accessToken)
+             val authHeader = "Bearer ${tokenStore.get_token()}"
+
+            //Fetch user profile
+            val profile = ApiClient.userApi.getCurrentUser(authHeader)
 
                 val user = UserAccount(
-                    id = System.currentTimeMillis(),
-                    username = username.trim(),
-                    displayName = username.trim(),
-                    role = UserRole.REGISTERED,
-                    createdAtSeconds = System.currentTimeMillis() / 1000
+                    id = profile.id.hashCode().toLong(),
+                    username = profile.username,
+                    displayName = profile.display_name,
+                    role = mapUserRole(profile.role),
+                    createdAtSeconds = profile.created_at_seconds
                 )
 
-            // Fetch user settings
+            // Fetch local user settings
             val settings = settingsRepository.get(user.id)
 
             user to settings
