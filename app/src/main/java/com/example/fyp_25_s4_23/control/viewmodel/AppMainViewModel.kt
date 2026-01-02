@@ -300,7 +300,25 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     refreshDashboard()
                 }
                 .onFailure { throwable ->
-                    _state.update { it.copy(isBusy = false, message = throwable.message) }
+                    Log.e("LOGIN_ERROR", "Login failed", throwable)
+
+                    val errorMessage = when (throwable) {
+                        is java.net.SocketTimeoutException ->
+                            "Network timeout. Please try again."
+
+                        is retrofit2.HttpException ->
+                            "Server error ${throwable.code()}"
+
+                        else ->
+                            throwable.localizedMessage ?: "Unknown error"
+                    }
+
+                    _state.update {
+                        it.copy(
+                            isBusy = false,
+                            message = errorMessage
+                        )
+                    }
                 }
         }
     }
