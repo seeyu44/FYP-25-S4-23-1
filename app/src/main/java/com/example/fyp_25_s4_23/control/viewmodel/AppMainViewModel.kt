@@ -32,6 +32,14 @@ import com.example.fyp_25_s4_23.control.AlertHandlerHolder
 import com.example.fyp_25_s4_23.boundary.handlers.InCallAlertHandler
 import android.util.Log
 
+import com.example.fyp_25_s4_23.data.remote.ApiClient
+import com.example.fyp_25_s4_23.data.remote.dto.LoginRequest
+import com.example.fyp_25_s4_23.data.remote.dto.LoginResponse
+import com.example.fyp_25_s4_23.data.remote.dto.TokenStore
+import com.example.fyp_25_s4_23.util.mapUserRole
+
+
+
 sealed interface AppScreen {
     data object Loading : AppScreen
     data object Login : AppScreen
@@ -81,6 +89,8 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val saveDetectionAlert = SaveDetectionAlertUseCase(alertRepository)
 
     private val _state = MutableStateFlow(AppUiState())
+
+    private val tokenStore = TokenStore(application)
     val state: StateFlow<AppUiState> = _state.asStateFlow()
 
     init {
@@ -236,10 +246,32 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     fun login(username: String, password: String) {
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true, message = null) }
+
+            // edit1
             runCatching {
-                val user = loginUser(username.trim(), password)
-                val settings = settingsRepository.get(user.id)
-                user to settings
+                val LoginResponse = ApiClient.authApi.login(
+                    LoginRequest(username= username.trim(),password = password)
+                )
+            // Store JWT
+            tokenStore.save(LoginResponse.accessToken)
+
+             val authHeader = "Bearer ${tokenStore.get_token()}"
+
+            //Fetch user profile
+            val profile = ApiClient.userApi.getCurrentUser(authHeader)
+
+                val user = UserAccount(
+                    id = profile.id.hashCode().toLong(),
+                    username = profile.username,
+                    displayName = profile.display_name,
+                    role = mapUserRole(profile.role),
+                    createdAtSeconds = profile.created_at_seconds
+                )
+
+            // Fetch local user settings
+            val settings = settingsRepository.get(user.id)
+
+            user to settings
             }
                 .onSuccess { (user, settings) ->
                     _state.update {
@@ -268,7 +300,25 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     refreshDashboard()
                 }
                 .onFailure { throwable ->
-                    _state.update { it.copy(isBusy = false, message = throwable.message) }
+                    Log.e("LOGIN_ERROR", "Login failed", throwable)
+
+                    val errorMessage = when (throwable) {
+                        is java.net.SocketTimeoutException ->
+                            "Network timeout. Please try again."
+
+                        is retrofit2.HttpException ->
+                            "Server error ${throwable.code()}"
+
+                        else ->
+                            throwable.localizedMessage ?: "Unknown error"
+                    }
+
+                    _state.update {
+                        it.copy(
+                            isBusy = false,
+                            message = errorMessage
+                        )
+                    }
                 }
         }
     }

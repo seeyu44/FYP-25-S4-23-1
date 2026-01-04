@@ -68,6 +68,14 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging")
 
     ksp(libs.androidx.room.compiler)
+
+    //http logging interceptor
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    //Retrofit
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+
     // ONNX runtime for on-device inference
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.19.2")
     // FFT utilities for mel spectrogram calculations
