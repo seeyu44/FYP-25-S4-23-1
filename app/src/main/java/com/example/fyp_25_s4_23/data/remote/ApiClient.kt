@@ -2,6 +2,7 @@ package com.example.fyp_25_s4_23.data.remote
 
 import com.example.fyp_25_s4_23.data.remote.api.AuthApi
 import com.example.fyp_25_s4_23.data.remote.api.UserApi
+import com.example.fyp_25_s4_23.data.remote.api.FirebaseApi
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import okhttp3.OkHttpClient
@@ -37,5 +38,9 @@ object ApiClient {
 
     val userApi: UserApi by lazy {
         retrofit.create(UserApi::class.java)
+    }
+
+    val firebaseApi: FirebaseApi by lazy {
+        retrofit.create(FirebaseApi::class.java)
     }
 }

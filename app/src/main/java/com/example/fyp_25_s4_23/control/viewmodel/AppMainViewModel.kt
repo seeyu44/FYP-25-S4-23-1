@@ -32,10 +32,15 @@ import com.example.fyp_25_s4_23.control.AlertHandlerHolder
 import com.example.fyp_25_s4_23.boundary.handlers.InCallAlertHandler
 import android.util.Log
 
+import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.tasks.await
+
 import com.example.fyp_25_s4_23.data.remote.ApiClient
 import com.example.fyp_25_s4_23.data.remote.dto.LoginRequest
 import com.example.fyp_25_s4_23.data.remote.dto.LoginResponse
 import com.example.fyp_25_s4_23.data.remote.dto.TokenStore
+import com.example.fyp_25_s4_23.data.remote.dto.FCMTokenRequest
+import com.google.firebase.auth.FirebaseAuth
 import com.example.fyp_25_s4_23.util.mapUserRole
 
 
@@ -249,13 +254,13 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
             // edit1
             runCatching {
-                val LoginResponse = ApiClient.authApi.login(
+                val loginResponse = ApiClient.authApi.login(
                     LoginRequest(username= username.trim(),password = password)
                 )
             // Store JWT
-            tokenStore.save(LoginResponse.accessToken)
+            tokenStore.saveJWT(loginResponse.accessToken)
 
-             val authHeader = "Bearer ${tokenStore.get_token()}"
+             val authHeader = "Bearer ${tokenStore.get_JWTToken()}"
 
             //Fetch user profile
             val profile = ApiClient.userApi.getCurrentUser(authHeader)
@@ -271,7 +276,44 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
             // Fetch local user settings
             val settings = settingsRepository.get(user.id)
 
-            user to settings
+            try{
+                val fcmToken = tokenStore.get_FCMToken() ?: FirebaseMessaging.getInstance().token.await()
+
+                ApiClient.userApi.registerFCMToken(authHeader, FCMTokenRequest(fcm_token=fcmToken))
+                tokenStore.saveFCMToken(fcmToken)
+
+                Log.i("FCM","FCM Token registered with backend")
+            }catch (e: Exception) {
+                Log.e("FCM", "Failed to register FCM Token", e)
+            }
+                try {
+                    val firebaseResponse =
+                        ApiClient.firebaseApi.getFirebaseToken(authHeader)
+
+                    val firebaseToken = firebaseResponse.firebase_token
+
+                    Log.i(
+                        "FirebaseAuth",
+                        "Firebase token received (length=${firebaseToken.length})"
+                    )
+
+                    FirebaseAuth.getInstance()
+                        .signInWithCustomToken(firebaseToken)
+                        .addOnSuccessListener {
+                            Log.i(
+                                "FirebaseAuth",
+                                "Signed in to Firebase as ${it.user?.uid}"
+                            )
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("FirebaseAuth", "Firebase sign-in failed", e)
+                        }
+
+                } catch (e: Exception) {
+                    Log.e("FirebaseAuth", "Failed to get Firebase token", e)
+                }
+
+                user to settings
             }
                 .onSuccess { (user, settings) ->
                     _state.update {

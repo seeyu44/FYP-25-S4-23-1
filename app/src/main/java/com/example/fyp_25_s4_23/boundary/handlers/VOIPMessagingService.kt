@@ -6,6 +6,8 @@ import com.example.fyp_25_s4_23.boundary.call.CallInProgressActivity
 
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.example.fyp_25_s4_23.data.remote.dto.TokenStore
+
 
 /**
  * Skeleton for handling incoming VOIP calls via Firebase Cloud Messaging.
@@ -40,8 +42,10 @@ class VOIPMessagingService : FirebaseMessagingService(){
      * Called when a new FCM token is generated.
      */
     override fun onNewToken(token: String) {
+        super.onNewToken(token)
         Log.i("VOIPMessaging", "New FCM Token: $token")
-        // TODO: Sync this token with your user profile in Firestore
         // Send token -> FastAPI Backend -> Firebase Admin
+
+        TokenStore(applicationContext).saveFCMToken(token)
     }
 }
