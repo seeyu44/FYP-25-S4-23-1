@@ -14,30 +14,25 @@ class FirebaseSignalingManager {
 
     private val firestore = FirebaseFirestore.getInstance()
     private var callListener: ListenerRegistration? = null
+    private var iceListener: ListenerRegistration? = null
+
 
     //Listen to call state changes (ringing/accepted/ended)
-    fun listenToCall(callId: String, onAccepted:(offerSdp:String)->Unit, onEnded:()-> Unit){
+    fun listenToCall(
+        callId: String,
+        onOffer: (String) -> Unit,
+        onEnded: () -> Unit
+    ) {
         callListener = firestore.collection("calls")
             .document(callId)
             .addSnapshotListener { snapshot, error ->
-                if (error != null || snapshot == null || !snapshot.exists()) {
-                    Log.e("Signaling", "Call listener error", error)
-                    return@addSnapshotListener
-                }
-                val status = snapshot.getString("status")
+                if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
 
-                when (status) {
-                    "in_call","accepted" -> {
-                        val offer = snapshot.getString("offer_sdp")
-                        if (offer != null) {
-                            Log.i("Signaling", "Call accepted")
-                            onAccepted(offer)
-                        }
+                when (snapshot.getString("status")) {
+                    "ringing", "accepted", "in_call" -> {
+                        snapshot.getString("offer_sdp")?.let(onOffer)
                     }
-                    "ended" -> {
-                        Log.i("Signaling", "Call ended")
-                        onEnded()
-                    }
+                    "ended" -> onEnded()
                 }
             }
     }
@@ -68,10 +63,29 @@ class FirebaseSignalingManager {
             .add(candidate)
     }
 
+    fun listenForIceCandidates(
+        callId: String,
+        remoteUserId: String,
+        onCandidate: (Map<String, Any>) -> Unit
+    ) {
+        iceListener = firestore.collection("calls")
+            .document(callId)
+            .collection("ice_candidates")
+            .document(remoteUserId)
+            .collection("candidates")
+            .addSnapshotListener { snapshot, _ ->
+                snapshot?.documents?.forEach { doc ->
+                    doc.data?.let(onCandidate)
+                }
+            }
+    }
+
     //Stop listening
     fun stopListening() {
         callListener?.remove()
+        iceListener?.remove()
         callListener = null
+        iceListener = null
     }
 }
 

@@ -76,6 +76,9 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
 
+    //WebRTC
+    implementation("io.github.webrtc-sdk:android:125.6422.06")
+
     // ONNX runtime for on-device inference
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.19.2")
     // FFT utilities for mel spectrogram calculations
