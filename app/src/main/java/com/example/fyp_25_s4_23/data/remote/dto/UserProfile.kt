@@ -1,12 +1,12 @@
 package com.example.fyp_25_s4_23.data.remote.dto
 
-data class UserProfileResponse(
-    val id: String,
+data class UserProfile(
+    val uid: String,
     val email: String,
     val username: String,
-    val display_name: String,
+    val displayName: String,
     val role: String,
-    val plan_tier: String,
+    val planTier: String,
     val verified: Boolean,
-    val created_at_seconds: Long
+    val createdAtSeconds: Long
 )

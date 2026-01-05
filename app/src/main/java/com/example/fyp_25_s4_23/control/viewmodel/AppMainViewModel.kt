@@ -43,6 +43,8 @@ import com.example.fyp_25_s4_23.data.remote.dto.FCMTokenRequest
 import com.google.firebase.auth.FirebaseAuth
 import com.example.fyp_25_s4_23.util.mapUserRole
 
+import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseAuthManager
+import com.example.fyp_25_s4_23.data.remote.firebase.UserProfileRepository
 
 
 sealed interface AppScreen {
@@ -95,8 +97,11 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
     private val _state = MutableStateFlow(AppUiState())
 
+    private val userProfileRepository = UserProfileRepository()
+
     private val tokenStore = TokenStore(application)
     val state: StateFlow<AppUiState> = _state.asStateFlow()
+
 
     init {
         AlertHandlerHolder.handler = alertHandler
@@ -248,70 +253,30 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         _state.update { it.copy(screen = AppScreen.Dashboard, message = null) }
     }
 
-    fun login(username: String, password: String) {
+    fun login(email: String, password: String) {
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true, message = null) }
 
-            // edit1
             runCatching {
-                val loginResponse = ApiClient.authApi.login(
-                    LoginRequest(username= username.trim(),password = password)
-                )
-            // Store JWT
-            tokenStore.saveJWT(loginResponse.accessToken)
-
-             val authHeader = "Bearer ${tokenStore.get_JWTToken()}"
-
-            //Fetch user profile
-            val profile = ApiClient.userApi.getCurrentUser(authHeader)
-
-                val user = UserAccount(
-                    id = profile.id.hashCode().toLong(),
-                    username = profile.username,
-                    displayName = profile.display_name,
-                    role = mapUserRole(profile.role),
-                    createdAtSeconds = profile.created_at_seconds
+                val firebaseUser = FirebaseAuthManager.login(
+                    email = email.trim(),
+                    password = password
                 )
 
-            // Fetch local user settings
-            val settings = settingsRepository.get(user.id)
-
-            try{
-                val fcmToken = tokenStore.get_FCMToken() ?: FirebaseMessaging.getInstance().token.await()
-
-                ApiClient.userApi.registerFCMToken(authHeader, FCMTokenRequest(fcm_token=fcmToken))
-                tokenStore.saveFCMToken(fcmToken)
-
-                Log.i("FCM","FCM Token registered with backend")
-            }catch (e: Exception) {
-                Log.e("FCM", "Failed to register FCM Token", e)
-            }
-                try {
-                    val firebaseResponse =
-                        ApiClient.firebaseApi.getFirebaseToken(authHeader)
-
-                    val firebaseToken = firebaseResponse.firebase_token
-
-                    Log.i(
-                        "FirebaseAuth",
-                        "Firebase token received (length=${firebaseToken.length})"
-                    )
-
-                    FirebaseAuth.getInstance()
-                        .signInWithCustomToken(firebaseToken)
-                        .addOnSuccessListener {
-                            Log.i(
-                                "FirebaseAuth",
-                                "Signed in to Firebase as ${it.user?.uid}"
-                            )
-                        }
-                        .addOnFailureListener { e ->
-                            Log.e("FirebaseAuth", "Firebase sign-in failed", e)
-                        }
-
-                } catch (e: Exception) {
-                    Log.e("FirebaseAuth", "Failed to get Firebase token", e)
+                if (!firebaseUser.isEmailVerified) {
+                    throw IllegalStateException("Please verify your email before logging in.")
                 }
+
+                val profile = userProfileRepository.getUserProfile(firebaseUser.uid)
+                val user = UserAccount(
+                    id = firebaseUser.uid.hashCode().toLong(),
+                    username = profile.username,
+                    displayName = profile.displayName.ifBlank { profile.username },
+                    role = mapUserRole(profile.role),
+                    createdAtSeconds = profile.createdAtSeconds
+                )
+
+                val settings = settingsRepository.get(user.id)
 
                 user to settings
             }
@@ -321,79 +286,75 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                             currentUser = user,
                             userSettings = settings,
                             screen = AppScreen.Dashboard,
-                            message = null,
                             isBusy = false
                         )
                     }
-                    if (settings.realTimeDetectionEnabled) {
-                        if (hasRecordAudioPermission()) {
-                            detectionController.startMonitoring()
-                        } else {
-                            // Only show microphone permission message for non-admin users
-                            if (user.role != UserRole.ADMIN) {
-                                _state.update {
-                                    it.copy(
-                                        message = "Enable microphone permission to resume detection"
-                                    )
-                                }
-                            }
-                        }
+
+                    if (settings.realTimeDetectionEnabled && hasRecordAudioPermission()) {
+                        detectionController.startMonitoring()
                     }
+
                     refreshDashboard()
                 }
                 .onFailure { throwable ->
-                    Log.e("LOGIN_ERROR", "Login failed", throwable)
-
-                    val errorMessage = when (throwable) {
-                        is java.net.SocketTimeoutException ->
-                            "Network timeout. Please try again."
-
-                        is retrofit2.HttpException ->
-                            "Server error ${throwable.code()}"
-
-                        else ->
-                            throwable.localizedMessage ?: "Unknown error"
-                    }
-
                     _state.update {
                         it.copy(
                             isBusy = false,
-                            message = errorMessage
+                            message = throwable.message ?: "Login failed"
                         )
                     }
                 }
         }
     }
 
-    fun register(username: String, password: String, displayName: String, role: UserRole) {
+
+    fun register(email: String, password: String) {
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true, message = null) }
-            runCatching { registerUser(username.trim(), password, displayName.trim(), role) }
+
+            runCatching {
+                FirebaseAuthManager.register(
+                    email = email.trim(),
+                    password = password
+                )
+
+                FirebaseAuthManager.sendEmailVerification()
+            }
                 .onSuccess {
                     _state.update {
                         it.copy(
                             screen = AppScreen.Login,
-                            message = "Registration successful. Please log in.",
-                            isBusy = false
+                            isBusy = false,
+                            message = "Account created. Please verify your email."
                         )
                     }
                 }
                 .onFailure { throwable ->
-                    _state.update { it.copy(isBusy = false, message = throwable.message) }
+                    _state.update {
+                        it.copy(
+                            isBusy = false,
+                            message = throwable.message ?: "Registration failed"
+                        )
+                    }
                 }
         }
     }
 
+
     fun logout() {
-        detectionController.stopMonitoring()
-        _state.update {
-            it.copy(
-                currentUser = logoutUser(it.currentUser),
-                userSettings = UserSettings(),
-                screen = AppScreen.Login,
-                message = "Logged out",
-                callRecords = emptyList()
-            )
+        viewModelScope.launch {
+            FirebaseAuthManager.logout()
+            detectionController.stopMonitoring()
+
+            _state.update {
+                it.copy(
+                    currentUser = null,
+                    userSettings = UserSettings(),
+                    screen = AppScreen.Login,
+                    message = "Logged out",
+                    callRecords = emptyList()
+                )
+            }
         }
     }
 
