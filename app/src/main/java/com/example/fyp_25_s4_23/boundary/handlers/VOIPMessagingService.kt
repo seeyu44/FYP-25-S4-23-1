@@ -6,7 +6,7 @@ import com.example.fyp_25_s4_23.boundary.call.CallInProgressActivity
 
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.example.fyp_25_s4_23.data.remote.dto.TokenStore
+import com.example.fyp_25_s4_23.data.remote.dto.FCMTokenStore
 
 
 /**
@@ -46,6 +46,6 @@ class VOIPMessagingService : FirebaseMessagingService(){
         Log.i("VOIPMessaging", "New FCM Token: $token")
         // Send token -> FastAPI Backend -> Firebase Admin
 
-        TokenStore(applicationContext).saveFCMToken(token)
+        FCMTokenStore(applicationContext).saveFCMToken(token)
     }
 }

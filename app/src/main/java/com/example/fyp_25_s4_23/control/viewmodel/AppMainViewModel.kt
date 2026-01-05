@@ -32,15 +32,7 @@ import com.example.fyp_25_s4_23.control.AlertHandlerHolder
 import com.example.fyp_25_s4_23.boundary.handlers.InCallAlertHandler
 import android.util.Log
 
-import com.google.firebase.messaging.FirebaseMessaging
-import kotlinx.coroutines.tasks.await
-
-import com.example.fyp_25_s4_23.data.remote.ApiClient
-import com.example.fyp_25_s4_23.data.remote.dto.LoginRequest
-import com.example.fyp_25_s4_23.data.remote.dto.LoginResponse
-import com.example.fyp_25_s4_23.data.remote.dto.TokenStore
-import com.example.fyp_25_s4_23.data.remote.dto.FCMTokenRequest
-import com.google.firebase.auth.FirebaseAuth
+import com.example.fyp_25_s4_23.data.remote.dto.FCMTokenStore
 import com.example.fyp_25_s4_23.util.mapUserRole
 
 import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseAuthManager
@@ -99,7 +91,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
     private val userProfileRepository = UserProfileRepository()
 
-    private val tokenStore = TokenStore(application)
+    private val tokenStore = FCMTokenStore(application)
     val state: StateFlow<AppUiState> = _state.asStateFlow()
 
 
