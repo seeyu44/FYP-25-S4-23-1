@@ -20,20 +20,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 
 @Composable
 fun RegisterScreen(
     isBusy: Boolean,
     message: String?,
-    onRegister: (String, String, String, UserRole) -> Unit,
+    onRegister: (email:String, username:String, displayName:String, password:String) -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
+    var email by remember { mutableStateOf("")}
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
-    var role by remember { mutableStateOf(UserRole.REGISTERED) }
     var localError by remember { mutableStateOf<String?>(null) }
 
     Column(
@@ -43,6 +42,15 @@ fun RegisterScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(text = "Create Account")
+
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp)
+        )
 
         OutlinedTextField(
             value = username,
@@ -91,7 +99,7 @@ fun RegisterScreen(
             onClick = {
                 if (password == confirmPassword) {
                     localError = null
-                    onRegister(username, password, displayName, role)
+                    onRegister(email,username,displayName, password)
                 } else {
                     localError = "Passwords do not match"
                 }

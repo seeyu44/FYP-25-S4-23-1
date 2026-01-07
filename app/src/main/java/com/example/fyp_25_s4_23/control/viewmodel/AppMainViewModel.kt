@@ -37,6 +37,8 @@ import com.example.fyp_25_s4_23.util.mapUserRole
 
 import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseAuthManager
 import com.example.fyp_25_s4_23.data.remote.firebase.UserProfileRepository
+import com.example.fyp_25_s4_23.data.remote.firebase.UsernameService
+import com.example.fyp_25_s4_23.data.remote.dto.PendingUsernameStore
 
 
 sealed interface AppScreen {
@@ -82,13 +84,15 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val detectionController = DetectionController(application, ModelRunner(application))
 
     private val modelRunner = ModelRunner(application)
-    private val registerUser = RegisterUser(userRepository)
-    private val loginUser = LoginUser(userRepository)
-    private val logoutUser = LogoutUser()
+//    private val registerUser = RegisterUser(userRepository)
+//    private val loginUser = LoginUser(userRepository)
+//    private val logoutUser = LogoutUser()
     private val saveDetectionAlert = SaveDetectionAlertUseCase(alertRepository)
 
     private val _state = MutableStateFlow(AppUiState())
 
+    private val usernameService = UsernameService()
+    private val pendingUsernameStore = PendingUsernameStore(application)
     private val userProfileRepository = UserProfileRepository()
 
     private val tokenStore = FCMTokenStore(application)
@@ -259,6 +263,13 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     throw IllegalStateException("Please verify your email before logging in.")
                 }
 
+                val pendingUsername = pendingUsernameStore.get()
+
+                if (pendingUsername != null) {
+                    usernameService.claimUsername(pendingUsername)
+                    pendingUsernameStore.clear()
+                }
+
                 val profile = userProfileRepository.getUserProfile(firebaseUser.uid)
                 val user = UserAccount(
                     id = firebaseUser.uid.hashCode().toLong(),
@@ -300,37 +311,47 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     }
 
 
-    fun register(email: String, password: String) {
+    fun register(
+        email: String,
+        username: String,
+        displayName: String,
+        password: String
+    ) {
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true, message = null) }
 
             runCatching {
-                FirebaseAuthManager.register(
-                    email = email.trim(),
-                    password = password
-                )
+                val cleanUsername = username.trim().lowercase()
 
+                val available = usernameService.checkUsername(cleanUsername)
+                if (!available) {
+                    throw IllegalStateException("Username already taken")
+                }
+
+                FirebaseAuthManager.register(email.trim(), password)
                 FirebaseAuthManager.sendEmailVerification()
+
+                // store temp username
+                pendingUsernameStore.save(cleanUsername)
+            }.onSuccess {
+                _state.update {
+                    it.copy(
+                        screen = AppScreen.Login,
+                        isBusy = false,
+                        message = "Account created. Please verify your email, then log in to complete setup."
+                    )
+                }
+            }.onFailure { e ->
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = e.message ?: "Registration failed"
+                    )
+                }
             }
-                .onSuccess {
-                    _state.update {
-                        it.copy(
-                            screen = AppScreen.Login,
-                            isBusy = false,
-                            message = "Account created. Please verify your email."
-                        )
-                    }
-                }
-                .onFailure { throwable ->
-                    _state.update {
-                        it.copy(
-                            isBusy = false,
-                            message = throwable.message ?: "Registration failed"
-                        )
-                    }
-                }
         }
     }
+
 
 
     fun logout() {
