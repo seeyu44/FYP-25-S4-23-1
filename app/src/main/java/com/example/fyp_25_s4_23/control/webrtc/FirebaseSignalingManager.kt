@@ -38,6 +38,18 @@ class FirebaseSignalingManager {
     }
 
 
+    // Send offer to callee
+    fun sendOffer(callId: String, offerSdp: String){
+        firestore.collection("calls")
+            .document(callId)
+            .update(
+                mapOf(
+                    "offer.sdp" to offerSdp,
+                    "status" to "ringing"
+                )
+            )
+    }
+
     // Sends an answer back to the caller.
 
     fun sendAnswer(callId: String, answerSdp: String) {

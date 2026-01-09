@@ -75,6 +75,7 @@ class WebRtcClient(
         peerConnection.createOffer(object : SdpObserverImpl() {
             override fun onCreateSuccess(sdp: SessionDescription) {
                 peerConnection.setLocalDescription(this, sdp)
+                signaling.sendOffer(callId, sdp.description)
             }
         }, MediaConstraints())
     }
