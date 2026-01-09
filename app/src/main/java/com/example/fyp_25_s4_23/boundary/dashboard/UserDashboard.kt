@@ -28,6 +28,7 @@ import com.example.fyp_25_s4_23.control.controllers.SystemController
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.boundary.debug.ModelTestScreen
 import com.example.fyp_25_s4_23.control.viewmodel.ModelTestResult
+import com.example.fyp_25_s4_23.boundary.call.VoipCallManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -196,6 +197,44 @@ fun UserDashboard(
                             enabled = userSettings.realTimeDetectionEnabled,
                             onToggleDetection = onToggleDetection
                         )
+                    }
+                }
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "VoIP Calls (Test)",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            if (users.isEmpty()) {
+                                Text("No other users available")
+                            } else {
+                                users
+                                    .filter { it.id != user.id } // don’t call yourself
+                                    .forEach { otherUser ->
+                                        Button(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 8.dp),
+                                            onClick = {
+                                                VoipCallManager.startOutgoingVoipCall(
+                                                    context = ctx,
+                                                    calleeUserId = otherUser.id.toString()
+                                                )
+                                            }
+                                        ) {
+                                            Text("Call ${otherUser.username}")
+                                        }
+                                    }
+                            }
+                        }
                     }
                 }
 

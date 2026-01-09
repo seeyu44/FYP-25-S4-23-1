@@ -10,7 +10,7 @@ import com.google.firebase.firestore.ListenerRegistration
  */
 class FirebaseSignalingManager {
 
-//Removed createCall + registerDevice, these functions are handled by FastApi
+
 
     private val firestore = FirebaseFirestore.getInstance()
     private var callListener: ListenerRegistration? = null
@@ -21,6 +21,7 @@ class FirebaseSignalingManager {
     fun listenToCall(
         callId: String,
         onOffer: (String) -> Unit,
+        onAnswer: (String) -> Unit,
         onEnded: () -> Unit
     ) {
         callListener = firestore.collection("calls")
@@ -29,12 +30,35 @@ class FirebaseSignalingManager {
                 if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
 
                 when (snapshot.getString("status")) {
-                    "ringing", "accepted", "in_call" -> {
+                    "ringing" -> {
                         snapshot.getString("offer_sdp")?.let(onOffer)
+                    }
+                    "in_call" -> {
+                        snapshot.getString("answer_sdp")?.let(onAnswer)
                     }
                     "ended" -> onEnded()
                 }
             }
+    }
+
+    fun createCall(
+        callId: String,
+        callerUid: String,
+        calleeUid: String
+    ) {
+        val callData = mapOf(
+            "caller_user_id" to callerUid,
+            "callee_user_id" to calleeUid,
+            "status" to "ringing",
+            "offer_sdp" to null,
+            "answer_sdp" to null,
+            "created_at" to (System.currentTimeMillis() / 1000)
+        )
+
+        FirebaseFirestore.getInstance()
+            .collection("calls")
+            .document(callId)
+            .set(callData)
     }
 
 

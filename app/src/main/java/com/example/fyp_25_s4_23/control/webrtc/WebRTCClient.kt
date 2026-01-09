@@ -88,6 +88,14 @@ class WebRtcClient(
         createAnswer()
     }
 
+    fun onRemoteAnswerReceived(answer: String) {
+        peerConnection.setRemoteDescription(
+            SdpObserverImpl(),
+            SessionDescription(SessionDescription.Type.ANSWER, answer)
+        )
+    }
+
+
     private fun createAnswer() {
         peerConnection.createAnswer(object : SdpObserverImpl() {
             override fun onCreateSuccess(sdp: SessionDescription) {

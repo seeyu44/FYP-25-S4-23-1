@@ -3,43 +3,30 @@ package com.example.fyp_25_s4_23.control.viewmodel
 import android.Manifest
 import android.app.Application
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.fyp_25_s4_23.control.controllers.DetectionController
-import com.example.fyp_25_s4_23.control.usecases.LoginUser
-import com.example.fyp_25_s4_23.control.usecases.LogoutUser
-import com.example.fyp_25_s4_23.control.usecases.RegisterUser
-import com.example.fyp_25_s4_23.control.usecases.SaveDetectionAlertUseCase
-import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
-import com.example.fyp_25_s4_23.entity.data.repositories.AlertRepository
-import com.example.fyp_25_s4_23.entity.data.repositories.CallRepository
-import com.example.fyp_25_s4_23.entity.data.repositories.SettingsRepository
-import com.example.fyp_25_s4_23.entity.data.repositories.UserRepository
-import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
-import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
-import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
-import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
-import com.example.fyp_25_s4_23.entity.ml.ModelRunner
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import com.example.fyp_25_s4_23.control.AlertHandlerHolder
 import com.example.fyp_25_s4_23.boundary.handlers.InCallAlertHandler
-import android.util.Log
-
+import com.example.fyp_25_s4_23.control.AlertHandlerHolder
+import com.example.fyp_25_s4_23.control.controllers.DetectionController
+import com.example.fyp_25_s4_23.control.usecases.SaveDetectionAlertUseCase
 import com.example.fyp_25_s4_23.data.remote.dto.FCMTokenStore
-import com.example.fyp_25_s4_23.util.mapUserRole
-
-import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseAuthManager
-import com.example.fyp_25_s4_23.data.remote.firebase.UserProfileRepository
-import com.example.fyp_25_s4_23.data.remote.firebase.UsernameService
 import com.example.fyp_25_s4_23.data.remote.dto.PendingUsernameStore
+import com.example.fyp_25_s4_23.data.remote.firebase.*
+import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
+import com.example.fyp_25_s4_23.entity.data.repositories.*
+import com.example.fyp_25_s4_23.entity.domain.entities.*
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.*
+import com.example.fyp_25_s4_23.entity.ml.ModelRunner
+import com.example.fyp_25_s4_23.util.mapUserRole
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 
+/* =========================
+   NAVIGATION
+   ========================= */
 
 sealed interface AppScreen {
     data object Loading : AppScreen
@@ -50,13 +37,16 @@ sealed interface AppScreen {
     data object Dashboard : AppScreen
 }
 
+/* =========================
+   UI STATE
+   ========================= */
+
 data class ModelTestResult(
     val status: String = "Idle",
     val selectedFile: String? = null,
-    val score: Float? = null,
-    val spectrogramBitmap: android.graphics.Bitmap? = null,
-    val spectrogramFrames: Int? = null
+    val score: Float? = null
 )
+
 data class AppUiState(
     val screen: AppScreen = AppScreen.Loading,
     val currentUser: UserAccount? = null,
@@ -65,12 +55,16 @@ data class AppUiState(
     val callRecords: List<CallRecord> = emptyList(),
     val message: String? = null,
     val isBusy: Boolean = false,
-//    val modelTestResult: String? = null
     val modelTest: ModelTestResult = ModelTestResult()
 )
 
+/* =========================
+   VIEW MODEL
+   ========================= */
+
 class AppMainViewModel(application: Application) : AndroidViewModel(application) {
 
+    /* ---------- Local DB ---------- */
     private val db = AppDatabase.getInstance(application)
     private val userRepository = UserRepository(db.userDao())
     private val callRepository = CallRepository(
@@ -80,197 +74,77 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     )
     private val alertRepository = AlertRepository(db.alertEventDao())
     private val settingsRepository = SettingsRepository(db.userSettingsDao())
-    private val alertHandler = InCallAlertHandler(application)
-    private val detectionController = DetectionController(application, ModelRunner(application))
 
-    private val modelRunner = ModelRunner(application)
-//    private val registerUser = RegisterUser(userRepository)
-//    private val loginUser = LoginUser(userRepository)
-//    private val logoutUser = LogoutUser()
-    private val saveDetectionAlert = SaveDetectionAlertUseCase(alertRepository)
-
-    private val _state = MutableStateFlow(AppUiState())
-
+    /* ---------- Firebase ---------- */
+    private val firebaseUserDirectory = FirebaseUserDirectory()
+    private val userProfileRepository = UserProfileRepository()
     private val usernameService = UsernameService()
     private val pendingUsernameStore = PendingUsernameStore(application)
-    private val userProfileRepository = UserProfileRepository()
-
     private val tokenStore = FCMTokenStore(application)
+
+    /* ---------- Detection ---------- */
+    private val modelRunner = ModelRunner(application)
+    private val detectionController = DetectionController(application, modelRunner)
+    private val saveDetectionAlert = SaveDetectionAlertUseCase(alertRepository)
+
+    /* ---------- UI ---------- */
+    private val alertHandler = InCallAlertHandler(application)
+    private val _state = MutableStateFlow(AppUiState())
     val state: StateFlow<AppUiState> = _state.asStateFlow()
 
+    /* =========================
+       INIT
+       ========================= */
 
     init {
         AlertHandlerHolder.handler = alertHandler
+
+        FirebaseAuth.getInstance()
+            .addAuthStateListener { auth ->
+                if (auth.currentUser != null) {
+                    Log.i("AuthListener", "Firebase auth ready")
+                    refreshDashboard()
+                }
+            }
+
         viewModelScope.launch {
             userRepository.ensureDefaultAdmin()
             _state.update { it.copy(screen = AppScreen.Login) }
         }
     }
 
-    // AppMainViewModel.kt (runModelTest 함수)
-    fun runModelTest(audioFile: String) {
-        viewModelScope.launch(Dispatchers.Default) {
-            try {
-                // 1. UI 상태를 Running으로 업데이트
-                withContext(Dispatchers.Main) {
-                    _state.update {
-                        it.copy(
-                            isBusy = true,
-                            message = null,
-                            modelTest = ModelTestResult(
-                                status = "Running...",
-                                selectedFile = audioFile
-                            )
-                        )
-                    }
-                }
+    /* =========================
+       NAVIGATION
+       ========================= */
 
-                val modelRunResult = runCatching {
-                    modelRunner.inferFromAsset("demo_audio/$audioFile")
-                }.getOrNull()
+    fun navigateToRegister() = _state.update { it.copy(screen = AppScreen.Register) }
+    fun navigateToLogin() = _state.update { it.copy(screen = AppScreen.Login) }
+    fun navigateToDashboard() = _state.update { it.copy(screen = AppScreen.Dashboard) }
+    fun navigateToSummary() = _state.update { it.copy(screen = AppScreen.Summary) }
+    fun navigateToCallHistory() = _state.update { it.copy(screen = AppScreen.CallHistory) }
 
-                val probability = modelRunResult?.score ?: 0.0f
-                val threshold = _state.value.userSettings.detectionThreshold
-                val isDeepfake = probability >= threshold
-
-                Log.d("ViewModelAlert", "Model Test Probability: $probability (Threshold: $threshold) for file: $audioFile")
-
-                // Generate a random phone number
-                val randomAreaCode = (200..999).random()
-                val randomPrefix = (200..999).random()
-                val randomLineNumber = (1000..9999).random()
-                val randomPhoneNumber = "+1 $randomAreaCode $randomPrefix $randomLineNumber"
-                
-                // Create a call record
-                val callId = java.util.UUID.randomUUID().toString()
-                val currentTimeSeconds = System.currentTimeMillis() / 1000
-                
-                val callRecord = com.example.fyp_25_s4_23.entity.domain.entities.CallRecord(
-                    id = callId,
-                    metadata = com.example.fyp_25_s4_23.entity.domain.entities.CallMetadata(
-                        phoneNumber = randomPhoneNumber,
-                        displayName = "Test Audio Call",
-                        startTimeSeconds = currentTimeSeconds - 60,
-                        endTimeSeconds = currentTimeSeconds - 30,
-                        direction = com.example.fyp_25_s4_23.entity.domain.valueobjects.CallDirection.INCOMING
-                    ),
-                    status = com.example.fyp_25_s4_23.entity.domain.valueobjects.CallStatus.COMPLETED,
-                    detections = listOf(
-                        com.example.fyp_25_s4_23.entity.domain.entities.DetectionResult(
-                            probability = probability,
-                            isDeepfake = isDeepfake,
-                            modelVersion = "0.0.1"
-                        )
-                    )
-                )
-                
-                // Save call record to database (must complete before refreshing)
-                val saveSuccess = runCatching {
-                    val currentUser = _state.value.currentUser
-                    callRepository.upsert(callRecord, currentUser?.id)
-                    Log.i("ViewModelAlert", "Call record saved from model test with phone: $randomPhoneNumber")
-                    true
-                }.getOrElse { e ->
-                    Log.e("ViewModelAlert", "Failed to save call record", e)
-                    false
-                }
-                
-                if (isDeepfake && saveSuccess) {
-                    // Save alert to database
-                    runCatching {
-                        saveDetectionAlert(callId, probability)
-                        Log.i("ViewModelAlert", "Alert saved to database for Model Test.")
-                    }.onFailure { e ->
-                        Log.e("ViewModelAlert", "Failed to save alert to database", e)
-                    }
-                    
-                    // Display UI alert (toast + vibration) on Main thread
-                    withContext(Dispatchers.Main) {
-                        AlertHandlerHolder.handler?.displayCriticalAlert(probability)
-                        Log.i("ViewModelAlert", "Alert displayed for Model Test.")
-                    }
-                }
-                
-                // Refresh dashboard to show new call (must be after save completes)
-                if (saveSuccess) {
-                    refreshDashboard()
-                }
-
-                val statusText = if (modelRunResult != null) "Done" else "Failed (see logcat)"
-
-                withContext(Dispatchers.Main) {
-                    _state.update {
-                        it.copy(
-                            isBusy = false,
-                            message = if (isDeepfake) "Alert triggered by model test." else null,
-                            modelTest = ModelTestResult(
-                                status = statusText,
-                                selectedFile = audioFile,
-                                score = probability
-                            )
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("ViewModelAlert", "Error during model test", e)
-                withContext(Dispatchers.Main) {
-                    _state.update {
-                        it.copy(
-                            isBusy = false,
-                            message = "Error: ${e.message}",
-                            modelTest = ModelTestResult(
-                                status = "Failed",
-                                selectedFile = audioFile
-                            )
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    fun navigateToRegister() {
-        _state.update { it.copy(screen = AppScreen.Register, message = null) }
-    }
-
-    fun navigateToLogin() {
-        _state.update { it.copy(screen = AppScreen.Login, message = null) }
-    }
-
-    fun navigateToSummary() {
-        _state.update { it.copy(screen = AppScreen.Summary, message = null) }
-    }
-
-    fun navigateToCallHistory() {
-        _state.update { it.copy(screen = AppScreen.CallHistory, message = null) }
-    }
-
-    fun navigateToDashboard() {
-        _state.update { it.copy(screen = AppScreen.Dashboard, message = null) }
-    }
+    /* =========================
+       AUTH
+       ========================= */
 
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true, message = null) }
 
             runCatching {
-                val firebaseUser = FirebaseAuthManager.login(
-                    email = email.trim(),
-                    password = password
-                )
+                val firebaseUser = FirebaseAuthManager.login(email.trim(), password)
 
                 if (!firebaseUser.isEmailVerified) {
-                    throw IllegalStateException("Please verify your email before logging in.")
+                    error("Please verify your email before logging in.")
                 }
 
-                val pendingUsername = pendingUsernameStore.get()
-
-                if (pendingUsername != null) {
-                    usernameService.claimUsername(pendingUsername)
+                pendingUsernameStore.get()?.let {
+                    usernameService.claimUsername(it)
                     pendingUsernameStore.clear()
                 }
 
                 val profile = userProfileRepository.getUserProfile(firebaseUser.uid)
+
                 val user = UserAccount(
                     id = firebaseUser.uid.hashCode().toLong(),
                     username = profile.username,
@@ -279,80 +153,60 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     createdAtSeconds = profile.createdAtSeconds
                 )
 
-                val settings = settingsRepository.get(user.id)
+                user to settingsRepository.get(user.id)
+            }.onSuccess { (user, settings) ->
+                _state.update {
+                    it.copy(
+                        currentUser = user,
+                        userSettings = settings,
+                        screen = AppScreen.Dashboard,
+                        isBusy = false
+                    )
+                }
 
-                user to settings
+                if (settings.realTimeDetectionEnabled && hasRecordAudioPermission()) {
+                    detectionController.startMonitoring()
+                }
+
+                refreshDashboard()
+            }.onFailure {
+                _state.update {
+                    it.copy(isBusy = false, message = it.message ?: "Login failed")
+                }
             }
-                .onSuccess { (user, settings) ->
-                    _state.update {
-                        it.copy(
-                            currentUser = user,
-                            userSettings = settings,
-                            screen = AppScreen.Dashboard,
-                            isBusy = false
-                        )
-                    }
-
-                    if (settings.realTimeDetectionEnabled && hasRecordAudioPermission()) {
-                        detectionController.startMonitoring()
-                    }
-
-                    refreshDashboard()
-                }
-                .onFailure { throwable ->
-                    _state.update {
-                        it.copy(
-                            isBusy = false,
-                            message = throwable.message ?: "Login failed"
-                        )
-                    }
-                }
         }
     }
 
-
-    fun register(
-        email: String,
-        username: String,
-        displayName: String,
-        password: String
-    ) {
+    fun register(email: String, username: String, displayName: String, password: String) {
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true, message = null) }
 
             runCatching {
                 val cleanUsername = username.trim().lowercase()
 
-                val available = usernameService.checkUsername(cleanUsername)
-                if (!available) {
-                    throw IllegalStateException("Username already taken")
+                if (!usernameService.checkUsername(cleanUsername)) {
+                    error("Username already taken")
                 }
 
                 FirebaseAuthManager.register(email.trim(), password)
                 FirebaseAuthManager.sendEmailVerification()
 
-                // store temp username
                 pendingUsernameStore.save(cleanUsername)
             }.onSuccess {
                 _state.update {
                     it.copy(
                         screen = AppScreen.Login,
                         isBusy = false,
-                        message = "Account created. Please verify your email, then log in to complete setup."
+                        message = "Account created. Verify email, then log in."
                     )
                 }
-            }.onFailure { e ->
+            }.onFailure {
                 _state.update {
-                    it.copy(
-                        isBusy = false,
-                        message = e.message ?: "Registration failed"
-                    )
+                    it.copy(isBusy = false, message = it.message ?: "Registration failed")
                 }
             }
         }
     }
-
-
 
     fun logout() {
         viewModelScope.launch {
@@ -365,65 +219,154 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     userSettings = UserSettings(),
                     screen = AppScreen.Login,
                     message = "Logged out",
-                    callRecords = emptyList()
+                    callRecords = emptyList(),
+                    users = emptyList()
                 )
             }
         }
     }
 
+
+    /* =========================
+       DASHBOARD
+       ========================= */
+
     fun refreshDashboard() {
-        val user = _state.value.currentUser ?: return
+        val firebaseUser = FirebaseAuthManager.currentUser() ?: return
+
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true) }
-            val users = if (user.role == UserRole.ADMIN) userRepository.listUsers() else emptyList()
+
+            val remoteUsers = firebaseUserDirectory.getAllUsers()
+
+            val mappedUsers = remoteUsers
+                .filter { it.uid != firebaseUser.uid }
+                .map {
+                    UserAccount(
+                        id = it.uid.hashCode().toLong(),
+                        username = it.username,
+                        displayName = it.username,
+                        role = UserRole.REGISTERED,
+                        createdAtSeconds = 0
+                    )
+                }
+
             val calls = callRepository.listRecent()
-            _state.update { it.copy(users = users, callRecords = calls, isBusy = false) }
+
+            _state.update {
+                it.copy(
+                    users = mappedUsers,
+                    callRecords = calls,
+                    isBusy = false
+                )
+            }
         }
     }
+
+    /* =========================
+       DETECTION
+       ========================= */
 
     fun setRealTimeDetection(enabled: Boolean) {
         val user = _state.value.currentUser ?: return
+
         if (enabled && !hasRecordAudioPermission()) {
             _state.update {
                 it.copy(
-                    userSettings = it.userSettings.copy(realTimeDetectionEnabled = false),
-                    message = "Microphone permission required to enable detection"
+                    message = "Microphone permission required",
+                    userSettings = it.userSettings.copy(realTimeDetectionEnabled = false)
                 )
-            }
-            viewModelScope.launch {
-                settingsRepository.update(user.id, _state.value.userSettings)
             }
             return
         }
-        _state.update { it.copy(userSettings = it.userSettings.copy(realTimeDetectionEnabled = enabled)) }
-        if (enabled) {
-            detectionController.startMonitoring()
-        } else {
-            detectionController.stopMonitoring()
+
+        _state.update {
+            it.copy(userSettings = it.userSettings.copy(realTimeDetectionEnabled = enabled))
         }
+
+        if (enabled) detectionController.startMonitoring()
+        else detectionController.stopMonitoring()
+
         viewModelScope.launch {
             settingsRepository.update(user.id, _state.value.userSettings)
         }
     }
 
+    /* =========================
+       MODEL TEST
+       ========================= */
 
+    fun runModelTest(audioFile: String) {
+        viewModelScope.launch(Dispatchers.Default) {
+            _state.update {
+                it.copy(
+                    isBusy = true,
+                    modelTest = ModelTestResult(status = "Running...", selectedFile = audioFile)
+                )
+            }
 
-    suspend fun aggregateSummary(startMillis: Long, endMillis: Long, periodDaily: Boolean): List<com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics> {
+            val result = runCatching {
+                modelRunner.inferFromAsset("demo_audio/$audioFile")
+            }.getOrNull()
+
+            val probability = result?.score ?: 0f
+            val isDeepfake = probability >= _state.value.userSettings.detectionThreshold
+
+            if (isDeepfake) {
+                saveDetectionAlert(
+                    java.util.UUID.randomUUID().toString(),
+                    probability
+                )
+                AlertHandlerHolder.handler?.displayCriticalAlert(probability)
+            }
+
+            _state.update {
+                it.copy(
+                    isBusy = false,
+                    modelTest = ModelTestResult(
+                        status = if (result != null) "Done" else "Failed",
+                        selectedFile = audioFile,
+                        score = probability
+                    )
+                )
+            }
+
+            refreshDashboard()
+        }
+    }
+
+    /* =========================
+       SUMMARY
+       ========================= */
+
+    suspend fun aggregateSummary(
+        startMillis: Long,
+        endMillis: Long,
+        daily: Boolean
+    ): List<com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics> {
         val threshold = _state.value.userSettings.detectionThreshold
-        val rows = if (periodDaily) callRepository.dailyAggregates(startMillis, endMillis, threshold) else callRepository.weeklyAggregates(startMillis, endMillis, threshold)
-        return rows.map { r ->
+        val rows = if (daily)
+            callRepository.dailyAggregates(startMillis, endMillis, threshold)
+        else
+            callRepository.weeklyAggregates(startMillis, endMillis, threshold)
+
+        return rows.map {
             com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics(
-                label = r.period,
-                totalCalls = r.total,
-                answered = r.answered,
-                missed = r.missed,
-                suspicious = r.suspicious,
-                blocked = r.blocked,
-                warned = (r.suspicious - r.blocked).coerceAtLeast(0),
-                avgConfidence = r.avgConfidence ?: -1.0
+                label = it.period,
+                totalCalls = it.total,
+                answered = it.answered,
+                missed = it.missed,
+                suspicious = it.suspicious,
+                blocked = it.blocked,
+                warned = (it.suspicious - it.blocked).coerceAtLeast(0),
+                avgConfidence = it.avgConfidence ?: -1.0
             )
         }
     }
+
+    /* =========================
+       PERMISSIONS
+       ========================= */
 
     private fun hasRecordAudioPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
