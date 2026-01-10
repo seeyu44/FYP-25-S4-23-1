@@ -28,6 +28,7 @@ import com.example.fyp_25_s4_23.boundary.auth.RegisterScreen
 import com.example.fyp_25_s4_23.boundary.callhistory.CallHistoryScreen
 import com.example.fyp_25_s4_23.boundary.dashboard.DashboardScreen
 import com.example.fyp_25_s4_23.boundary.dashboard.SummaryScreen
+import com.example.fyp_25_s4_23.boundary.dashboard.UserDashboard
 import com.example.fyp_25_s4_23.control.controllers.SystemController
 import com.example.fyp_25_s4_23.control.viewmodel.AppMainViewModel
 import com.example.fyp_25_s4_23.control.viewmodel.AppScreen
@@ -138,7 +139,7 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             } else {
                 val systemController = remember { SystemController() }
 
-                DashboardScreen(
+                UserDashboard(
                     user = user,
                     callRecords = uiState.callRecords,
                     userSettings = uiState.userSettings,

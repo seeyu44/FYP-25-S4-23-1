@@ -250,6 +250,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                         createdAtSeconds = 0
                     )
                 }
+            Log.d("VOIP_DEBUG", "Remote users fetched: ${remoteUsers.size}")
 
             val calls = callRepository.listRecent()
 

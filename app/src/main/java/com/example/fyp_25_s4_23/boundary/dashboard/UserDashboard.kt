@@ -54,6 +54,7 @@ fun UserDashboard(
 
     LaunchedEffect(user.role) {
         Toast.makeText(ctx, "Dashboard role: ${user.role}", Toast.LENGTH_SHORT).show()
+        Log.d("VOIP_DEBUG_UI", "Users received in UI: ${users.size}")
     }
 
     Scaffold(
