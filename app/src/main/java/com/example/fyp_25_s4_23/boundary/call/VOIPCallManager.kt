@@ -17,14 +17,14 @@ object VoipCallManager {
 
         val callId = UUID.randomUUID().toString()
 
-        // 🔹 Create Firestore call document (THIS is what you were missing)
+        //Create Firestore call document
         FirebaseSignalingManager().createCall(
             callId = callId,
             callerUid = caller.uid,
             calleeUid = calleeUserId
         )
 
-        // 🔹 Launch VoIP call UI
+        //Launch VoIP call UI
         val intent = Intent(context, CallInProgressActivity::class.java).apply {
             putExtra("CALL_ID", callId)
             putExtra("IS_INCOMING", false)

@@ -154,6 +154,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
                 val user = UserAccount(
                     id = firebaseUser.uid.hashCode().toLong(),
+                    firebaseUid = firebaseUser.uid,
                     username = profile.username,
                     displayName = profile.displayName.ifBlank { profile.username },
                     role = mapUserRole(profile.role),
@@ -254,6 +255,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 .map {
                     UserAccount(
                         id = it.uid.hashCode().toLong(),
+                        firebaseUid = it.uid,
                         username = it.username,
                         displayName = it.username,
                         role = UserRole.REGISTERED,

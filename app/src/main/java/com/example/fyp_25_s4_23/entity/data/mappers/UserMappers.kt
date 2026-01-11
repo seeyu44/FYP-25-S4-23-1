@@ -9,7 +9,8 @@ fun UserEntity.toDomain(): UserAccount = UserAccount(
     username = username,
     displayName = displayName,
     role = UserRole.valueOf(role),
-    createdAtSeconds = createdAtSeconds
+    createdAtSeconds = createdAtSeconds,
+    firebaseUid = null
 )
 
 fun UserAccount.toEntity(passwordHash: String): UserEntity = UserEntity(

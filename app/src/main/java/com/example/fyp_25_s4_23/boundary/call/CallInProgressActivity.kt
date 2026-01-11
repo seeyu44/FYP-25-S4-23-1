@@ -20,7 +20,7 @@ class CallInProgressActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 🔹 Read intent extras
+        //Read intent extras
         val callId = intent.getStringExtra("CALL_ID")
             ?: error("CALL_ID missing")
 
@@ -32,7 +32,7 @@ class CallInProgressActivity : ComponentActivity() {
         val localUserId = FirebaseAuthManager.currentUser()?.uid
             ?: error("User not logged in")
 
-        // 🔹 Setup signaling + WebRTC
+        //Setup signaling + WebRTC
         signaling = FirebaseSignalingManager()
 
         webRtcClient = WebRtcClient(
@@ -44,12 +44,12 @@ class CallInProgressActivity : ComponentActivity() {
             remoteUserId = remoteUserId
         )
 
-        // 🔹 Initialize WebRTC ONCE
+        //Initialize WebRTC ONCE
         webRtcClient!!.initialize()
         webRtcClient!!.createAudioTrack()
         webRtcClient!!.createPeerConnection()
 
-        // 🔹 Listen to signaling updates
+        //Listen to signaling updates
         signaling.listenToCall(
             callId = callId,
 
@@ -71,10 +71,10 @@ class CallInProgressActivity : ComponentActivity() {
             }
         )
 
-        // 🔹 Start ICE + create offer if caller
+        //Start ICE + create offer if caller
         webRtcClient!!.start()
 
-        // 🔹 UI
+        //UI
         setContent {
             FYP25S423Theme {
                 Surface {
