@@ -34,6 +34,10 @@ import com.example.fyp_25_s4_23.control.viewmodel.AppMainViewModel
 import com.example.fyp_25_s4_23.control.viewmodel.AppScreen
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,6 +66,11 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
     ) { granted ->
         viewModel.setRealTimeDetection(granted)
     }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted -> //viewModel.setNotificationPermission(granted)
+    }
+
 
     val detectionToggleHandler: (Boolean) -> Unit = { enabled ->
         if (enabled) {
@@ -76,6 +85,21 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             }
         } else {
             viewModel.setRealTimeDetection(false)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!granted) {
+                notificationPermissionLauncher.launch(
+                    Manifest.permission.POST_NOTIFICATIONS
+                )
+            }
         }
     }
 
