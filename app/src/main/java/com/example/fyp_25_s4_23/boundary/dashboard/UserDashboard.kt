@@ -225,10 +225,12 @@ fun UserDashboard(
                                                 .fillMaxWidth()
                                                 .padding(top = 8.dp),
                                             onClick = {
-                                                VoipCallManager.startOutgoingVoipCall(
-                                                    context = ctx,
-                                                    calleeUserId = otherUser.firebaseUid!!
-                                                )
+                                                otherUser.firebaseUid?.let { uid ->
+                                                    VoipCallManager.startOutgoingVoipCall(
+                                                        context = ctx,
+                                                        calleeUserId = uid
+                                                    )
+                                                }
                                             }
                                         ) {
                                             Text("Call ${otherUser.username}")

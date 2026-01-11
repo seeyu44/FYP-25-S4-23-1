@@ -6,6 +6,7 @@ import com.example.fyp_25_s4_23.domain.valueobjects.UserRole
 
 fun UserEntity.toDomain(): UserAccount = UserAccount(
     id = id,
+    firebaseUid = null,
     username = username,
     displayName = displayName,
     role = UserRole.valueOf(role),
