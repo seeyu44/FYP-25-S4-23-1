@@ -23,6 +23,7 @@ import com.example.fyp_25_s4_23.util.mapUserRole
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import com.example.fyp_25_s4_23.control.call.IncomingCallListener
 
 /* =========================
    NAVIGATION
@@ -101,9 +102,17 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
         FirebaseAuth.getInstance()
             .addAuthStateListener { auth ->
-                if (auth.currentUser != null) {
-                    Log.i("AuthListener", "Firebase auth ready")
+                val user = auth.currentUser
+
+                if (user != null) {
+                    Log.i("AuthListener", "Firebase auth ready :${user.uid}")
+
+                    IncomingCallListener.start(getApplication())
+
                     refreshDashboard()
+                }
+                else{
+                    IncomingCallListener.stop() // stop checking for incoming call on logout
                 }
             }
 
