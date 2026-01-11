@@ -107,8 +107,6 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 if (user != null) {
                     Log.i("AuthListener", "Firebase auth ready :${user.uid}")
 
-                    IncomingCallListener.start(getApplication())
-
                     refreshDashboard()
                 }
                 else{
@@ -177,6 +175,8 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     detectionController.startMonitoring()
                 }
 
+                IncomingCallListener.start(getApplication())
+
                 refreshDashboard()
             }.onFailure {
                 _state.update {
@@ -221,6 +221,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             FirebaseAuthManager.logout()
             detectionController.stopMonitoring()
+            IncomingCallListener.stop()
 
             _state.update {
                 it.copy(
