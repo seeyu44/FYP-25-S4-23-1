@@ -227,7 +227,7 @@ fun UserDashboard(
                                             onClick = {
                                                 VoipCallManager.startOutgoingVoipCall(
                                                     context = ctx,
-                                                    calleeUserId = otherUser.firebaseUid
+                                                    calleeUserId = otherUser.firebaseUid!!
                                                 )
                                             }
                                         ) {
