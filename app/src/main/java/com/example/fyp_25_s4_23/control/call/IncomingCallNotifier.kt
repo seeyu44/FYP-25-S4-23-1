@@ -30,11 +30,13 @@ object IncomingCallNotifier {
             callId = callId,
             callerId = callerId,
             isIncoming = true
-        )
+        ).apply{
+            action = "INCOMING_CALL_$callId"
+        }
 
         val pendingIntent = PendingIntent.getActivity(
             context,
-            0,
+            callId.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

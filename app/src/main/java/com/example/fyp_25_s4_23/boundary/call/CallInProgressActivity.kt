@@ -1,6 +1,7 @@
 package com.example.fyp_25_s4_23.boundary.call
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -9,6 +10,7 @@ import com.example.fyp_25_s4_23.control.webrtc.FirebaseSignalingManager
 import com.example.fyp_25_s4_23.control.webrtc.WebRtcClient
 import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseAuthManager
 import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
+import com.example.fyp_25_s4_23.control.call.IncomingCallIntent
 
 class CallInProgressActivity : ComponentActivity() {
 
@@ -21,13 +23,23 @@ class CallInProgressActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         //Read intent extras
-        val callId = intent.getStringExtra("CALL_ID")
-            ?: error("CALL_ID missing")
+        Log.d("CALL_INTENT","extras=${intent.extras}")
+        val callId = intent.getStringExtra(IncomingCallIntent.EXTRA_CALL_ID)
+        if(callId.isNullOrBlank()){
+            Log.e("CALL_INTENT","Missing Call_ID")
+            finish()
+            return
+        }
 
         val isIncoming = intent.getBooleanExtra("IS_INCOMING", false)
 
         val remoteUserId = intent.getStringExtra("REMOTE_USER_ID")
             ?: error("REMOTE_USER_ID missing")
+        if (remoteUserId.isBlank()) {
+            Log.e("CALL_INTENT","Missing REMOTE_USER_ID")
+            finish()
+            return
+        }
 
         val localUserId = FirebaseAuthManager.currentUser()?.uid
             ?: error("User not logged in")

@@ -23,8 +23,7 @@ object IncomingCallIntent {
             putExtra(EXTRA_IS_INCOMING, isIncoming)
             putExtra("REMOTE_USER_ID", callerId)
 
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
     }
 }
