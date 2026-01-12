@@ -40,6 +40,7 @@ class WebRtcClient(
         peerConnection = factory.createPeerConnection(
             PeerConnection.RTCConfiguration(iceServers()),
             object : PeerConnectionObserver() {
+
                 override fun onIceCandidate(candidate: IceCandidate) {
                     signaling.sendIceCandidate(
                         callId,
@@ -50,6 +51,14 @@ class WebRtcClient(
                             "sdpMLineIndex" to candidate.sdpMLineIndex
                         )
                     )
+                }
+
+                override fun onTrack(transceiver: RtpTransceiver?) {
+                    val track = transceiver?.receiver?.track()
+                    if (track is AudioTrack) {
+                        track.setEnabled(true)
+                        Log.d("WebRTC", "Remote audio track received")
+                    }
                 }
             }
         )!!
@@ -76,23 +85,41 @@ class WebRtcClient(
             override fun onCreateSuccess(sdp: SessionDescription) {
                 peerConnection.setLocalDescription(this, sdp)
                 signaling.sendOffer(callId, sdp.description)
+                Log.d("WebRTC","Offer sent")
             }
         }, MediaConstraints())
     }
 
+    //callee receive offer
     fun onRemoteOfferReceived(offer: String) {
         peerConnection.setRemoteDescription(
             SdpObserverImpl(),
             SessionDescription(SessionDescription.Type.OFFER, offer)
         )
-        createAnswer()
+        Log.d("WebRTC","Remote offer set")
     }
 
+    //User tap answer
+    fun answerIncomingCall() {
+        if (isCaller) return
+
+        peerConnection.createAnswer(object : SdpObserverImpl() {
+            override fun onCreateSuccess(sdp: SessionDescription) {
+                peerConnection.setLocalDescription(this, sdp)
+                signaling.sendAnswer(callId, sdp.description)
+                Log.d("WebRTC", "Answer sent")
+            }
+        }, MediaConstraints())
+    }
+
+
+    //Caller receive answer
     fun onRemoteAnswerReceived(answer: String) {
         peerConnection.setRemoteDescription(
             SdpObserverImpl(),
             SessionDescription(SessionDescription.Type.ANSWER, answer)
         )
+        Log.d("WebRTC","Remote answer sent")
     }
 
 
@@ -106,9 +133,13 @@ class WebRtcClient(
     }
 
     fun endCall() {
+        try {
         peerConnection.close()
         audioSource.dispose()
         signaling.stopListening()
         Log.i("WebRTC", "Call ended cleanly")
+        } catch (e: Exception) {
+            Log.e("WebRTC", "Error ending call", e)
+        }
     }
 }
