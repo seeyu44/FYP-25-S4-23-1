@@ -9,6 +9,7 @@ import com.google.firebase.firestore.ListenerRegistration
 object IncomingCallListener {
 
     private var listener: ListenerRegistration? = null
+    private val handledCalls = mutableSetOf<String>()
 
     fun start(context: Context) {
         val uid = FirebaseAuth.getInstance().currentUser?.uid
@@ -59,6 +60,7 @@ object IncomingCallListener {
 
     fun stop() {
         Log.d("INCOMING_CALL", "Stopping listener")
+        handledCalls.clear()
         listener?.remove()
         listener = null
     }

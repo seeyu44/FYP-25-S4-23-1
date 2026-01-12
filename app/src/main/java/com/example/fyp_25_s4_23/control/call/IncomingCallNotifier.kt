@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import android.util.Log
 import com.example.fyp_25_s4_23.control.call.IncomingCallIntent
 
 object IncomingCallNotifier {
@@ -21,6 +22,7 @@ object IncomingCallNotifier {
         callId: String,
         callerId: String
     ) {
+        Log.d("INCOMING_CALL", "Showing notification for callId=$callId caller=$callerId")
         createChannel(context)
 
         val intent = IncomingCallIntent.create(
@@ -45,6 +47,7 @@ object IncomingCallNotifier {
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
+            .setFullScreenIntent(pendingIntent, true)
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
