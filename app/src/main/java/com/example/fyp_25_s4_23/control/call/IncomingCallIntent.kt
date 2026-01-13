@@ -9,6 +9,7 @@ object IncomingCallIntent {
     const val EXTRA_CALL_ID = "extra_call_id"
     const val EXTRA_CALLER_ID = "extra_caller_id"
     const val EXTRA_IS_INCOMING = "extra_is_incoming"
+    const val EXTRA_REMOTE_USER_ID = "extra_remote_user_id"
 
     fun create(
         context: Context,
@@ -21,7 +22,7 @@ object IncomingCallIntent {
             putExtra(EXTRA_CALL_ID, callId)
             putExtra(EXTRA_CALLER_ID, callerId)
             putExtra(EXTRA_IS_INCOMING, isIncoming)
-            putExtra("REMOTE_USER_ID", callerId)
+            putExtra("EXTRA_REMOTE_USER_ID", callerId)
 
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }

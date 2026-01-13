@@ -17,10 +17,13 @@ class CallInProgressActivity : ComponentActivity() {
     private val viewModel: CallInProgressViewModel by viewModels()
 
     private var webRtcClient: WebRtcClient? = null
-    private lateinit var signaling: FirebaseSignalingManager
+    private var signaling: FirebaseSignalingManager? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        signaling = FirebaseSignalingManager()
+        val signalingRef = signaling!!
 
         //Read intent extras
         Log.d("CALL_INTENT","extras=${intent.extras}")
@@ -31,11 +34,10 @@ class CallInProgressActivity : ComponentActivity() {
             return
         }
 
-        val isIncoming = intent.getBooleanExtra("IS_INCOMING", false)
+        val isIncoming = intent.getBooleanExtra(IncomingCallIntent.EXTRA_IS_INCOMING,false)
 
-        val remoteUserId = intent.getStringExtra("REMOTE_USER_ID")
-            ?: error("REMOTE_USER_ID missing")
-        if (remoteUserId.isBlank()) {
+        val remoteUserId = intent.getStringExtra(IncomingCallIntent.EXTRA_REMOTE_USER_ID)
+        if (remoteUserId.isNullOrBlank()) {
             Log.e("CALL_INTENT","Missing REMOTE_USER_ID")
             finish()
             return
@@ -45,12 +47,11 @@ class CallInProgressActivity : ComponentActivity() {
             ?: error("User not logged in")
 
         //Setup signaling + WebRTC
-        signaling = FirebaseSignalingManager()
 
         webRtcClient = WebRtcClient(
             context = this,
             isCaller = !isIncoming,
-            signaling = signaling,
+            signaling = signalingRef,
             callId = callId,
             userId = localUserId,
             remoteUserId = remoteUserId
@@ -62,7 +63,7 @@ class CallInProgressActivity : ComponentActivity() {
         webRtcClient!!.createPeerConnection()
 
         //Listen to signaling updates
-        signaling.listenToCall(
+        signalingRef.listenToCall(
             callId = callId,
 
             onOffer = { offer ->
@@ -97,7 +98,7 @@ class CallInProgressActivity : ComponentActivity() {
                         },
                         onHangUp = {
                             viewModel.hangUp()
-                            signaling.stopListening()
+                            signaling?.stopListening()
                             webRtcClient?.endCall()
                             finish()
                         },
@@ -110,7 +111,7 @@ class CallInProgressActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        signaling.stopListening()
+        signaling?.stopListening()
         webRtcClient?.endCall()
     }
 }
