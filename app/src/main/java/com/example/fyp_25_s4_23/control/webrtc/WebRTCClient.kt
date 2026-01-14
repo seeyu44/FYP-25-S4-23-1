@@ -40,8 +40,9 @@ class WebRtcClient(
     }
 
     fun createAudioTrack() {
-        audioSource = factory.createAudioSource(MediaConstraints())
+        audioSource = factory.createAudioSource(audioConstraints())
         audioTrack = factory.createAudioTrack("AUDIO", audioSource)
+        audioTrack.setEnabled(true)
     }
 
     private fun iceServers() = listOf(
@@ -75,10 +76,14 @@ class WebRtcClient(
             }
         )!!
 
-        peerConnection.addTrack(audioTrack)
+        peerConnection.addTransceiver(audioTrack,RtpTransceiver.RtpTransceiverInit(
+            RtpTransceiver.RtpTransceiverDirection.SEND_RECV
+        ))
     }
 
     fun start() {
+        configureAudioForCall()
+
         signaling.listenForIceCandidates(callId, remoteUserId) {
             peerConnection.addIceCandidate(
                 IceCandidate(
@@ -218,5 +223,23 @@ class WebRtcClient(
         onReadyToAnswer = null
 
         Log.i("WebRTC", "Call ended cleanly")
+    }
+
+    private fun audioConstraints(): MediaConstraints =
+        MediaConstraints().apply{
+            mandatory.add(MediaConstraints.KeyValuePair("googEchoCancellation","true"))
+            mandatory.add(MediaConstraints.KeyValuePair("googAutoGainControl","true"))
+            mandatory.add(MediaConstraints.KeyValuePair("googHighpassFilter","true"))
+            mandatory.add(MediaConstraints.KeyValuePair("googNoiseSuppression","true"))
+        }
+
+    private fun configureAudioForCall(){
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+
+        audioManager.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+        audioManager.isSpeakerphoneOn = true
+        audioManager.isMicrophoneMute = false
+
+        Log.d("WebRTC","AudioManager configured for VOIP")
     }
 }
