@@ -3,6 +3,7 @@ package com.example.fyp_25_s4_23.boundary.handlers
 import android.content.Intent
 import android.util.Log
 import com.example.fyp_25_s4_23.boundary.call.CallInProgressActivity
+import com.example.fyp_25_s4_23.control.call.IncomingCallIntent
 
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -26,14 +27,18 @@ class VOIPMessagingService : FirebaseMessagingService(){
 
         if (type == "incoming_call") {
             Log.i("VOIPMessaging", "Incoming call from $caller")
-            
-            // TODO: Start CallInProgressActivity and show "Incoming Call" UI
-            val intent = Intent(this, CallInProgressActivity::class.java).apply {
-                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                 putExtra("IS_INCOMING", true)
-                 putExtra("CALLER_ID", callId)
-                 putExtra("CALLER_NAME", caller)
-             }
+
+            if (callId.isNullOrBlank() || caller.isNullOrBlank()) {
+                Log.w("VOIPMessaging", "Missing callId or caller in incoming_call payload")
+                return
+            }
+
+            val intent = IncomingCallIntent.create(
+                this,
+                callId,
+                caller,
+                true
+            )
             startActivity(intent)
         }
     }

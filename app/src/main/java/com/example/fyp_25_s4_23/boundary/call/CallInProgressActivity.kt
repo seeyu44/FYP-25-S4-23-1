@@ -18,6 +18,7 @@ class CallInProgressActivity : ComponentActivity() {
 
     private var webRtcClient: WebRtcClient? = null
     private var signaling: FirebaseSignalingManager? = null
+    private var callId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,64 +29,78 @@ class CallInProgressActivity : ComponentActivity() {
         //Read intent extras
         Log.d("CALL_INTENT","extras=${intent.extras}")
         val callId = intent.getStringExtra(IncomingCallIntent.EXTRA_CALL_ID)
-        if(callId.isNullOrBlank()){
-            Log.e("CALL_INTENT","Missing Call_ID")
-            finish()
-            return
-        }
-
+        this.callId = callId
         val isIncoming = intent.getBooleanExtra(IncomingCallIntent.EXTRA_IS_INCOMING,false)
-
         val remoteUserId = intent.getStringExtra(IncomingCallIntent.EXTRA_REMOTE_USER_ID)
-        if (remoteUserId.isNullOrBlank()) {
-            Log.e("CALL_INTENT","Missing REMOTE_USER_ID")
-            finish()
-            return
-        }
 
         val localUserId = FirebaseAuthManager.currentUser()?.uid
             ?: error("User not logged in")
 
-        //Setup signaling + WebRTC
+        // If we don't have signaling extras, allow Telecom path (ActiveCallStore) to drive UI
+        val activeSnapshot = ActiveCallStore.state.value
+        if ((callId.isNullOrBlank() || remoteUserId.isNullOrBlank()) && activeSnapshot == null) {
+            Log.e("CALL_INTENT","Missing Call_ID and REMOTE_USER_ID and no active telecom call")
+            finish()
+            return
+        }
 
-        webRtcClient = WebRtcClient(
-            context = this,
-            isCaller = !isIncoming,
-            signaling = signalingRef,
-            callId = callId,
-            userId = localUserId,
-            remoteUserId = remoteUserId
-        )
+        // Setup signaling + WebRTC only if we have a callId and remoteUserId (signaling-based call)
+        if (!callId.isNullOrBlank() && !remoteUserId.isNullOrBlank()) {
+            // Create non-null locals for Kotlin type-safety
+            val callIdNN = callId!!
+            val remoteUserNN = remoteUserId!!
 
-        //Initialize WebRTC ONCE
-        webRtcClient!!.initialize()
-        webRtcClient!!.createAudioTrack()
-        webRtcClient!!.createPeerConnection()
+            Log.d("CALL_SIG", "Initializing signaling for callId=$callIdNN remoteUser=$remoteUserNN isIncoming=$isIncoming")
+            webRtcClient = WebRtcClient(
+                context = this,
+                isCaller = !isIncoming,
+                signaling = signalingRef,
+                callId = callIdNN,
+                userId = localUserId,
+                remoteUserId = remoteUserNN
+            )
 
-        //Listen to signaling updates
-        signalingRef.listenToCall(
-            callId = callId,
+            //Initialize WebRTC ONCE
+            webRtcClient!!.initialize()
+            webRtcClient!!.createAudioTrack()
+            webRtcClient!!.createPeerConnection()
 
-            onOffer = { offer ->
-                if (isIncoming) {
-                    webRtcClient!!.onRemoteOfferReceived(offer)
+            // Attach client to ViewModel so Answer/Hangup buttons work for signaling-based calls
+            viewModel.attachWebRtcClient(webRtcClient)
+
+            //Listen to signaling updates
+            signalingRef.listenToCall(
+                callId = callIdNN,
+
+                onOffer = { offer ->
+                    Log.d("CALL_SIG", "onOffer callback invoked for callId=$callIdNN")
+                    if (isIncoming) {
+                        Log.d("CALL_SIG", "Applying remote offer for callId=$callIdNN")
+                        // set UI to ringing so Answer button is enabled
+                        viewModel.setRinging(remoteUserNN)
+                        // Ensure the WebRTC client receives the offer and applies it
+                        webRtcClient?.onRemoteOfferReceived(offer)
+                    }
+                }, 
+
+                onAnswer = { answer ->
+                    if (!isIncoming) {
+                        webRtcClient!!.onRemoteAnswerReceived(answer)
+                    }
+                    // When an answer is observed, mark active
+                    viewModel.setActive()
+                },
+
+                onEnded = {
+                    webRtcClient!!.endCall()
+                    viewModel.setDisconnected()
+                    finish()
                 }
-            },
+            )
 
-            onAnswer = { answer ->
-                if (!isIncoming) {
-                    webRtcClient!!.onRemoteAnswerReceived(answer)
-                }
-            },
-
-            onEnded = {
-                webRtcClient!!.endCall()
-                finish()
-            }
-        )
-
-        //Start ICE + create offer if caller
-        webRtcClient!!.start()
+            //Start ICE + create offer if caller
+            webRtcClient!!.start()
+        }
 
         //UI
         setContent {
@@ -97,6 +112,8 @@ class CallInProgressActivity : ComponentActivity() {
                             viewModel.answer()
                         },
                         onHangUp = {
+                            // notify remote (if signaling-based)
+                            callId?.let { signaling?.endCall(it) }
                             viewModel.hangUp()
                             signaling?.stopListening()
                             webRtcClient?.endCall()
@@ -111,6 +128,8 @@ class CallInProgressActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        // notify remote that call ended if we had a signaling call id
+        callId?.let { signaling?.endCall(it) }
         signaling?.stopListening()
         webRtcClient?.endCall()
     }

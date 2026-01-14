@@ -68,7 +68,7 @@ class FirebaseSignalingManager {
             .document(callId)
             .update(
                 mapOf(
-                    "offer.sdp" to offerSdp,
+                    "offer_sdp" to offerSdp,
                     "status" to "ringing"
                 )
             )
@@ -114,6 +114,13 @@ class FirebaseSignalingManager {
                     doc.data?.let(onCandidate)
                 }
             }
+    }
+
+    // End the call by setting status to ended
+    fun endCall(callId: String) {
+        firestore.collection("calls")
+            .document(callId)
+            .update(mapOf("status" to "ended"))
     }
 
     //Stop listening

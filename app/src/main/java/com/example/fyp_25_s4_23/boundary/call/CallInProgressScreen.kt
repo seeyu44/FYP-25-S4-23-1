@@ -37,7 +37,7 @@ fun CallInProgressScreen(
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Button(onClick = onAnswer, enabled = uiState.stateLabel == "Ringing") {
+                Button(onClick = onAnswer, enabled = uiState.stateLabel == "Ringing" && uiState.isReadyToAnswer) {
                     Text("Answer")
                 }
                 Button(onClick = onMute, modifier = Modifier.padding(top = 12.dp)) {

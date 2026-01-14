@@ -68,6 +68,16 @@ object IncomingCallNotifier {
             .notify(callId.hashCode(), notification)
     }
 
+    fun cancelNotification(context: Context?, callId: String) {
+        try {
+            val ctx = context ?: return
+            Log.d("INCOMING_CALL", "Cancelling notification for $callId")
+            NotificationManagerCompat.from(ctx).cancel(callId.hashCode())
+        } catch (e: Exception) {
+            Log.w("INCOMING_CALL", "Failed to cancel notification for $callId", e)
+        }
+    }
+
     private fun createChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
