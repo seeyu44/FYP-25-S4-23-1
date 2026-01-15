@@ -52,9 +52,24 @@ fun UserDashboard(
     val ctx = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(user.role) {
-        Toast.makeText(ctx, "Dashboard role: ${user.role}", Toast.LENGTH_SHORT).show()
-        Log.d("VOIP_DEBUG_UI", "Users received in UI: ${users.size}")
+    // Check microphone permission
+    val hasMicPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+        ctx,
+        android.Manifest.permission.RECORD_AUDIO
+    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    val micPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            Toast.makeText(ctx, "Microphone permission is required for calls", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasMicPermission) {
+            micPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+        }
     }
 
     Scaffold(
@@ -181,6 +196,21 @@ fun UserDashboard(
 
             if (message != null) {
                 Text(text = message, modifier = Modifier.padding(top = 8.dp))
+            }
+
+            if (!hasMicPermission) {
+                androidx.compose.material3.Card(
+                    modifier = Modifier.padding(top = 8.dp),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    androidx.compose.material3.Text(
+                        text = "⚠️ Microphone permission required for calls. Please grant it to make/receive calls.",
+                        modifier = Modifier.padding(16.dp),
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
             }
 
             /* ================= MAIN CONTENT ================= */

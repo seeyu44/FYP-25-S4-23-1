@@ -17,7 +17,9 @@ data class CallUiState(
     val stateLabel: String = "Connecting",
     val isMuted: Boolean = false,
     val call: Call? = null,
-    val isReadyToAnswer: Boolean = false
+    val isReadyToAnswer: Boolean = false,
+    val localAudioState: com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState = com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState.SILENT,
+    val remoteAudioActive: Boolean = false
 )
 
 class CallInProgressViewModel : ViewModel() {
@@ -29,12 +31,25 @@ class CallInProgressViewModel : ViewModel() {
 
     fun attachWebRtcClient(client: WebRtcClient?) {
         webRtcClient = client
+
         client?.setOnReadyToAnswerListener { ready ->
             _state.value = _state.value.copy(isReadyToAnswer = ready)
             android.util.Log.d("CALL_SIG", "ReadyToAnswer: $ready")
         }
+
         client?.setOnAnsweredListener {
             setActive()
+        }
+
+        // Subscribe to audio indicator callbacks
+        client?.onLocalAudioStateChanged = { state ->
+            _state.value = _state.value.copy(localAudioState = state)
+            android.util.Log.d("CALL_SIG", "LocalAudioState: $state")
+        }
+
+        client?.onRemoteAudioStateChanged = { active ->
+            _state.value = _state.value.copy(remoteAudioActive = active)
+            android.util.Log.d("CALL_SIG", "RemoteAudioActive: $active")
         }
     }
 
@@ -51,6 +66,15 @@ class CallInProgressViewModel : ViewModel() {
                         stateLabel = stateToLabel(snapshot.state),
                         call = snapshot.call
                     )
+                    // For Telecom calls (no WebRTC client), update localAudioState based on mute state
+                    if (webRtcClient == null) {
+                        val audioState = if (_state.value.isMuted) {
+                            com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState.MUTED
+                        } else {
+                            com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState.SILENT // Assume silent when unmuted
+                        }
+                        _state.value = _state.value.copy(localAudioState = audioState)
+                    }
                 }
             }
         }
@@ -84,8 +108,29 @@ class CallInProgressViewModel : ViewModel() {
 
     fun toggleMute() {
         val newMuted = !_state.value.isMuted
-        InCallServiceHolder.service?.setMuted(newMuted)
+        android.util.Log.d("CALL_UI", "toggleMute -> newMuted=$newMuted")
+
+        // If there's a platform Telecom Call, use platform mute
+        if (_state.value.call != null) {
+            InCallServiceHolder.service?.setMuted(newMuted)
+            android.util.Log.d("CALL_UI", "Telecom mute set to $newMuted")
+        } else {
+            // Signaling/WebRTC call: toggle local audio track
+            webRtcClient?.setLocalAudioEnabled(!newMuted)
+            android.util.Log.d("CALL_UI", "WebRTC local audio set to ${!newMuted}")
+        }
+
         _state.value = _state.value.copy(isMuted = newMuted)
+
+        // Update localAudioState for Telecom calls
+        if (_state.value.call != null) {
+            val audioState = if (newMuted) {
+                com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState.MUTED
+            } else {
+                com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState.SILENT
+            }
+            _state.value = _state.value.copy(localAudioState = audioState)
+        }
     }
 
     fun setRinging(handle: String) {
