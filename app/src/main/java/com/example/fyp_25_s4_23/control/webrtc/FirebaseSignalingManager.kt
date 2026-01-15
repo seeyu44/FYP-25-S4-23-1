@@ -22,6 +22,7 @@ class FirebaseSignalingManager {
         callId: String,
         onOffer: (String) -> Unit,
         onAnswer: (String) -> Unit,
+        onStatus: (String) -> Unit,
         onEnded: () -> Unit
     ) {
         callListener = firestore.collection("calls")
@@ -29,14 +30,14 @@ class FirebaseSignalingManager {
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
 
-                when (snapshot.getString("status")) {
-                    "ringing" -> {
-                        snapshot.getString("offer_sdp")?.let(onOffer)
+                snapshot.getString("offer_sdp")?.let(onOffer)
+                snapshot.getString("answer_sdp")?.let(onAnswer)
+
+                snapshot.getString("status")?.let { status ->
+                    onStatus(status)
+                    if (status == "ended") {
+                        onEnded()
                     }
-                    "in_call" -> {
-                        snapshot.getString("answer_sdp")?.let(onAnswer)
-                    }
-                    "ended" -> onEnded()
                 }
             }
     }
@@ -113,6 +114,23 @@ class FirebaseSignalingManager {
                 snapshot?.documents?.forEach { doc ->
                     doc.data?.let(onCandidate)
                 }
+            }
+    }
+
+    fun updateCallStatus(callId:String, status:String){
+        firestore.collection("calls")
+            .document(callId)
+            .update(
+                mapOf(
+                    "status" to status,
+                    "updated_at" to com.google.firebase.Timestamp.now()
+                )
+            )
+            .addOnSuccessListener {
+                Log.d("CALL_SIG", "Call $callId status updated to $status")
+            }
+            .addOnFailureListener { e ->
+                Log.e("CALL_SIG", "Failed to update call status", e)
             }
     }
 

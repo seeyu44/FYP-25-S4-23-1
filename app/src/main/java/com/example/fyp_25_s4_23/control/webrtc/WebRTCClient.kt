@@ -18,6 +18,9 @@ class WebRtcClient(
     private lateinit var audioSource: AudioSource
     private lateinit var audioTrack: AudioTrack
 
+    private val pendingIce = mutableListOf<IceCandidate>()
+    private var remoteDescriptionSet = false
+
     // State guards for offer/answer ordering
     private var remoteOfferApplied: Boolean = false
     private var pendingAnswer: Boolean = false
@@ -73,6 +76,19 @@ class WebRtcClient(
                         Log.d("WebRTC", "Remote audio track received")
                     }
                 }
+
+                override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
+                    Log.d("ICE", "ICE state changed: $state")
+
+                    if (state == PeerConnection.IceConnectionState.CONNECTED ||
+                        state == PeerConnection.IceConnectionState.COMPLETED) {
+
+                        Log.d("CALL_STATE", "ICE connected → call is active")
+
+                        // 🔔 STEP 4: notify BOTH devices via Firebase
+                        signaling.updateCallStatus(callId, "in_call")
+                    }
+                }
             }
         )!!
 
@@ -85,13 +101,18 @@ class WebRtcClient(
         configureAudioForCall()
 
         signaling.listenForIceCandidates(callId, remoteUserId) {
-            peerConnection.addIceCandidate(
-                IceCandidate(
-                    it["sdpMid"] as String?,
-                    (it["sdpMLineIndex"] as Long).toInt(),
-                    it["candidate"] as String
-                )
+            val candidate = IceCandidate(
+                it["sdpMid"] as String?,
+                (it["sdpMLineIndex"] as Long).toInt(),
+                it["candidate"] as String
             )
+
+            if (remoteDescriptionSet) {
+                peerConnection.addIceCandidate(candidate)
+            } else {
+                pendingIce.add(candidate)
+                Log.d("WebRTC", "ICE queued (remoteDescription not set yet)")
+            }
         }
 
         if (isCaller) createOffer()
@@ -160,10 +181,24 @@ class WebRtcClient(
     //Caller receive answer
     fun onRemoteAnswerReceived(answer: String) {
         peerConnection.setRemoteDescription(
-            SdpObserverImpl(),
+            object : SdpObserverImpl() {
+                override fun onSetSuccess() {
+                    remoteDescriptionSet = true
+                    Log.d("WebRTC", "Remote answer applied")
+
+                    // Apply queued ICE
+                    pendingIce.forEach {
+                        peerConnection.addIceCandidate(it)
+                    }
+                    pendingIce.clear()
+                }
+
+                override fun onSetFailure(error: String) {
+                    Log.e("WebRTC", "Failed to set remote answer: $error")
+                }
+            },
             SessionDescription(SessionDescription.Type.ANSWER, answer)
         )
-        Log.d("WebRTC","Remote answer sent")
     }
 
 
@@ -194,6 +229,8 @@ class WebRtcClient(
             return
         }
         ended = true
+
+        signaling.updateCallStatus(callId,"ended")
 
         try {
             if (this::peerConnection.isInitialized) peerConnection.close()

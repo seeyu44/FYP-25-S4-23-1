@@ -87,8 +87,18 @@ class CallInProgressActivity : ComponentActivity() {
                     if (!isIncoming) {
                         webRtcClient!!.onRemoteAnswerReceived(answer)
                     }
-                    // When an answer is observed, mark active
-                    viewModel.setActive()
+                },
+
+                onStatus = { status ->
+                    when (status) {
+                        "ringing" -> viewModel.setRinging(remoteUserNN)
+                        //"accepted" -> viewModel.setConnecting()
+                        "in_call" -> viewModel.setActive()
+                        "ended" -> {
+                            viewModel.setDisconnected()
+                            finish()
+                        }
+                    }
                 },
 
                 onEnded = {
