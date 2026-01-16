@@ -50,7 +50,20 @@ class CallInProgressActivity : ComponentActivity() {
             val callIdNN = callId!!
             val remoteUserNN = remoteUserId!!
 
+            Log.d("CALL_TYPE", "Using SIGNALING/WebRTC call (callId=$callIdNN, remote=$remoteUserNN)")
             Log.d("CALL_SIG", "Initializing signaling for callId=$callIdNN remoteUser=$remoteUserNN isIncoming=$isIncoming")
+
+            val microphonePermissionLauncher = registerForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+            ) { granted ->
+                if (granted) {
+                    initializeWebRtc(webRtcClient, signalingRef, callIdNN, remoteUserNN, isIncoming)
+                } else {
+                    Log.w("CALL_SIG", "Microphone permission denied; cannot start WebRTC call")
+                    finish()
+                }
+            }
+
             webRtcClient = WebRtcClient(
                 context = this,
                 isCaller = !isIncoming,
@@ -60,56 +73,18 @@ class CallInProgressActivity : ComponentActivity() {
                 remoteUserId = remoteUserNN
             )
 
-            //Initialize WebRTC ONCE
-            webRtcClient!!.initialize()
-            webRtcClient!!.createAudioTrack()
-            webRtcClient!!.createPeerConnection()
+            val hasMic = androidx.core.content.ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.RECORD_AUDIO
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
-            // Attach client to ViewModel so Answer/Hangup buttons work for signaling-based calls
-            viewModel.attachWebRtcClient(webRtcClient)
-
-            //Listen to signaling updates
-            signalingRef.listenToCall(
-                callId = callIdNN,
-
-                onOffer = { offer ->
-                    Log.d("CALL_SIG", "onOffer callback invoked for callId=$callIdNN")
-                    if (isIncoming) {
-                        Log.d("CALL_SIG", "Applying remote offer for callId=$callIdNN")
-                        // set UI to ringing so Answer button is enabled
-                        viewModel.setRinging(remoteUserNN)
-                        // Ensure the WebRTC client receives the offer and applies it
-                        webRtcClient?.onRemoteOfferReceived(offer)
-                    }
-                }, 
-
-                onAnswer = { answer ->
-                    if (!isIncoming) {
-                        webRtcClient!!.onRemoteAnswerReceived(answer)
-                    }
-                },
-
-                onStatus = { status ->
-                    when (status) {
-                        "ringing" -> viewModel.setRinging(remoteUserNN)
-                        //"accepted" -> viewModel.setConnecting()
-                        "in_call" -> viewModel.setActive()
-                        "ended" -> {
-                            viewModel.setDisconnected()
-                            finish()
-                        }
-                    }
-                },
-
-                onEnded = {
-                    webRtcClient!!.endCall()
-                    viewModel.setDisconnected()
-                    finish()
-                }
-            )
-
-            //Start ICE + create offer if caller
-            webRtcClient!!.start()
+            if (hasMic) {
+                initializeWebRtc(webRtcClient, signalingRef, callIdNN, remoteUserNN, isIncoming)
+            } else {
+                microphonePermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+            }
+        } else {
+            Log.d("CALL_TYPE", "Using TELECOM call (system dialer integration)")
         }
 
         //UI
@@ -134,6 +109,38 @@ class CallInProgressActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun initializeWebRtc(client: WebRtcClient?, signalingRef: FirebaseSignalingManager, callIdNN: String, remoteUserNN: String, isIncoming: Boolean) {
+        client?.initialize()
+        client?.createAudioTrack()
+        client?.createPeerConnection()
+        viewModel.attachWebRtcClient(client)
+
+        signalingRef.listenToCall(
+            callId = callIdNN,
+            onOffer = { offer ->
+                Log.d("CALL_SIG", "onOffer callback invoked for callId=$callIdNN")
+                if (isIncoming) {
+                    Log.d("CALL_SIG", "Applying remote offer for callId=$callIdNN")
+                    viewModel.setRinging(remoteUserNN)
+                    client?.onRemoteOfferReceived(offer)
+                }
+            },
+            onAnswer = { answer ->
+                if (!isIncoming) {
+                    client?.onRemoteAnswerReceived(answer)
+                }
+                viewModel.setActive()
+            },
+            onEnded = {
+                client?.endCall()
+                viewModel.setDisconnected()
+                finish()
+            }
+        )
+
+        client?.start()
     }
 
     override fun onDestroy() {

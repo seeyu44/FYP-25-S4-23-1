@@ -43,6 +43,27 @@ fun CallInProgressScreen(
                 Button(onClick = onMute, modifier = Modifier.padding(top = 12.dp)) {
                     Text(if (uiState.isMuted) "Unmute" else "Mute")
                 }
+
+                // Local mic state indicator (Muted / Silent / Active)
+                androidx.compose.material3.Text(
+                    text = when (uiState.localAudioState) {
+                        com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState.MUTED -> "Mic: Muted"
+                        com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState.SILENT -> "Mic: On (silent)"
+                        com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState.ACTIVE -> "Mic: On (speaking)"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+
+                // Remote audio presence indicator (only for WebRTC calls)
+                if (uiState.call == null) { // WebRTC call
+                    androidx.compose.material3.Text(
+                        text = if (uiState.remoteAudioActive) "Remote: Audio" else "Remote: Silent",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+
                 Button(onClick = onHangUp, modifier = Modifier.padding(top = 12.dp)) {
                     Text("Hang up")
                 }
