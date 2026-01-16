@@ -131,7 +131,16 @@ class CallInProgressActivity : ComponentActivity() {
                 if (!isIncoming) {
                     client?.onRemoteAnswerReceived(answer)
                 }
-                viewModel.setActive()
+            },
+            onStatus = { status ->
+                when (status) {
+                    "ringing" -> viewModel.setRinging(remoteUserNN)
+                    "in_call" -> viewModel.setActive()
+                    "ended" -> {
+                        viewModel.setDisconnected()
+                        finish()
+                    }
+                }
             },
             onEnded = {
                 client?.endCall()

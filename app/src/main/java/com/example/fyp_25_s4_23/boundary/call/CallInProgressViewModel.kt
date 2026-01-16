@@ -38,7 +38,7 @@ class CallInProgressViewModel : ViewModel() {
         }
 
         client?.setOnAnsweredListener {
-            setActive()
+
         }
 
         // Subscribe to audio indicator callbacks

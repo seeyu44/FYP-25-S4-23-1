@@ -282,6 +282,18 @@ class WebRtcClient(
                         }
                     }
                 }
+
+                override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
+                    Log.d("ICE", "ICE connection state = $state")
+
+                    if (
+                        state == PeerConnection.IceConnectionState.CONNECTED ||
+                        state == PeerConnection.IceConnectionState.COMPLETED
+                    ) {
+                        Log.d("CALL_STATE", "ICE connected → updating Firebase")
+                        signaling.updateCallStatus(callId, "in_call")
+                    }
+                }
             }
         )!!
 
