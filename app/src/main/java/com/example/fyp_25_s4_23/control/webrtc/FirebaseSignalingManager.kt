@@ -23,7 +23,6 @@ class FirebaseSignalingManager {
         onOffer: (String) -> Unit,
         onAnswer: (String) -> Unit,
         onStatus: (String) -> Unit,
-        onEnded: () -> Unit
     ) {
         callListener = firestore.collection("calls")
             .document(callId)
@@ -35,9 +34,6 @@ class FirebaseSignalingManager {
 
                 snapshot.getString("status")?.let { status ->
                     onStatus(status)
-                    if (status == "ended") {
-                        onEnded()
-                    }
                 }
             }
     }

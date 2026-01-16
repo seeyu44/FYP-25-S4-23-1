@@ -58,6 +58,12 @@ class WebRtcClient(
     private var onReadyToAnswer: ((Boolean) -> Unit)? = null
     private var onAnswered: (() -> Unit)? = null
 
+    // --- NEW: connection / timeout guards ---
+    private var callConnected: Boolean = false
+    private var ringTimeoutHandler: Handler? = null
+    private var ringTimeoutRunnable: Runnable? = null
+    private val ringTimeoutMs: Long = 30_000
+
     fun setOnReadyToAnswerListener(listener: (Boolean) -> Unit) { onReadyToAnswer = listener }
     fun setOnAnsweredListener(listener: () -> Unit) { onAnswered = listener }
 
@@ -74,7 +80,6 @@ class WebRtcClient(
     fun createAudioTrack() {
         audioSource = factory.createAudioSource(MediaConstraints())
         audioTrack = factory.createAudioTrack("AUDIO", audioSource)
-        // Ensure track is enabled by default
         try {
             audioTrack.setEnabled(true)
         } catch (e: Exception) {
@@ -82,9 +87,7 @@ class WebRtcClient(
         }
     }
 
-    /**
-     * Toggle local audio send for WebRTC calls (used by mute/unmute UI when not on Telecom)
-     */
+    //Toggle local audio send for WebRTC calls (used by mute/unmute UI when not on Telecom)
     fun setLocalAudioEnabled(enabled: Boolean) {
         try {
             localEnabled = enabled
@@ -92,11 +95,9 @@ class WebRtcClient(
                 audioTrack.setEnabled(enabled)
                 Log.d("WebRTC", "Local audio enabled=$enabled")
                 if (!enabled) {
-                    // Immediately notify MUTED
                     currentLocalState = AudioState.MUTED
                     onLocalAudioStateChanged?.invoke(AudioState.MUTED)
                 } else {
-                    // Unmuted: initially treat as SILENT until monitoring reports ACTIVE
                     currentLocalState = AudioState.SILENT
                     onLocalAudioStateChanged?.invoke(AudioState.SILENT)
                 }
@@ -121,7 +122,6 @@ class WebRtcClient(
                     }
 
                     try {
-                        // Use modern RTCStatsCollectorCallback to collect stats
                         peerConnection.getStats(object : RTCStatsCollectorCallback {
                             override fun onStatsDelivered(report: RTCStatsReport?) {
                                 var localSample = 0.0
@@ -137,7 +137,12 @@ class WebRtcClient(
                                             val members = stat.members
                                             for ((name, valueAny) in members) {
                                                 val nameLower = name
-                                                if (nameLower == "audioLevel" || nameLower == "audioOutputLevel" || nameLower == "audioInputLevel" || nameLower == "totalAudioEnergy") {
+                                                if (
+                                                    nameLower == "audioLevel" ||
+                                                    nameLower == "audioOutputLevel" ||
+                                                    nameLower == "audioInputLevel" ||
+                                                    nameLower == "totalAudioEnergy"
+                                                ) {
                                                     val d = when (valueAny) {
                                                         is Number -> valueAny.toDouble()
                                                         is String -> valueAny.toDoubleOrNull() ?: continue
@@ -153,22 +158,16 @@ class WebRtcClient(
                                                     }
                                                 }
                                             }
-                                        } catch (e: Exception) {
-                                            // ignore parse errors for this stat
-                                        }
+                                        } catch (_: Exception) { }
                                     }
-                                } catch (e: Exception) {
-                                    // ignore failures while parsing report
-                                }
+                                } catch (_: Exception) { }
 
-                                // Smooth samples
                                 smoothedLocalLevel = alpha * localSample + (1 - alpha) * smoothedLocalLevel
                                 smoothedRemoteLevel = alpha * remoteSample + (1 - alpha) * smoothedRemoteLevel
 
-                                // Debug log levels
-                                Log.d("WebRTC_STATS", "Local sample: $localSample, smoothed: $smoothedLocalLevel | Remote sample: $remoteSample, smoothed: $smoothedRemoteLevel")
+                                Log.d("WebRTC_STATS", "Local: $localSample/$smoothedLocalLevel | Remote: $remoteSample/$smoothedRemoteLevel")
 
-                                // Local state machine
+                                // Local state
                                 if (!localEnabled) {
                                     if (currentLocalState != AudioState.MUTED) {
                                         currentLocalState = AudioState.MUTED
@@ -188,13 +187,12 @@ class WebRtcClient(
                                             onLocalAudioStateChanged?.invoke(AudioState.SILENT)
                                         }
                                     } else {
-                                        // in-between: reset counters
                                         localAboveCount = 0
                                         localBelowCount = 0
                                     }
                                 }
 
-                                // Remote active boolean state
+                                // Remote active boolean
                                 val remoteCandidate = smoothedRemoteLevel > activeThreshold
                                 if (remoteCandidate) {
                                     remoteAboveCount++; remoteBelowCount = 0
@@ -223,26 +221,22 @@ class WebRtcClient(
     }
 
     private fun stopAudioMonitoring() {
-        try {
-            monitoringRunnable?.let { monitoringHandler?.removeCallbacks(it) }
-        } catch (e: Exception) {
-            // ignore
-        }
+        try { monitoringRunnable?.let { monitoringHandler?.removeCallbacks(it) } } catch (_: Exception) {}
         monitoringRunnable = null
         monitoringHandler = null
-        // reset smoothing and counters
+
         smoothedLocalLevel = 0.0
         smoothedRemoteLevel = 0.0
         localAboveCount = 0
         localBelowCount = 0
         remoteAboveCount = 0
         remoteBelowCount = 0
-        // notify remote inactive
+
         if (currentRemoteActive) {
             currentRemoteActive = false
             onRemoteAudioStateChanged?.invoke(false)
         }
-        // if not muted, set local to SILENT as baseline
+
         if (localEnabled && currentLocalState != AudioState.SILENT) {
             currentLocalState = AudioState.SILENT
             onLocalAudioStateChanged?.invoke(AudioState.SILENT)
@@ -251,6 +245,7 @@ class WebRtcClient(
 
     private fun iceServers() = listOf(
         PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
+        // do we need to add TURN servers here?
     )
 
     fun createPeerConnection() {
@@ -275,7 +270,6 @@ class WebRtcClient(
                     if (track is AudioTrack) {
                         track.setEnabled(true)
                         Log.d("WebRTC", "Remote audio track received")
-                        // We have a remote audio source; optimistic signal to UI until stats indicate level
                         if (!currentRemoteActive) {
                             currentRemoteActive = true
                             onRemoteAudioStateChanged?.invoke(true)
@@ -286,12 +280,25 @@ class WebRtcClient(
                 override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
                     Log.d("ICE", "ICE connection state = $state")
 
-                    if (
-                        state == PeerConnection.IceConnectionState.CONNECTED ||
-                        state == PeerConnection.IceConnectionState.COMPLETED
-                    ) {
-                        Log.d("CALL_STATE", "ICE connected → updating Firebase")
-                        signaling.updateCallStatus(callId, "in_call")
+                    when (state) {
+                        PeerConnection.IceConnectionState.CONNECTED,
+                        PeerConnection.IceConnectionState.COMPLETED -> {
+                            if (!callConnected) {
+                                callConnected = true
+                                cancelRingTimeout()
+                                Log.d("CALL_STATE", "ICE connected → updating Firebase")
+                                signaling.updateCallStatus(callId, "in_call")
+                            }
+                        }
+
+                        // ICE FAILED handling
+                        PeerConnection.IceConnectionState.FAILED -> {
+                            Log.e("ICE", "ICE failed → ending call")
+                            signaling.updateCallStatus(callId, "ended")
+                            endCall()
+                        }
+
+                        else -> Unit
                     }
                 }
             }
@@ -301,6 +308,11 @@ class WebRtcClient(
     }
 
     fun start() {
+        // start ring timeout (caller only)
+        if (isCaller) {
+            startRingTimeout()
+        }
+
         signaling.listenForIceCandidates(callId, remoteUserId) {
             peerConnection.addIceCandidate(
                 IceCandidate(
@@ -311,9 +323,27 @@ class WebRtcClient(
             )
         }
 
-        // Start monitoring audio levels for local and remote activity
         startAudioMonitoring()
+
         if (isCaller) createOffer()
+    }
+
+    private fun startRingTimeout() {
+        if (ringTimeoutHandler != null) return
+        ringTimeoutHandler = Handler(Looper.getMainLooper())
+        ringTimeoutRunnable = Runnable {
+            if (ended || callConnected) return@Runnable
+            Log.w("CALL_TIMEOUT", "No answer within ${ringTimeoutMs}ms → ending call")
+            signaling.updateCallStatus(callId, "ended")
+            endCall()
+        }
+        ringTimeoutHandler?.postDelayed(ringTimeoutRunnable!!, ringTimeoutMs)
+    }
+
+    private fun cancelRingTimeout() {
+        try { ringTimeoutRunnable?.let { ringTimeoutHandler?.removeCallbacks(it) } } catch (_: Exception) {}
+        ringTimeoutRunnable = null
+        ringTimeoutHandler = null
     }
 
     private fun createOffer() {
@@ -321,39 +351,38 @@ class WebRtcClient(
             override fun onCreateSuccess(sdp: SessionDescription) {
                 peerConnection.setLocalDescription(this, sdp)
                 signaling.sendOffer(callId, sdp.description)
-                Log.d("WebRTC","Offer sent")
+                Log.d("WebRTC", "Offer sent")
             }
         }, MediaConstraints())
     }
 
-    //callee receive offer
+    // callee receive offer
     fun onRemoteOfferReceived(offer: String) {
-        // Reset guard and notify that we haven't applied the offer yet
         remoteOfferApplied = false
         peerConnection.setRemoteDescription(
             object : SdpObserverImpl() {
                 override fun onSetSuccess() {
                     remoteOfferApplied = true
                     onReadyToAnswer?.invoke(true)
-                    Log.d("WebRTC","Remote offer applied (onSetSuccess)")
+                    Log.d("WebRTC", "Remote offer applied (onSetSuccess)")
                     if (pendingAnswer) {
                         pendingAnswer = false
-                        Log.d("WebRTC","Pending answer exists, creating answer now")
+                        Log.d("WebRTC", "Pending answer exists, creating answer now")
                         createAnswer()
                     }
                 }
 
                 override fun onSetFailure(error: String) {
-                    Log.e("WebRTC","Failed to set remote offer: $error")
+                    Log.e("WebRTC", "Failed to set remote offer: $error")
                     onReadyToAnswer?.invoke(false)
                 }
             },
             SessionDescription(SessionDescription.Type.OFFER, offer)
         )
-        Log.d("WebRTC","Remote offer set (setRemoteDescription called)")
+        Log.d("WebRTC", "Remote offer set (setRemoteDescription called)")
     }
 
-    //User tap answer
+    // User tap answer
     fun answerIncomingCall(): Boolean {
         if (isCaller) return false
 
@@ -365,7 +394,10 @@ class WebRtcClient(
         }
 
         val sigState = peerConnection.signalingState()
-        if (sigState != PeerConnection.SignalingState.HAVE_REMOTE_OFFER && sigState != PeerConnection.SignalingState.HAVE_LOCAL_PRANSWER) {
+        if (
+            sigState != PeerConnection.SignalingState.HAVE_REMOTE_OFFER &&
+            sigState != PeerConnection.SignalingState.HAVE_LOCAL_PRANSWER
+        ) {
             Log.w("WebRTC", "PeerConnection not in correct signaling state: $sigState; queuing answer")
             pendingAnswer = true
             return false
@@ -375,16 +407,14 @@ class WebRtcClient(
         return true
     }
 
-
-    //Caller receive answer
+    // Caller receive answer
     fun onRemoteAnswerReceived(answer: String) {
         peerConnection.setRemoteDescription(
             SdpObserverImpl(),
             SessionDescription(SessionDescription.Type.ANSWER, answer)
         )
-        Log.d("WebRTC","Remote answer sent")
+        Log.d("WebRTC", "Remote answer applied")
     }
-
 
     private fun createAnswer() {
         try {
@@ -402,9 +432,20 @@ class WebRtcClient(
             }, MediaConstraints())
         } catch (e: Exception) {
             Log.e("WebRTC", "createAnswer failed to start", e)
-            // Mark pending so it will retry when setRemoteDescription completes
             pendingAnswer = true
         }
+    }
+
+    // release audio routing on end
+    private fun releaseAudioRouting() {
+        val audioManager =
+            context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+
+        audioManager.mode = android.media.AudioManager.MODE_NORMAL
+        audioManager.isSpeakerphoneOn = false
+        audioManager.isMicrophoneMute = false
+
+        Log.d("WebRTC", "Audio routing released")
     }
 
     fun endCall() {
@@ -414,7 +455,12 @@ class WebRtcClient(
         }
         ended = true
 
-        // Stop monitoring to avoid battery leaks
+        // Ensure timeout stops
+        cancelRingTimeout()
+
+        // Release audio routing early
+        try { releaseAudioRouting() } catch (_: Exception) {}
+
         stopAudioMonitoring()
 
         try {
@@ -424,11 +470,7 @@ class WebRtcClient(
         }
 
         try {
-            if (this::audioSource.isInitialized) {
-                audioSource.dispose()
-            } else {
-                Log.d("WebRTC", "audioSource not initialized, skipping dispose")
-            }
+            if (this::audioSource.isInitialized) audioSource.dispose()
         } catch (e: Exception) {
             Log.w("WebRTC", "audioSource.dispose() failed or already disposed", e)
         }
@@ -439,7 +481,6 @@ class WebRtcClient(
             Log.w("WebRTC", "Failed to stop signaling listener", e)
         }
 
-        // notify UI that call is no longer answerable
         onReadyToAnswer?.invoke(false)
         onAnswered = null
         onReadyToAnswer = null

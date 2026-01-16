@@ -146,6 +146,10 @@ class CallInProgressViewModel : ViewModel() {
         _state.value = _state.value.copy(stateLabel = "Disconnected")
     }
 
+    fun setEndedfromEngine(){
+        _state.value = _state.value.copy(stateLabel = "Disconnected")
+    }
+
     private fun stateToLabel(state: Int): String = when (state) {
         Call.STATE_ACTIVE -> "Active"
         Call.STATE_DIALING -> "Dialing"

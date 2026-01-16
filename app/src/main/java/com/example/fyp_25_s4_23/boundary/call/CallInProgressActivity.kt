@@ -98,10 +98,7 @@ class CallInProgressActivity : ComponentActivity() {
                         },
                         onHangUp = {
                             // notify remote (if signaling-based)
-                            callId?.let { signaling?.endCall(it) }
                             viewModel.hangUp()
-                            signaling?.stopListening()
-                            webRtcClient?.endCall()
                             finish()
                         },
                         onMute = viewModel::toggleMute
@@ -141,11 +138,6 @@ class CallInProgressActivity : ComponentActivity() {
                         finish()
                     }
                 }
-            },
-            onEnded = {
-                client?.endCall()
-                viewModel.setDisconnected()
-                finish()
             }
         )
 
@@ -155,8 +147,7 @@ class CallInProgressActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         // notify remote that call ended if we had a signaling call id
-        callId?.let { signaling?.endCall(it) }
-        signaling?.stopListening()
-        webRtcClient?.endCall()
+        //when app is backgrounded, prevents call from hanging up
+        webRtcClient = null
     }
 }
