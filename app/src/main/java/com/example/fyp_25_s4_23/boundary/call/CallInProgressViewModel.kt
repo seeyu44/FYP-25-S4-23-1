@@ -102,7 +102,8 @@ class CallInProgressViewModel : ViewModel() {
         _state.value.call?.disconnect()
 
         // End WebRTC call if attached
-        webRtcClient?.endCall()
+        webRtcClient?.requestHangUp()
+
         _state.value = _state.value.copy(stateLabel = "Disconnected")
     }
 

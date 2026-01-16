@@ -53,6 +53,7 @@ class WebRtcClient(
     private var remoteOfferApplied: Boolean = false
     private var pendingAnswer: Boolean = false
     private var ended: Boolean = false
+    var onEngineEnded: (() -> Unit)? = null
 
     // Callbacks to update UI/ViewModel
     private var onReadyToAnswer: ((Boolean) -> Unit)? = null
@@ -278,7 +279,7 @@ class WebRtcClient(
                 }
 
                 override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
-                    Log.d("ICE", "ICE connection state = $state")
+                    Log.d("ICE", "ICE state=$state")
 
                     when (state) {
                         PeerConnection.IceConnectionState.CONNECTED,
@@ -286,16 +287,15 @@ class WebRtcClient(
                             if (!callConnected) {
                                 callConnected = true
                                 cancelRingTimeout()
-                                Log.d("CALL_STATE", "ICE connected → updating Firebase")
+                                Log.i("ICE", "ICE connected → call active")
                                 signaling.updateCallStatus(callId, "in_call")
                             }
                         }
 
-                        // ICE FAILED handling
                         PeerConnection.IceConnectionState.FAILED -> {
-                            Log.e("ICE", "ICE failed → ending call")
+                            Log.e("ICE", "ICE FAILED")
                             signaling.updateCallStatus(callId, "ended")
-                            endCall()
+                            engineEnd("ICE_FAILED")
                         }
 
                         else -> Unit
@@ -335,7 +335,7 @@ class WebRtcClient(
             if (ended || callConnected) return@Runnable
             Log.w("CALL_TIMEOUT", "No answer within ${ringTimeoutMs}ms → ending call")
             signaling.updateCallStatus(callId, "ended")
-            endCall()
+            engineEnd("RING_TIMEOUT")
         }
         ringTimeoutHandler?.postDelayed(ringTimeoutRunnable!!, ringTimeoutMs)
     }
@@ -448,43 +448,35 @@ class WebRtcClient(
         Log.d("WebRTC", "Audio routing released")
     }
 
-    fun endCall() {
-        if (ended) {
-            Log.d("WebRTC", "endCall called but already ended; skipping")
-            return
-        }
+    private fun engineEnd(reason: String) {
+        if (ended) return
         ended = true
 
-        // Ensure timeout stops
+        Log.w("CALL_END", "Call ending (engine): $reason")
+
         cancelRingTimeout()
-
-        // Release audio routing early
-        try { releaseAudioRouting() } catch (_: Exception) {}
-
-        stopAudioMonitoring()
-
-        try {
-            if (this::peerConnection.isInitialized) peerConnection.close()
-        } catch (e: Exception) {
-            Log.w("WebRTC", "Error closing peerConnection", e)
-        }
-
-        try {
-            if (this::audioSource.isInitialized) audioSource.dispose()
-        } catch (e: Exception) {
-            Log.w("WebRTC", "audioSource.dispose() failed or already disposed", e)
-        }
+        releaseAudioRouting()
 
         try {
             signaling.stopListening()
+            peerConnection.close()
+            audioSource.dispose()
         } catch (e: Exception) {
-            Log.w("WebRTC", "Failed to stop signaling listener", e)
+            Log.e("CALL_END", "Error during engineEnd cleanup", e)
         }
 
-        onReadyToAnswer?.invoke(false)
-        onAnswered = null
-        onReadyToAnswer = null
+        onEngineEnded?.invoke()
+    }
 
-        Log.i("WebRTC", "Call ended cleanly")
+    fun requestHangUp() {
+        if (ended) return
+        Log.i("CALL_ENGINE", "User requested hang up")
+        signaling.updateCallStatus(callId, "ended")
+        engineEnd("USER_HANGUP")
+    }
+
+    fun onRemoteEnded() {
+        Log.w("CALL_ENGINE", "Remote ended call")
+        engineEnd("REMOTE_ENDED")
     }
 }
