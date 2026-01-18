@@ -109,10 +109,10 @@ class CallInProgressActivity : ComponentActivity() {
     }
 
     private fun initializeWebRtc(client: WebRtcClient?, signalingRef: FirebaseSignalingManager, callIdNN: String, remoteUserNN: String, isIncoming: Boolean) {
+        viewModel.attachWebRtcClient(client)
         client?.initialize()
         client?.createAudioTrack()
         client?.createPeerConnection()
-        viewModel.attachWebRtcClient(client)
 
         signalingRef.listenToCall(
             callId = callIdNN,

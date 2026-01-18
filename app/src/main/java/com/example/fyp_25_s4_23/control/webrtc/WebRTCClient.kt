@@ -358,6 +358,7 @@ class WebRtcClient(
 
     // callee receive offer
     fun onRemoteOfferReceived(offer: String) {
+        Log.d("WEBRTC_FLOW","onRemoteOfferReceived called")
         remoteOfferApplied = false
         peerConnection.setRemoteDescription(
             object : SdpObserverImpl() {
