@@ -1,19 +1,21 @@
 package com.example.fyp_25_s4_23.boundary.handlers
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.telecom.Call
 import android.telecom.InCallService
-import android.Manifest
-import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import com.example.fyp_25_s4_23.boundary.call.ActiveCallStore
 import com.example.fyp_25_s4_23.boundary.call.InCallServiceHolder
 import com.example.fyp_25_s4_23.boundary.call.CallInProgressActivity
 
 class AntiDeepfakeInCallService : InCallService() {
+
     private val callback = object : Call.Callback() {
         override fun onStateChanged(call: Call, state: Int) {
             ActiveCallStore.update(call)
+
             if (state == Call.STATE_DISCONNECTED) {
                 stopMonitoring()
             }
@@ -22,13 +24,27 @@ class AntiDeepfakeInCallService : InCallService() {
 
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
+
         InCallServiceHolder.service = this
         call.registerCallback(callback)
         ActiveCallStore.update(call)
+
         startMonitoring()
+
+        // 🔧 CHANGE #1:
+        // This launch is for TELECOM calls only.
+        // We intentionally DO NOT pass CALL_ID or WebRTC extras.
         val intent = Intent(this, CallInProgressActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+            )
+
+            // 🔧 CHANGE #2:
+            // Mark this as a TELECOM call (no signaling)
+            putExtra("IS_TELECOM_CALL", true)
         }
+
         startActivity(intent)
     }
 
@@ -36,9 +52,11 @@ class AntiDeepfakeInCallService : InCallService() {
         call.unregisterCallback(callback)
         ActiveCallStore.clear()
         stopMonitoring()
+
         if (call == ActiveCallStore.state.value?.call) {
             InCallServiceHolder.service = null
         }
+
         super.onCallRemoved(call)
     }
 
@@ -52,10 +70,12 @@ class AntiDeepfakeInCallService : InCallService() {
             this,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
-        if (!hasPermission) {
-            return
-        }
-        startForegroundService(Intent(this, CallMonitorService::class.java))
+
+        if (!hasPermission) return
+
+        startForegroundService(
+            Intent(this, CallMonitorService::class.java)
+        )
     }
 
     private fun stopMonitoring() {

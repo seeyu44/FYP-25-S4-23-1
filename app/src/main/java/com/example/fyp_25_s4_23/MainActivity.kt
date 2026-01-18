@@ -134,13 +134,12 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             } else {
                 SummaryScreen(
                     user = user,
-                    callRecords = uiState.callRecords,
-                    onBack = viewModel::navigateToDashboard,
-                    fetchAggregates = { start, end, daily ->
-                        kotlinx.coroutines.runBlocking {
-                            viewModel.aggregateSummary(start, end, daily)
-                        }
-                    }
+                    metrics = uiState.summaryMetrics,
+                    isLoading = uiState.isBusy,
+                    onRequestSummary = { start, end, daily ->
+                        viewModel.aggregateSummary(start, end, daily)
+                    },
+                    onBack = viewModel::navigateToDashboard
                 )
             }
         }

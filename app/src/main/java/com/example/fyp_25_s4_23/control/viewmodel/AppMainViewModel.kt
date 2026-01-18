@@ -24,6 +24,7 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import com.example.fyp_25_s4_23.control.call.IncomingCallListener
+import com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics
 
 /* =========================
    NAVIGATION
@@ -54,6 +55,9 @@ data class AppUiState(
     val userSettings: UserSettings = UserSettings(),
     val users: List<UserAccount> = emptyList(),
     val callRecords: List<CallRecord> = emptyList(),
+
+    val summaryMetrics: List<SummaryMetrics> = emptyList(),
+
     val message: String? = null,
     val isBusy: Boolean = false,
     val modelTest: ModelTestResult = ModelTestResult()
@@ -352,28 +356,40 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
        SUMMARY
        ========================= */
 
-    suspend fun aggregateSummary(
+    fun aggregateSummary(
         startMillis: Long,
         endMillis: Long,
         daily: Boolean
-    ): List<com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics> {
-        val threshold = _state.value.userSettings.detectionThreshold
-        val rows = if (daily)
-            callRepository.dailyAggregates(startMillis, endMillis, threshold)
-        else
-            callRepository.weeklyAggregates(startMillis, endMillis, threshold)
+    ) {
+        viewModelScope.launch {
+            _state.update { it.copy(isBusy = true) }
 
-        return rows.map {
-            com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics(
-                label = it.period,
-                totalCalls = it.total,
-                answered = it.answered,
-                missed = it.missed,
-                suspicious = it.suspicious,
-                blocked = it.blocked,
-                warned = (it.suspicious - it.blocked).coerceAtLeast(0),
-                avgConfidence = it.avgConfidence ?: -1.0
-            )
+            val threshold = _state.value.userSettings.detectionThreshold
+
+            val rows = if (daily)
+                callRepository.dailyAggregates(startMillis, endMillis, threshold)
+            else
+                callRepository.weeklyAggregates(startMillis, endMillis, threshold)
+
+            val metrics = rows.map {
+                SummaryMetrics(
+                    label = it.period,
+                    totalCalls = it.total,
+                    answered = it.answered,
+                    missed = it.missed,
+                    suspicious = it.suspicious,
+                    blocked = it.blocked,
+                    warned = (it.suspicious - it.blocked).coerceAtLeast(0),
+                    avgConfidence = it.avgConfidence ?: -1.0
+                )
+            }
+
+            _state.update {
+                it.copy(
+                    isBusy = false,
+                    summaryMetrics = metrics
+                )
+            }
         }
     }
 

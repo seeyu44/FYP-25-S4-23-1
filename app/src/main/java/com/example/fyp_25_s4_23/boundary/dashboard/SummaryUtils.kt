@@ -7,17 +7,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.WeekFields
 import java.util.Locale
+import com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics
 
-data class SummaryMetrics(
-    val label: String,
-    val totalCalls: Int,
-    val answered: Int,
-    val missed: Int,
-    val suspicious: Int,
-    val blocked: Int,
-    val warned: Int,
-    val avgConfidence: Double // -1 means N/A
-)
 
 fun buildDailySummary(callRecords: List<CallRecord>): List<SummaryMetrics> {
     val zone = ZoneId.systemDefault()

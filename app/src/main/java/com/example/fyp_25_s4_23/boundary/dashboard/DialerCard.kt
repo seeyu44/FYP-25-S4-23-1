@@ -1,6 +1,5 @@
 package com.example.fyp_25_s4_23.boundary.dashboard
 
-import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -12,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.fyp_25_s4_23.boundary.call.CallInProgressActivity
+import com.example.fyp_25_s4_23.boundary.call.VoipCallManager
 
 @Composable
 fun DialerCard() {
@@ -33,10 +32,13 @@ fun DialerCard() {
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.align(Alignment.Start)
             )
+
             Text(
                 text = "Enter a username to start a protected call.",
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.align(Alignment.Start).padding(bottom = 12.dp)
+                modifier = Modifier
+                    .align(Alignment.Start)
+                    .padding(bottom = 12.dp)
             )
 
             OutlinedTextField(
@@ -53,17 +55,13 @@ fun DialerCard() {
             Button(
                 onClick = {
                     if (targetUsername.isNotBlank()) {
-                        val intent = Intent(context, CallInProgressActivity::class.java).apply {
-                            putExtra("TARGET_USERNAME", targetUsername)
-                            putExtra("IS_OUTGOING", true)
-                        }
-                        context.startActivity(intent)
+                        VoipCallManager.startOutgoingVoipCall(
+                            context = context,
+                            calleeUserId = targetUsername // resolve to UID if needed
+                        )
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ),
                 enabled = targetUsername.length >= 3
             ) {
                 Icon(Icons.Default.Call, contentDescription = null)
