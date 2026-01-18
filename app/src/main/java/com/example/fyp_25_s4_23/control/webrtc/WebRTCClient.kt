@@ -297,6 +297,7 @@ class WebRtcClient(
                             if (!callConnected) {
                                 callConnected = true
                                 cancelRingTimeout()
+                                startAudioMonitoring() //testing
                                 Log.w("ICE_STATE", "ICE connected successfully")
                                 signaling.updateCallStatus(callId, "in_call")
                             }
@@ -350,7 +351,7 @@ class WebRtcClient(
             )
         }
 
-        startAudioMonitoring()
+        //startAudioMonitoring()
 
         if (isCaller) createOffer()
     }
@@ -517,6 +518,7 @@ class WebRtcClient(
 
         Log.w("CALL_END", "Call ending (engine): $reason")
 
+        stopAudioMonitoring()
         cancelRingTimeout()
         releaseAudioRouting()
 
