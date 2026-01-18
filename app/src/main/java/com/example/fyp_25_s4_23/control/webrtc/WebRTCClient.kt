@@ -247,8 +247,8 @@ class WebRtcClient(
     }
 
     private fun iceServers() = listOf(
-        PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
-        // do we need to add TURN servers here?
+        //STUN
+        PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
     )
 
     fun createPeerConnection() {
