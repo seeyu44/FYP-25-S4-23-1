@@ -255,6 +255,13 @@ class WebRtcClient(
             object : PeerConnectionObserver() {
 
                 override fun onIceCandidate(candidate: IceCandidate) {
+                    Log.w(
+                        "ICE_FLOW",
+                        "LOCAL ICE → sdpMid=${candidate.sdpMid}, " +
+                                "sdpMLineIndex=${candidate.sdpMLineIndex}, " +
+                                "candidate=${candidate.sdp.take(60)}..."
+                    )
+
                     signaling.sendIceCandidate(
                         callId,
                         userId,
@@ -279,32 +286,47 @@ class WebRtcClient(
                 }
 
                 override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
-                    Log.d("ICE", "ICE state=$state")
+                    Log.w("ICE_STATE", "ICE connection state → $state")
 
                     when (state) {
+                        PeerConnection.IceConnectionState.CHECKING ->
+                            Log.w("ICE_STATE", "ICE checking candidates")
+
                         PeerConnection.IceConnectionState.CONNECTED,
                         PeerConnection.IceConnectionState.COMPLETED -> {
                             if (!callConnected) {
                                 callConnected = true
                                 cancelRingTimeout()
-                                Log.i("ICE", "ICE connected → call active")
+                                Log.w("ICE_STATE", "ICE connected successfully")
                                 signaling.updateCallStatus(callId, "in_call")
                             }
                         }
 
                         PeerConnection.IceConnectionState.FAILED -> {
-                            Log.e("ICE", "ICE FAILED")
+                            Log.e("ICE_STATE", "ICE FAILED")
                             signaling.updateCallStatus(callId, "ended")
                             engineEnd("ICE_FAILED")
                         }
+                        PeerConnection.IceConnectionState.DISCONNECTED ->
+                            Log.w("ICE_STATE", "ICE disconnected")
+
 
                         else -> Unit
                     }
+                }
+
+                override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) {
+                    Log.w("ICE_GATHER", "ICE gathering state → $state")
+                }
+
+                override fun onSignalingChange(state: PeerConnection.SignalingState) {
+                    Log.w("SIG_STATE", "Signaling state → $state")
                 }
             }
         )!!
 
         peerConnection.addTrack(audioTrack)
+        Log.w("ICE_FLOW", "Audio track added → ICE can start")
     }
 
     fun start() {
@@ -314,6 +336,11 @@ class WebRtcClient(
         }
 
         signaling.listenForIceCandidates(callId, remoteUserId) {
+
+            Log.w(
+                "ICE_FLOW",
+                "REMOTE ICE received → $it"
+            )
             peerConnection.addIceCandidate(
                 IceCandidate(
                     it["sdpMid"] as String?,
@@ -349,9 +376,22 @@ class WebRtcClient(
     private fun createOffer() {
         peerConnection.createOffer(object : SdpObserverImpl() {
             override fun onCreateSuccess(sdp: SessionDescription) {
-                peerConnection.setLocalDescription(this, sdp)
-                signaling.sendOffer(callId, sdp.description)
-                Log.d("WebRTC", "Offer sent")
+                Log.w("SDP_FLOW", "Offer created → calling setLocalDescription")
+
+                peerConnection.setLocalDescription(object : SdpObserverImpl() {
+                    override fun onSetSuccess() {
+                        Log.w("SDP_FLOW", "setLocalDescription(offer) SUCCESS → ICE can start")
+                        signaling.sendOffer(callId, sdp.description)
+                    }
+
+                    override fun onSetFailure(error: String) {
+                        Log.e("SDP_FLOW", "setLocalDescription(offer) FAILED: $error")
+                    }
+                }, sdp)
+            }
+
+            override fun onCreateFailure(error: String) {
+                Log.e("SDP_FLOW", "createOffer FAILED: $error")
             }
         }, MediaConstraints())
     }
@@ -372,23 +412,19 @@ class WebRtcClient(
 
                 override fun onSetSuccess() {
                     remoteOfferApplied = true
-                    Log.w("WEBRTC_FLOW", "Remote offer set success → ReadyToAnswer=true")
-                    // Enable answer button
+                    Log.w("SDP_FLOW", "setRemoteDescription(offer) SUCCESS → ReadyToAnswer=true")
                     onReadyToAnswer?.invoke(true)
 
-                    // If user tapped Answer before offer arrived
                     if (pendingAnswer) {
                         pendingAnswer = false
-                        Log.d(
-                            "WEBRTC_FLOW",
-                            "Pending answer detected → creating answer"
-                        )
+                        Log.w("SDP_FLOW", "pendingAnswer=true → creating answer now")
                         createAnswer()
                     }
                 }
 
                 override fun onSetFailure(error: String) {
-                    Log.e("WEBRTC_FLOW", "Failed to set remote offer: $error")
+                    Log.e("SDP_FLOW", "setRemoteDescription(offer) FAILED: $error")
+                    onReadyToAnswer?.invoke(false)
                 }
             },
             SessionDescription(SessionDescription.Type.OFFER, offer)
@@ -423,31 +459,44 @@ class WebRtcClient(
 
     // Caller receive answer
     fun onRemoteAnswerReceived(answer: String) {
+        Log.w("SDP_FLOW", "Applying remote ANSWER")
+
         peerConnection.setRemoteDescription(
-            SdpObserverImpl(),
+            object : SdpObserverImpl() {
+                override fun onSetSuccess() {
+                    Log.w("SDP_FLOW", "setRemoteDescription(answer) SUCCESS")
+                }
+
+                override fun onSetFailure(error: String) {
+                    Log.e("SDP_FLOW", "setRemoteDescription(answer) FAILED: $error")
+                }
+            },
             SessionDescription(SessionDescription.Type.ANSWER, answer)
         )
-        Log.d("WebRTC", "Remote answer applied")
     }
 
     private fun createAnswer() {
-        try {
-            peerConnection.createAnswer(object : SdpObserverImpl() {
-                override fun onCreateSuccess(sdp: SessionDescription) {
-                    peerConnection.setLocalDescription(this, sdp)
-                    signaling.sendAnswer(callId, sdp.description)
-                    Log.d("WebRTC", "Answer created and sent")
-                    onAnswered?.invoke()
-                }
+        peerConnection.createAnswer(object : SdpObserverImpl() {
+            override fun onCreateSuccess(sdp: SessionDescription) {
+                Log.w("SDP_FLOW", "Answer created → calling setLocalDescription")
 
-                override fun onCreateFailure(error: String) {
-                    Log.e("WebRTC", "Failed to create answer: $error")
-                }
-            }, MediaConstraints())
-        } catch (e: Exception) {
-            Log.e("WebRTC", "createAnswer failed to start", e)
-            pendingAnswer = true
-        }
+                peerConnection.setLocalDescription(object : SdpObserverImpl() {
+                    override fun onSetSuccess() {
+                        Log.w("SDP_FLOW", "setLocalDescription(answer) SUCCESS → ICE can start")
+                        signaling.sendAnswer(callId, sdp.description)
+                        onAnswered?.invoke()
+                    }
+
+                    override fun onSetFailure(error: String) {
+                        Log.e("SDP_FLOW", "setLocalDescription(answer) FAILED: $error")
+                    }
+                }, sdp)
+            }
+
+            override fun onCreateFailure(error: String) {
+                Log.e("SDP_FLOW", "createAnswer FAILED: $error")
+            }
+        }, MediaConstraints())
     }
 
     // release audio routing on end
