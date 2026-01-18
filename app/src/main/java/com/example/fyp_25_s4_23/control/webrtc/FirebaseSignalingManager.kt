@@ -10,33 +10,10 @@ import com.google.firebase.firestore.ListenerRegistration
  */
 class FirebaseSignalingManager {
 
-
-
     private val firestore = FirebaseFirestore.getInstance()
     private var callListener: ListenerRegistration? = null
     private var iceListener: ListenerRegistration? = null
-
-
-    //Listen to call state changes (ringing/accepted/ended)
-    fun listenToCall(
-        callId: String,
-        onOffer: (String) -> Unit,
-        onAnswer: (String) -> Unit,
-        onStatus: (String) -> Unit,
-    ) {
-        callListener = firestore.collection("calls")
-            .document(callId)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
-
-                snapshot.getString("offer_sdp")?.let(onOffer)
-                snapshot.getString("answer_sdp")?.let(onAnswer)
-
-                snapshot.getString("status")?.let { status ->
-                    onStatus(status)
-                }
-            }
-    }
+    private var lastOfferSdp: String? = null
 
     fun createCall(
         callId: String,
@@ -58,6 +35,33 @@ class FirebaseSignalingManager {
             .set(callData)
     }
 
+
+    //Listen to call state changes (ringing/accepted/ended)
+    fun listenToCall(
+        callId: String,
+        onOffer: (String) -> Unit,
+        onAnswer: (String) -> Unit,
+        onStatus: (String) -> Unit,
+    ) {
+        callListener = firestore.collection("calls")
+            .document(callId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
+
+                snapshot.getString("offer_sdp")?.let { offer ->
+                    if (offer != lastOfferSdp) {
+                        lastOfferSdp = offer
+                        Log.w("WEBRTC_FLOW", "NEW OFFER detected | callId=$callId")
+                        onOffer(offer)
+                    }
+                }
+                snapshot.getString("answer_sdp")?.let(onAnswer)
+
+                snapshot.getString("status")?.let { status ->
+                    onStatus(status)
+                }
+            }
+    }
 
     // Send offer to callee
     fun sendOffer(callId: String, offerSdp: String){

@@ -37,6 +37,17 @@ fun CallInProgressScreen(
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = uiState.handle, style = MaterialTheme.typography.titleLarge)
+                Text(text = uiState.stateLabel, style = MaterialTheme.typography.titleMedium)
+
+                //DEBUG — REMOVE AFTER FIXING
+                Text(
+                    text = "DEBUG isReadyToAnswer=${uiState.isReadyToAnswer}",
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Button(onClick = onAnswer, enabled = uiState.stateLabel == "Ringing" && uiState.isReadyToAnswer) {
                     Text("Answer")
                 }

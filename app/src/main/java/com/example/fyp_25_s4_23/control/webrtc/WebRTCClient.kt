@@ -358,24 +358,37 @@ class WebRtcClient(
 
     // callee receive offer
     fun onRemoteOfferReceived(offer: String) {
-        Log.d("WEBRTC_FLOW","onRemoteOfferReceived called")
-        remoteOfferApplied = false
+
+        // Guard against duplicate offers (Firestore fires multiple times)
+        if (remoteOfferApplied) {
+            Log.w("WEBRTC_FLOW", "Remote offer already applied — ignoring duplicate")
+            return
+        }
+
+        Log.d("WEBRTC_FLOW", "Applying remote offer")
+
         peerConnection.setRemoteDescription(
             object : SdpObserverImpl() {
+
                 override fun onSetSuccess() {
                     remoteOfferApplied = true
+                    Log.w("WEBRTC_FLOW", "Remote offer set success → ReadyToAnswer=true")
+                    // Enable answer button
                     onReadyToAnswer?.invoke(true)
-                    Log.d("WebRTC", "Remote offer applied (onSetSuccess)")
+
+                    // If user tapped Answer before offer arrived
                     if (pendingAnswer) {
                         pendingAnswer = false
-                        Log.d("WebRTC", "Pending answer exists, creating answer now")
+                        Log.d(
+                            "WEBRTC_FLOW",
+                            "Pending answer detected → creating answer"
+                        )
                         createAnswer()
                     }
                 }
 
                 override fun onSetFailure(error: String) {
-                    Log.e("WebRTC", "Failed to set remote offer: $error")
-                    onReadyToAnswer?.invoke(false)
+                    Log.e("WEBRTC_FLOW", "Failed to set remote offer: $error")
                 }
             },
             SessionDescription(SessionDescription.Type.OFFER, offer)

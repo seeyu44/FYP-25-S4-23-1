@@ -117,6 +117,7 @@ class CallInProgressActivity : ComponentActivity() {
         signalingRef.listenToCall(
             callId = callIdNN,
             onOffer = { offer ->
+                Log.w("WEBRTC_FLOW", "Activity received OFFER | client=${System.identityHashCode(client)}")
                 Log.d("CALL_SIG", "onOffer callback invoked for callId=$callIdNN")
                 if (isIncoming) {
                     Log.d("CALL_SIG", "Applying remote offer for callId=$callIdNN")
@@ -131,11 +132,12 @@ class CallInProgressActivity : ComponentActivity() {
             },
             onStatus = { status ->
                 when (status) {
-                    "ringing" -> viewModel.setRinging(remoteUserNN)
+                    "ringing" -> viewModel.setRinging(remoteUserNN, preserveReady = true)
                     "in_call" -> viewModel.setActive()
                     "ended" -> {
+                        Log.w("CALL_SIG", "Remote requested end")
                         viewModel.setDisconnected()
-                        finish()
+                        webRtcClient?.onRemoteEnded()
                     }
                 }
             }

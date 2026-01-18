@@ -34,7 +34,7 @@ class CallInProgressViewModel : ViewModel() {
 
         client?.setOnReadyToAnswerListener { ready ->
             _state.value = _state.value.copy(isReadyToAnswer = ready)
-            android.util.Log.d("CALL_SIG", "ReadyToAnswer: $ready")
+            android.util.Log.d("CALL_SIG", "UI Received ReadyToAnswer: $ready")
         }
 
         client?.setOnAnsweredListener {
@@ -134,9 +134,12 @@ class CallInProgressViewModel : ViewModel() {
         }
     }
 
-    fun setRinging(handle: String) {
-        // When ringing begins, assume not ready until a remote offer is applied
-        _state.value = _state.value.copy(handle = handle, stateLabel = "Ringing", isReadyToAnswer = false)
+    fun setRinging(handle: String, preserveReady: Boolean = false) {
+        _state.value = _state.value.copy(
+            handle = handle,
+            stateLabel = "Ringing",
+            isReadyToAnswer = if (preserveReady) _state.value.isReadyToAnswer else false
+        )
     }
 
     fun setActive() {
