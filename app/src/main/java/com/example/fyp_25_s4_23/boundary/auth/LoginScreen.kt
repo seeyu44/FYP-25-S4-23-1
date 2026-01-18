@@ -43,7 +43,7 @@ fun LoginScreen(
     onNavigateToRegister: () -> Unit
 ) {
     val context = LocalContext.current
-    var username by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showCompatibilityDialog by remember { mutableStateOf(false) }
 
@@ -109,9 +109,9 @@ fun LoginScreen(
         }
 
         OutlinedTextField(
-            value = username,
-            onValueChange = { username = it },
-            label = { Text("Username") },
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email") },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 16.dp)
@@ -135,7 +135,7 @@ fun LoginScreen(
         }
 
         Button(
-            onClick = { onLogin(username, password) },
+            onClick = { onLogin(email, password) },
             enabled = !isBusy,
             modifier = Modifier
                 .fillMaxWidth()

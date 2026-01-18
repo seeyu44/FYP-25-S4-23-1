@@ -51,6 +51,8 @@ class WebRtcClient(
 
     // State guards for offer/answer ordering
     private var remoteOfferApplied: Boolean = false
+
+    private var remoteAnswerApplied: Boolean = false
     private var pendingAnswer: Boolean = false
     private var ended: Boolean = false
     var onEngineEnded: (() -> Unit)? = null
@@ -297,7 +299,7 @@ class WebRtcClient(
                             if (!callConnected) {
                                 callConnected = true
                                 cancelRingTimeout()
-                                startAudioMonitoring() //testing
+                                startAudioMonitoring()
                                 Log.w("ICE_STATE", "ICE connected successfully")
                                 signaling.updateCallStatus(callId, "in_call")
                             }
@@ -374,6 +376,9 @@ class WebRtcClient(
         ringTimeoutHandler = null
     }
 
+    private fun sdpConstraints(): MediaConstraints = MediaConstraints().apply {
+        mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+    }
     private fun createOffer() {
         peerConnection.createOffer(object : SdpObserverImpl() {
             override fun onCreateSuccess(sdp: SessionDescription) {
@@ -394,7 +399,7 @@ class WebRtcClient(
             override fun onCreateFailure(error: String) {
                 Log.e("SDP_FLOW", "createOffer FAILED: $error")
             }
-        }, MediaConstraints())
+        }, sdpConstraints())
     }
 
     // callee receive offer
@@ -460,6 +465,12 @@ class WebRtcClient(
 
     // Caller receive answer
     fun onRemoteAnswerReceived(answer: String) {
+
+        if (remoteAnswerApplied){
+            Log.w("SDP_FLOW", "Remote answer already applied — ignoring duplicate")
+            return
+        }
+
         Log.w("SDP_FLOW", "Applying remote ANSWER")
 
         peerConnection.setRemoteDescription(
@@ -497,7 +508,7 @@ class WebRtcClient(
             override fun onCreateFailure(error: String) {
                 Log.e("SDP_FLOW", "createAnswer FAILED: $error")
             }
-        }, MediaConstraints())
+        }, sdpConstraints())
     }
 
     // release audio routing on end

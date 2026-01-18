@@ -35,6 +35,7 @@ import com.example.fyp_25_s4_23.control.viewmodel.AppScreen
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
 import androidx.compose.runtime.LaunchedEffect
+import android.util.Log
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -42,6 +43,7 @@ import androidx.compose.runtime.remember
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.w("BOOT","MainActivity onCreate reached")
         enableEdgeToEdge()
         setContent {
             FYP25S423Theme {

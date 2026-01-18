@@ -14,6 +14,7 @@ class FirebaseSignalingManager {
     private var callListener: ListenerRegistration? = null
     private var iceListener: ListenerRegistration? = null
     private var lastOfferSdp: String? = null
+    private var lastAnswerSdp: String? = null
 
     fun createCall(
         callId: String,
@@ -55,7 +56,12 @@ class FirebaseSignalingManager {
                         onOffer(offer)
                     }
                 }
-                snapshot.getString("answer_sdp")?.let(onAnswer)
+                snapshot.getString("answer_sdp")?.let { answer ->
+                    if (answer != lastAnswerSdp) {
+                        lastAnswerSdp = answer
+                        onAnswer(answer)
+                    }
+                }
 
                 snapshot.getString("status")?.let { status ->
                     onStatus(status)
