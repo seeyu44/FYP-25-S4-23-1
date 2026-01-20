@@ -121,7 +121,7 @@ fun UserDashboard(
                                 )
                             }
 
-                            if (onSubmitReview != null) {
+                            if (onSubmitReview != null && user.role == UserRole.REGISTERED) {
                                 DropdownMenuItem(
                                     text = { Text("Leave a Review") },
                                     onClick = {
