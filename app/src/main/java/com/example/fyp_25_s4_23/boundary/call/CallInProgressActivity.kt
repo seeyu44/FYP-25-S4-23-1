@@ -157,39 +157,26 @@ class CallInProgressActivity : ComponentActivity() {
 
         signalingRef.listenToCall(
             callId = callIdNN,
-
+            isCaller = !isIncoming,
             onOffer = { offer ->
-                if (isFinishing || isDestroyed) return@listenToCall
-
                 Log.w(
                     "WEBRTC_FLOW",
                     "Activity received OFFER | client=${System.identityHashCode(client)}"
                 )
-
                 if (isIncoming) {
                     viewModel.setRinging(remoteUserNN)
                     client?.onRemoteOfferReceived(offer)
                 }
             },
-
             onAnswer = { answer ->
-                if (isFinishing || isDestroyed) return@listenToCall
-
                 if (!isIncoming) {
                     client?.onRemoteAnswerReceived(answer)
                 }
             },
-
             onStatus = { status ->
-                if (isFinishing || isDestroyed) return@listenToCall
-
                 when (status) {
-                    "ringing" ->
-                        viewModel.setRinging(remoteUserNN, preserveReady = true)
-
-                    "in_call" ->
-                        viewModel.setActive()
-
+                    "ringing" -> viewModel.setRinging(remoteUserNN, preserveReady = true)
+                    "in_call" -> viewModel.setActive()
                     "ended" -> {
                         Log.w("CALL_SIG", "Remote requested end")
                         viewModel.setDisconnected()
@@ -198,6 +185,7 @@ class CallInProgressActivity : ComponentActivity() {
                 }
             }
         )
+
 
         client?.start()
     }

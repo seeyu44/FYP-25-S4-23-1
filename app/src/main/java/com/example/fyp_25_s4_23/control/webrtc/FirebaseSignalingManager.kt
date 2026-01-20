@@ -40,6 +40,7 @@ class FirebaseSignalingManager {
     //Listen to call state changes (ringing/accepted/ended)
     fun listenToCall(
         callId: String,
+        isCaller: Boolean,
         onOffer: (String) -> Unit,
         onAnswer: (String) -> Unit,
         onStatus: (String) -> Unit,
@@ -49,23 +50,27 @@ class FirebaseSignalingManager {
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
 
-                snapshot.getString("offer_sdp")?.let { offer ->
-                    if (offer != lastOfferSdp) {
-                        lastOfferSdp = offer
-                        Log.w("WEBRTC_FLOW", "NEW OFFER detected | callId=$callId")
-                        onOffer(offer)
-                    }
-                }
-                snapshot.getString("answer_sdp")?.let { answer ->
-                    if (answer != lastAnswerSdp) {
-                        lastAnswerSdp = answer
-                        onAnswer(answer)
+                if (!isCaller) {
+                    snapshot.getString("offer_sdp")?.let { offer ->
+                        if (offer != lastOfferSdp) {
+                            lastOfferSdp = offer
+                            Log.w("WEBRTC_FLOW", "NEW OFFER detected | callId=$callId")
+                            onOffer(offer)
+                        }
                     }
                 }
 
-                snapshot.getString("status")?.let { status ->
-                    onStatus(status)
+                if (isCaller) {
+                    snapshot.getString("answer_sdp")?.let { answer ->
+                        if (answer != lastAnswerSdp) {
+                            lastAnswerSdp = answer
+                            Log.w("WEBRTC_FLOW", "NEW ANSWER detected | callId=$callId")
+                            onAnswer(answer)
+                        }
+                    }
                 }
+
+                snapshot.getString("status")?.let(onStatus)
             }
     }
 
@@ -116,9 +121,13 @@ class FirebaseSignalingManager {
             .collection("ice_candidates")
             .document(remoteUserId)
             .collection("candidates")
-            .addSnapshotListener { snapshot, _ ->
-                snapshot?.documents?.forEach { doc ->
-                    doc.data?.let(onCandidate)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+
+                for (change in snapshot.documentChanges) {
+                    if (change.type == com.google.firebase.firestore.DocumentChange.Type.ADDED) {
+                        change.document.data?.let(onCandidate)
+                    }
                 }
             }
     }
