@@ -361,6 +361,16 @@ fun UserDashboard(
                                 if (users.isEmpty()) {
                                     Text("No users found")
                                 } else {
+                                    users.forEach {
+                                        Text("${it.username} (${it.role})")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // Show Review Dialog
         if (showReviewDialog && onSubmitReview != null) {
@@ -371,16 +381,6 @@ fun UserDashboard(
                     showReviewDialog = false
                 }
             )
-        }
-                                    users.forEach {
-                                        Text("${it.username} (${it.role})")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }
