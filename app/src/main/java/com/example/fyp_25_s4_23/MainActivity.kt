@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.DisposableEffect
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fyp_25_s4_23.boundary.auth.LoginScreen
@@ -39,6 +40,10 @@ import android.util.Log
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import com.example.fyp_25_s4_23.control.call.IncomingCallListener
+import com.google.firebase.auth.FirebaseAuth
+
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,6 +67,27 @@ class MainActivity : ComponentActivity() {
 fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
     val uiState by viewModel.state.collectAsState()
     val context = LocalContext.current
+    DisposableEffect(Unit) {
+        val auth = FirebaseAuth.getInstance()
+
+        val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            val user = firebaseAuth.currentUser
+
+            if (user != null) {
+                Log.d("INCOMING_CALL", "Starting IncomingCallListener for uid=${user.uid}")
+                IncomingCallListener.start(context.applicationContext)
+            } else {
+                Log.d("INCOMING_CALL", "Stopping IncomingCallListener (no user)")
+                IncomingCallListener.stop()
+            }
+        }
+
+        auth.addAuthStateListener(listener)
+
+        onDispose {
+            auth.removeAuthStateListener(listener)
+        }
+    }
     val modelRunner = remember { ModelRunner(context) }
     val microphonePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
