@@ -47,10 +47,12 @@ fun UserDashboard(
     onNavigateToSummary: (() -> Unit)? = null,
     onNavigateToCallHistory: (() -> Unit)? = null,
     onRunModelTest: ((String) -> Unit)? = null,
-    modelTestResult: ModelTestResult = ModelTestResult()
+    modelTestResult: ModelTestResult = ModelTestResult(),
+    onSubmitReview: ((Int, String) -> Unit)? = null
 ) {
     val ctx = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
+    var showReviewDialog by remember { mutableStateOf(false) }
 
     // Check microphone permission
     val hasMicPermission = androidx.core.content.ContextCompat.checkSelfPermission(
@@ -115,6 +117,16 @@ fun UserDashboard(
                                     onClick = {
                                         menuExpanded = false
                                         onNavigateToSummary?.invoke()
+                                    }
+                                )
+                            }
+
+                            if (onSubmitReview != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Leave a Review") },
+                                    onClick = {
+                                        menuExpanded = false
+                                        showReviewDialog = true
                                     }
                                 )
                             }
@@ -349,6 +361,17 @@ fun UserDashboard(
                                 if (users.isEmpty()) {
                                     Text("No users found")
                                 } else {
+
+        // Show Review Dialog
+        if (showReviewDialog && onSubmitReview != null) {
+            ReviewDialog(
+                onDismiss = { showReviewDialog = false },
+                onSubmit = { rating, description ->
+                    onSubmitReview(rating, description)
+                    showReviewDialog = false
+                }
+            )
+        }
                                     users.forEach {
                                         Text("${it.username} (${it.role})")
                                     }

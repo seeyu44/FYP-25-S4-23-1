@@ -86,6 +86,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val usernameService = UsernameService()
     private val pendingUsernameStore = PendingUsernameStore(application)
     private val tokenStore = FCMTokenStore(application)
+    private val reviewRepository = ReviewRepository()
 
     /* ---------- Detection ---------- */
     private val modelRunner = ModelRunner(application)
@@ -389,6 +390,42 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     isBusy = false,
                     summaryMetrics = metrics
                 )
+            }
+        }
+    }
+
+    /* =========================
+       REVIEWS
+       ========================= */
+
+    fun submitReview(rating: Int, description: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isBusy = true, message = null) }
+
+            runCatching {
+                val user = _state.value.currentUser ?: error("User not logged in")
+                
+                val review = AppReview(
+                    userId = user.firebaseUid ?: user.id.toString(),
+                    rating = rating,
+                    description = description
+                )
+
+                reviewRepository.submitReview(review)
+            }.onSuccess {
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "Thank you for your review!"
+                    )
+                }
+            }.onFailure { ex ->
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "Failed to submit review: ${ex.message}"
+                    )
+                }
             }
         }
     }

@@ -205,7 +205,8 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                     systemController = systemController,
                     modelRunner = modelRunner,
                     onRunModelTest = viewModel::runModelTest,
-                    modelTestResult = uiState.modelTest
+                    modelTestResult = uiState.modelTest,
+                    onSubmitReview = viewModel::submitReview
                 )
             }
         }
