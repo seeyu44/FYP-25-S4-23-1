@@ -1,6 +1,5 @@
 package com.example.fyp_25_s4_23.data.remote.firebase
 
-import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import com.example.fyp_25_s4_23.data.remote.dto.UserProfile
@@ -19,7 +18,6 @@ class UserProfileRepository {
         }
 
         val roleFromFirebase = snapshot.getString("role") ?: "REGISTERED"
-        Log.d("UserProfileRepo", "Fetched role from Firebase: '$roleFromFirebase' for uid: $uid")
 
         return UserProfile(
             uid = uid,
