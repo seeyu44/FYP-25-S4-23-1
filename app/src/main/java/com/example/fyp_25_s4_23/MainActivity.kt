@@ -37,6 +37,7 @@ import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
 import androidx.compose.runtime.LaunchedEffect
 import android.util.Log
+
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -86,6 +87,7 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
 
         onDispose {
             auth.removeAuthStateListener(listener)
+            IncomingCallListener.stop()
         }
     }
     val modelRunner = remember { ModelRunner(context) }
