@@ -156,6 +156,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 }
 
                 val profile = userProfileRepository.getUserProfile(firebaseUser.uid)
+                Log.d("AppMainViewModel", "Profile fetched - username: ${profile.username}, role from profile: ${profile.role}")
 
                 val user = UserAccount(
                     id = firebaseUser.uid.hashCode().toLong(),
@@ -165,6 +166,8 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     role = mapUserRole(profile.role),
                     createdAtSeconds = profile.createdAtSeconds
                 )
+                
+                Log.d("AppMainViewModel", "UserAccount created - username: ${user.username}, role: ${user.role}")
 
                 user to settingsRepository.get(user.id)
             }.onSuccess { (user, settings) ->

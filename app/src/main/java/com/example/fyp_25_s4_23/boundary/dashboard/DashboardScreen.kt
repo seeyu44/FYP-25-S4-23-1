@@ -1,12 +1,16 @@
 package com.example.fyp_25_s4_23.boundary.dashboard
 
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.material3.Card
 import androidx.compose.material3.Button
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,6 +44,19 @@ fun DashboardScreen(
     modelTestResult: ModelTestResult = ModelTestResult(),
     onSubmitReview: ((Int, String, Boolean) -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    
+    // Show Toast with debug info
+    LaunchedEffect(user.role) {
+        Toast.makeText(
+            context,
+            "DashboardScreen - User: ${user.username}, Role: ${user.role}",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+    
+    Log.d("DashboardScreen", "Routing user '${user.username}' with role: ${user.role}")
+    
     when (user.role) {
         UserRole.ADMIN -> {
             AdminDashboard(
