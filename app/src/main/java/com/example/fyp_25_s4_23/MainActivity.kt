@@ -190,7 +190,7 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             } else {
                 val systemController = remember { SystemController() }
 
-                UserDashboard(
+                DashboardScreen(
                     user = user,
                     callRecords = uiState.callRecords,
                     userSettings = uiState.userSettings,

@@ -37,7 +37,8 @@ fun DashboardScreen(
     onToggleDetection: ((Boolean) -> Unit)? = null,
     modelRunner: ModelRunner? = null,
     onRunModelTest: (String) -> Unit,
-    modelTestResult: ModelTestResult = ModelTestResult()
+    modelTestResult: ModelTestResult = ModelTestResult(),
+    onSubmitReview: ((Int, String, Boolean) -> Unit)? = null
 ) {
     when (user.role) {
         UserRole.ADMIN -> {
@@ -67,7 +68,8 @@ fun DashboardScreen(
                 onToggleDetection = onToggleDetection,
                 modelRunner = modelRunner,
                 onRunModelTest = onRunModelTest,
-                modelTestResult = modelTestResult
+                modelTestResult = modelTestResult,
+                onSubmitReview = onSubmitReview
             )
         }
     }
