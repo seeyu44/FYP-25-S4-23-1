@@ -302,7 +302,11 @@ class WebRtcClient(
                                 startAudioMonitoring()
                                 onAnswered?.invoke()
                                 Log.w("ICE_STATE", "ICE connected successfully")
-                                signaling.updateCallStatus(callId, "in_call")
+                                //signaling.updateCallStatus(callId, "in_call")
+
+                                if(isCaller) {
+                                    signaling.updateCallStatus("callId", "in_call")
+                                }
                             }
                         }
 
@@ -442,6 +446,8 @@ class WebRtcClient(
     // User tap answer
     fun answerIncomingCall(): Boolean {
         if (isCaller) return false
+
+        signaling.updateCallStatus(callId,"accepted")
 
         if (!remoteOfferApplied) {
             pendingAnswer = true

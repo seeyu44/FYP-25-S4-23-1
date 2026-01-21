@@ -183,7 +183,14 @@ class CallInProgressActivity : ComponentActivity() {
             onStatus = { status ->
                 when (status) {
                     "ringing" -> viewModel.setRinging(remoteUserNN, preserveReady = true)
+
+                    "accepted" -> {
+                        Log.d("CALL_SIG", "Remote accepted call")
+                        viewModel.setActive()
+                    }
+
                     "in_call" -> viewModel.setActive()
+
                     "ended" -> {
                         Log.w("CALL_SIG", "Remote requested end")
                         webRtcClient?.onRemoteEnded()
@@ -201,7 +208,9 @@ class CallInProgressActivity : ComponentActivity() {
         super.onDestroy()
 
         try {
-            webRtcClient?.requestHangUp()
+            if (isFinishing) {
+                webRtcClient?.requestHangUp()
+            }
             signaling?.stopListening()
             IncomingCallListener.start(applicationContext)
         } catch (e: Exception) {
@@ -211,4 +220,5 @@ class CallInProgressActivity : ComponentActivity() {
         webRtcClient = null
         signaling = null
     }
+
 }
