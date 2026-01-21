@@ -15,6 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import android.Manifest
 import android.content.pm.PackageManager
+import com.example.fyp_25_s4_23.control.call.IncomingCallListener
 
 class CallInProgressActivity : ComponentActivity() {
 
@@ -26,6 +27,7 @@ class CallInProgressActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        IncomingCallListener.stop()
 
         signaling = FirebaseSignalingManager()
         val signalingRef = signaling!!
@@ -151,6 +153,11 @@ class CallInProgressActivity : ComponentActivity() {
     ) {
         viewModel.attachWebRtcClient(client)
 
+        client?.onEngineEnded ={
+            Log.w("CALL_END","Engine ended -> finishing activity")
+            ActiveCallStore.clear()
+            runOnUiThread { finish() }
+        }
         client?.initialize()
         client?.createAudioTrack()
         client?.createPeerConnection()
@@ -179,7 +186,6 @@ class CallInProgressActivity : ComponentActivity() {
                     "in_call" -> viewModel.setActive()
                     "ended" -> {
                         Log.w("CALL_SIG", "Remote requested end")
-                        viewModel.setDisconnected()
                         webRtcClient?.onRemoteEnded()
                     }
                 }
@@ -197,6 +203,7 @@ class CallInProgressActivity : ComponentActivity() {
         try {
             webRtcClient?.requestHangUp()
             signaling?.stopListening()
+            IncomingCallListener.start(applicationContext)
         } catch (e: Exception) {
             Log.e("CALL_END", "Error during cleanup", e)
         }

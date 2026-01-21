@@ -300,6 +300,7 @@ class WebRtcClient(
                                 callConnected = true
                                 cancelRingTimeout()
                                 startAudioMonitoring()
+                                onAnswered?.invoke()
                                 Log.w("ICE_STATE", "ICE connected successfully")
                                 signaling.updateCallStatus(callId, "in_call")
                             }
@@ -496,7 +497,6 @@ class WebRtcClient(
                     override fun onSetSuccess() {
                         Log.w("SDP_FLOW", "setLocalDescription(answer) SUCCESS → ICE can start")
                         signaling.sendAnswer(callId, sdp.description)
-                        onAnswered?.invoke()
                     }
 
                     override fun onSetFailure(error: String) {

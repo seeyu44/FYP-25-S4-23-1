@@ -28,6 +28,8 @@ class CallInProgressViewModel : ViewModel() {
 
     // Optional WebRTC client used for signaling-based calls (non-Telecom)
     private var webRtcClient: WebRtcClient? = null
+    var onCallEnded: (() -> Unit)? = null
+
 
     fun attachWebRtcClient(client: WebRtcClient?) {
         webRtcClient = client
@@ -38,7 +40,7 @@ class CallInProgressViewModel : ViewModel() {
         }
 
         client?.setOnAnsweredListener {
-
+            _state.value = _state.value.copy(stateLabel="Active")
         }
 
         // Subscribe to audio indicator callbacks
@@ -152,6 +154,7 @@ class CallInProgressViewModel : ViewModel() {
 
     fun setEndedfromEngine(){
         _state.value = _state.value.copy(stateLabel = "Disconnected")
+        onCallEnded?.invoke()
     }
 
     private fun stateToLabel(state: Int): String = when (state) {

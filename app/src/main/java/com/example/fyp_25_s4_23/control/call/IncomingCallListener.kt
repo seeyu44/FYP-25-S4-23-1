@@ -5,6 +5,7 @@ import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.example.fyp_25_s4_23.boundary.call.ActiveCallStore
 
 object IncomingCallListener {
 
@@ -14,7 +15,6 @@ object IncomingCallListener {
 
     fun start(context: Context) {
         val uid = FirebaseAuth.getInstance().currentUser?.uid
-
         if (uid == null) {
             Log.e("INCOMING_CALL", "Cannot start listener: user not logged in")
             return
@@ -42,11 +42,13 @@ object IncomingCallListener {
                     return@addSnapshotListener
                 }
 
+                val activeCallId = ActiveCallStore.state.value?.callId
+
                 for (doc in snapshots.documents) {
                     val callId = doc.id
                     val status = doc.getString("status") ?: continue
                     val callerId = doc.getString("caller_user_id") ?: continue
-
+                    if(callId == activeCallId) continue
                     Log.d("INCOMING_CALL", "callId=$callId status=$status caller=$callerId")
 
                     when (status) {
