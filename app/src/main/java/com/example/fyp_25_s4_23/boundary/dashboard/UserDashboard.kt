@@ -48,7 +48,7 @@ fun UserDashboard(
     onNavigateToCallHistory: (() -> Unit)? = null,
     onRunModelTest: ((String) -> Unit)? = null,
     modelTestResult: ModelTestResult = ModelTestResult(),
-    onSubmitReview: ((Int, String) -> Unit)? = null
+    onSubmitReview: ((Int, String, Boolean) -> Unit)? = null
 ) {
     val ctx = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
@@ -376,8 +376,8 @@ fun UserDashboard(
         if (showReviewDialog && onSubmitReview != null) {
             ReviewDialog(
                 onDismiss = { showReviewDialog = false },
-                onSubmit = { rating, description ->
-                    onSubmitReview(rating, description)
+                onSubmit = { rating, description, anonymous ->
+                    onSubmitReview(rating, description, anonymous)
                     showReviewDialog = false
                 }
             )

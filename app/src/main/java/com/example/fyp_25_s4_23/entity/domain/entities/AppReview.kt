@@ -8,6 +8,7 @@ data class AppReview(
     val userId: String,
     val rating: Int, // 1-5 stars
     val description: String,
+    val anonymous: Boolean = false,
     val createdAt: Long = System.currentTimeMillis() / 1000,
     val updatedAt: Long = System.currentTimeMillis() / 1000
 ) {

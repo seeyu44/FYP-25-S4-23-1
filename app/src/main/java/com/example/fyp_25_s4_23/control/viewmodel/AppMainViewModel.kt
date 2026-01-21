@@ -398,7 +398,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
        REVIEWS
        ========================= */
 
-    fun submitReview(rating: Int, description: String) {
+    fun submitReview(rating: Int, description: String, anonymous: Boolean) {
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true, message = null) }
 
@@ -408,7 +408,8 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 val review = AppReview(
                     userId = user.firebaseUid ?: user.id.toString(),
                     rating = rating,
-                    description = description
+                    description = description,
+                    anonymous = anonymous
                 )
 
                 reviewRepository.submitReview(review)

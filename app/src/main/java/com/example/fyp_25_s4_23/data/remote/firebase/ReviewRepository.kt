@@ -19,6 +19,7 @@ class ReviewRepository {
             "userId" to review.userId,
             "rating" to review.rating,
             "description" to review.description,
+            "anonymous" to review.anonymous,
             "createdAt" to review.createdAt,
             "updatedAt" to review.updatedAt
         )
@@ -35,6 +36,7 @@ class ReviewRepository {
             "userId" to review.userId,
             "rating" to review.rating,
             "description" to review.description,
+            "anonymous" to review.anonymous,
             "updatedAt" to System.currentTimeMillis() / 1000
         )
 
@@ -56,6 +58,7 @@ class ReviewRepository {
                     id = doc.id,
                     userId = doc.getString("userId") ?: "",
                     rating = doc.getLong("rating")?.toInt() ?: 0,
+                    anonymous = doc.getBoolean("anonymous") ?: false,
                     description = doc.getString("description") ?: "",
                     createdAt = doc.getLong("createdAt") ?: 0,
                     updatedAt = doc.getLong("updatedAt") ?: 0
@@ -78,6 +81,7 @@ class ReviewRepository {
                     id = doc.id,
                     userId = doc.getString("userId") ?: "",
                     rating = doc.getLong("rating")?.toInt() ?: 0,
+                    anonymous = doc.getBoolean("anonymous") ?: false,
                     description = doc.getString("description") ?: "",
                     createdAt = doc.getLong("createdAt") ?: 0,
                     updatedAt = doc.getLong("updatedAt") ?: 0

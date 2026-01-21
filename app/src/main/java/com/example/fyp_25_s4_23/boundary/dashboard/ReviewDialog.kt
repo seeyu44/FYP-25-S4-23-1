@@ -18,10 +18,11 @@ import androidx.compose.ui.window.Dialog
 @Composable
 fun ReviewDialog(
     onDismiss: () -> Unit,
-    onSubmit: (rating: Int, description: String) -> Unit
+    onSubmit: (rating: Int, description: String, anonymous: Boolean) -> Unit
 ) {
     var rating by remember { mutableStateOf(0) }
     var description by remember { mutableStateOf("") }
+    var anonymous by remember { mutableStateOf(false) }
     var showError by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -77,13 +78,31 @@ fun ReviewDialog(
                     placeholder = { Text("Tell us what you think...") },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(150.dp),
-                    maxLines = 5,
+                        .height(120.dp),
+                    maxLines = 4,
                     isError = showError,
                     supportingText = if (showError) {
                         { Text("Please provide a rating and description") }
                     } else null
                 )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Anonymous Checkbox
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = anonymous,
+                        onCheckedChange = { anonymous = it }
+                    )
+                    Text(
+                        text = "Submit as Anonymous Review",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -103,7 +122,7 @@ fun ReviewDialog(
                             if (rating == 0 || description.isBlank()) {
                                 showError = true
                             } else {
-                                onSubmit(rating, description.trim())
+                                onSubmit(rating, description.trim(), anonymous)
                             }
                         }
                     ) {
