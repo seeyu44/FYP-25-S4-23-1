@@ -291,9 +291,6 @@ class WebRtcClient(
                     Log.w("ICE_STATE", "ICE connection state → $state")
 
                     when (state) {
-                        PeerConnection.IceConnectionState.CHECKING ->
-                            Log.w("ICE_STATE", "ICE checking candidates")
-
                         PeerConnection.IceConnectionState.CONNECTED,
                         PeerConnection.IceConnectionState.COMPLETED -> {
                             if (!callConnected) {
@@ -301,12 +298,12 @@ class WebRtcClient(
                                 cancelRingTimeout()
                                 startAudioMonitoring()
                                 onAnswered?.invoke()
-                                Log.w("ICE_STATE", "ICE connected successfully")
-                                //signaling.updateCallStatus(callId, "in_call")
 
-                                if(isCaller) {
-                                    signaling.updateCallStatus("callId", "in_call")
+                                if (isCaller) {
+                                    signaling.updateCallStatus(callId, "in_call")
                                 }
+
+                                Log.w("ICE_STATE", "ICE connected successfully")
                             }
                         }
 
@@ -315,13 +312,14 @@ class WebRtcClient(
                             signaling.updateCallStatus(callId, "ended")
                             engineEnd("ICE_FAILED")
                         }
-                        PeerConnection.IceConnectionState.DISCONNECTED ->
-                            Log.w("ICE_STATE", "ICE disconnected")
 
+                        PeerConnection.IceConnectionState.DISCONNECTED ->
+                            Log.w("ICE_STATE", "ICE temporarily disconnected")
 
                         else -> Unit
                     }
                 }
+
 
                 override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) {
                     Log.w("ICE_GATHER", "ICE gathering state → $state")
@@ -425,6 +423,7 @@ class WebRtcClient(
                     remoteOfferApplied = true
                     Log.w("SDP_FLOW", "setRemoteDescription(offer) SUCCESS → ReadyToAnswer=true")
                     onReadyToAnswer?.invoke(true)
+                    Log.d("CALL_UI","Answer enabled(offer applied)")
 
                     if (pendingAnswer) {
                         pendingAnswer = false
@@ -473,7 +472,7 @@ class WebRtcClient(
     // Caller receive answer
     fun onRemoteAnswerReceived(answer: String) {
 
-        if (remoteAnswerApplied){
+        if (remoteAnswerApplied) {
             Log.w("SDP_FLOW", "Remote answer already applied — ignoring duplicate")
             return
         }
@@ -483,7 +482,11 @@ class WebRtcClient(
         peerConnection.setRemoteDescription(
             object : SdpObserverImpl() {
                 override fun onSetSuccess() {
+                    remoteAnswerApplied = true
                     Log.w("SDP_FLOW", "setRemoteDescription(answer) SUCCESS")
+
+                    //updates UI while waiting for ICE to connect
+                    onAnswered?.invoke()
                 }
 
                 override fun onSetFailure(error: String) {
@@ -493,6 +496,7 @@ class WebRtcClient(
             SessionDescription(SessionDescription.Type.ANSWER, answer)
         )
     }
+
 
     private fun createAnswer() {
         peerConnection.createAnswer(object : SdpObserverImpl() {

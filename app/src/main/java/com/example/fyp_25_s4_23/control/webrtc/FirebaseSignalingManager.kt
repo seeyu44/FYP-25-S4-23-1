@@ -3,79 +3,128 @@ package com.example.fyp_25_s4_23.control.webrtc
 import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.DocumentSnapshot
 
-/**
- * Skeleton for Firebase-based signaling. 
- * Placeholder logic to be linked with Firebase Auth, Firestore, and FCM later.
- */
 class FirebaseSignalingManager {
 
     private val firestore = FirebaseFirestore.getInstance()
+
     private var callListener: ListenerRegistration? = null
     private var iceListener: ListenerRegistration? = null
+
+    private var lastStatus: String? = null
     private var lastOfferSdp: String? = null
     private var lastAnswerSdp: String? = null
 
-    fun createCall(
-        callId: String,
-        callerUid: String,
-        calleeUid: String
-    ) {
-        val callData = mapOf(
-            "caller_user_id" to callerUid,
-            "callee_user_id" to calleeUid,
-            "status" to "ringing",
-            "offer_sdp" to null,
-            "answer_sdp" to null,
-            "created_at" to (System.currentTimeMillis() / 1000)
-        )
-
-        FirebaseFirestore.getInstance()
-            .collection("calls")
+    /* =========================
+       CREATE CALL
+       ========================= */
+    fun createCall(callId: String, callerUid: String, calleeUid: String) {
+        firestore.collection("calls")
             .document(callId)
-            .set(callData)
+            .set(
+                mapOf(
+                    "caller_user_id" to callerUid,
+                    "callee_user_id" to calleeUid,
+                    "status" to "ringing",
+                    "offer_sdp" to null,
+                    "answer_sdp" to null,
+                    "created_at" to (System.currentTimeMillis() / 1000)
+                )
+            )
+            .addOnFailureListener { e ->
+                Log.e("CALL_SIG", "createCall FAILED", e)
+            }
     }
 
-
-    //Listen to call state changes (ringing/accepted/ended)
+    /* =========================
+       CALL LISTENER
+       ========================= */
     fun listenToCall(
         callId: String,
         isCaller: Boolean,
         onOffer: (String) -> Unit,
         onAnswer: (String) -> Unit,
-        onStatus: (String) -> Unit,
+        onStatus: (String) -> Unit
     ) {
-        callListener = firestore.collection("calls")
-            .document(callId)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
+        val ref = firestore.collection("calls").document(callId)
 
-                if (!isCaller) {
-                    snapshot.getString("offer_sdp")?.let { offer ->
-                        if (offer != lastOfferSdp) {
-                            lastOfferSdp = offer
-                            Log.w("WEBRTC_FLOW", "NEW OFFER detected | callId=$callId")
-                            onOffer(offer)
-                        }
-                    }
-                }
+        /* ---- Initial one-time sync ---- */
+        ref.get().addOnSuccessListener { snap ->
+            if (snap == null || !snap.exists()) return@addOnSuccessListener
+            applySnapshot(
+                snapshot = snap,
+                isCaller = isCaller,
+                onOffer = onOffer,
+                onAnswer = onAnswer,
+                onStatus = onStatus
+            )
+        }
 
-                if (isCaller) {
-                    snapshot.getString("answer_sdp")?.let { answer ->
-                        if (answer != lastAnswerSdp) {
-                            lastAnswerSdp = answer
-                            Log.w("WEBRTC_FLOW", "NEW ANSWER detected | callId=$callId")
-                            onAnswer(answer)
-                        }
-                    }
-                }
-
-                snapshot.getString("status")?.let(onStatus)
+        /* ---- Realtime listener ---- */
+        callListener = ref.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                Log.e("CALL_SIG", "listenToCall error", error)
+                return@addSnapshotListener
             }
+            if (snapshot == null || !snapshot.exists()) return@addSnapshotListener
+
+            applySnapshot(
+                snapshot = snapshot,
+                isCaller = isCaller,
+                onOffer = onOffer,
+                onAnswer = onAnswer,
+                onStatus = onStatus
+            )
+        }
     }
 
-    // Send offer to callee
-    fun sendOffer(callId: String, offerSdp: String){
+    /* =========================
+       SNAPSHOT APPLY (DEDUPED)
+       ========================= */
+    private fun applySnapshot(
+        snapshot: DocumentSnapshot,
+        isCaller: Boolean,
+        onOffer: (String) -> Unit,
+        onAnswer: (String) -> Unit,
+        onStatus: (String) -> Unit
+    ) {
+        /* ---- STATUS ---- */
+        snapshot.getString("status")?.let { status ->
+            if (status != lastStatus) {
+                lastStatus = status
+                Log.d("CALL_SIG", "Status → $status")
+                onStatus(status)
+            }
+        }
+
+        /* ---- OFFER (callee only) ---- */
+        if (!isCaller) {
+            snapshot.getString("offer_sdp")?.let { offer ->
+                if (offer != lastOfferSdp) {
+                    lastOfferSdp = offer
+                    Log.w("WEBRTC_FLOW", "OFFER received")
+                    onOffer(offer)
+                }
+            }
+        }
+
+        /* ---- ANSWER (caller only) ---- */
+        if (isCaller) {
+            snapshot.getString("answer_sdp")?.let { answer ->
+                if (answer != lastAnswerSdp) {
+                    lastAnswerSdp = answer
+                    Log.w("WEBRTC_FLOW", "ANSWER received")
+                    onAnswer(answer)
+                }
+            }
+        }
+    }
+
+    /* =========================
+       SIGNALING SENDERS
+       ========================= */
+    fun sendOffer(callId: String, offerSdp: String) {
         firestore.collection("calls")
             .document(callId)
             .update(
@@ -86,11 +135,7 @@ class FirebaseSignalingManager {
             )
     }
 
-    // Sends an answer back to the caller.
-
     fun sendAnswer(callId: String, answerSdp: String) {
-        Log.i("Signaling", "Sending VOIP Call Answer to $callId...")
-        // TODO: Similar to sendCallRequest, but sends the WebRTC 'answer'
         firestore.collection("calls")
             .document(callId)
             .update(
@@ -101,8 +146,32 @@ class FirebaseSignalingManager {
             )
     }
 
-    //Send ICE candidate
-    fun sendIceCandidate(callId: String, userId: String, candidate: Map<String, Any>){
+    fun updateCallStatus(callId: String, status: String) {
+        firestore.collection("calls")
+            .document(callId)
+            .update(
+                mapOf(
+                    "status" to status,
+                    "updated_at" to com.google.firebase.Timestamp.now()
+                )
+            )
+            .addOnFailureListener { e ->
+                Log.e("CALL_SIG", "Failed to update call status", e)
+            }
+    }
+
+    fun endCall(callId: String) {
+        updateCallStatus(callId, "ended")
+    }
+
+    /* =========================
+       ICE
+       ========================= */
+    fun sendIceCandidate(
+        callId: String,
+        userId: String,
+        candidate: Map<String, Any>
+    ) {
         firestore.collection("calls")
             .document(callId)
             .collection("ice_candidates")
@@ -132,36 +201,17 @@ class FirebaseSignalingManager {
             }
     }
 
-    fun updateCallStatus(callId:String, status:String){
-        firestore.collection("calls")
-            .document(callId)
-            .update(
-                mapOf(
-                    "status" to status,
-                    "updated_at" to com.google.firebase.Timestamp.now()
-                )
-            )
-            .addOnSuccessListener {
-                Log.d("CALL_SIG", "Call $callId status updated to $status")
-            }
-            .addOnFailureListener { e ->
-                Log.e("CALL_SIG", "Failed to update call status", e)
-            }
-    }
-
-    // End the call by setting status to ended
-    fun endCall(callId: String) {
-        firestore.collection("calls")
-            .document(callId)
-            .update(mapOf("status" to "ended"))
-    }
-
-    //Stop listening
+    /* =========================
+       CLEANUP
+       ========================= */
     fun stopListening() {
         callListener?.remove()
         iceListener?.remove()
         callListener = null
         iceListener = null
+
+        lastStatus = null
+        lastOfferSdp = null
+        lastAnswerSdp = null
     }
 }
-

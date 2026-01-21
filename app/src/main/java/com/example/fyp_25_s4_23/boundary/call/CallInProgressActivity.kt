@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import android.Manifest
 import android.content.pm.PackageManager
 import com.example.fyp_25_s4_23.control.call.IncomingCallListener
+import com.example.fyp_25_s4_23.control.call.ActiveCallStore
 
 class CallInProgressActivity : ComponentActivity() {
 
@@ -65,6 +66,11 @@ class CallInProgressActivity : ComponentActivity() {
 
             val callIdNN = callId!!
             val remoteUserNN = remoteUserId!!
+
+            ActiveCallStore.setWebRtcActive(
+                callId = callIdNN,
+                remoteUserId = remoteUserNN
+            )
 
             Log.d(
                 "CALL_TYPE",
@@ -171,7 +177,7 @@ class CallInProgressActivity : ComponentActivity() {
                     "Activity received OFFER | client=${System.identityHashCode(client)}"
                 )
                 if (isIncoming) {
-                    viewModel.setRinging(remoteUserNN)
+                    viewModel.setRinging(remoteUserNN,preserveReady = true)
                     client?.onRemoteOfferReceived(offer)
                 }
             },
@@ -181,22 +187,26 @@ class CallInProgressActivity : ComponentActivity() {
                 }
             },
             onStatus = { status ->
-                when (status) {
-                    "ringing" -> viewModel.setRinging(remoteUserNN, preserveReady = true)
+                Log.d("CALL_SIG", "UI received status=$status (isIncoming=$isIncoming)")
 
-                    "accepted" -> {
-                        Log.d("CALL_SIG", "Remote accepted call")
+                when (status) {
+                    "ringing" -> {
+                        // outgoing caller should show Ringing too
+                        viewModel.setRinging(remoteUserNN, preserveReady = true)
+                    }
+
+                    "accepted", "in_call" -> {
                         viewModel.setActive()
                     }
 
-                    "in_call" -> viewModel.setActive()
-
                     "ended" -> {
-                        Log.w("CALL_SIG", "Remote requested end")
+                        viewModel.setDisconnected()
                         webRtcClient?.onRemoteEnded()
                     }
                 }
             }
+
+
         )
 
 
