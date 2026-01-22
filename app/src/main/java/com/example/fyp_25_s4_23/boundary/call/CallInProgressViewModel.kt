@@ -34,7 +34,10 @@ sealed class CallUiState {
         val isMuted: Boolean,
         val isSpeakerOn: Boolean,
         val localAudioState: WebRtcClient.AudioState,
-        val remoteAudioActive: Boolean
+        val remoteAudioActive: Boolean,
+        val detectionScore: Float? = null,
+        val isDeepfake: Boolean = false,
+        val isDetectionActive: Boolean = false
     ) : CallUiState()
 
     data class Disconnected(val handle: String) : CallUiState()
@@ -95,6 +98,30 @@ class CallInProgressViewModel : ViewModel() {
             val current = _state.value
             if (current is CallUiState.Active) {
                 _state.value = current.copy(isSpeakerOn = enabled)
+            }
+        }
+        
+        // Deepfake detection callbacks
+        client?.onDeepfakeDetected = { score, isDeepfake ->
+            val current = _state.value
+            if (current is CallUiState.Active) {
+                Log.w(TAG_WEBRTC, "🚨 DEEPFAKE DETECTED: score=$score")
+                _state.value = current.copy(
+                    detectionScore = score,
+                    isDeepfake = isDeepfake,
+                    isDetectionActive = true
+                )
+            }
+        }
+        
+        client?.onDetectionUpdate = { score ->
+            val current = _state.value
+            if (current is CallUiState.Active) {
+                _state.value = current.copy(
+                    detectionScore = score,
+                    isDeepfake = score >= 0.7f,
+                    isDetectionActive = true
+                )
             }
         }
     }
@@ -204,6 +231,10 @@ class CallInProgressViewModel : ViewModel() {
             localAudioState = WebRtcClient.AudioState.SILENT,
             remoteAudioActive = false
         )
+        
+        // Start deepfake detection when call becomes active
+        webRtcClient?.startDeepfakeDetection()
+        Log.d(TAG_UI, "Deepfake detection started")
     }
 
     fun setDisconnected() {

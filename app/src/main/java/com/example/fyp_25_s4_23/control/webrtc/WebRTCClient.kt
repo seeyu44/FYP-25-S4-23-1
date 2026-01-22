@@ -5,6 +5,7 @@ import android.util.Log
 import android.os.Handler
 import android.os.Looper
 import org.webrtc.*
+import com.example.fyp_25_s4_23.control.detection.DeepfakeDetectionService
 
 class WebRtcClient(
     private val context: Context,
@@ -26,6 +27,11 @@ class WebRtcClient(
     var onLocalAudioStateChanged: ((AudioState) -> Unit)? = null
     var onRemoteAudioStateChanged: ((Boolean) -> Unit)? = null
     var onSpeakerStateChanged: ((Boolean) -> Unit)? = null
+    
+    // Deepfake detection
+    private var detectionService: DeepfakeDetectionService? = null
+    var onDeepfakeDetected: ((Float, Boolean) -> Unit)? = null
+    var onDetectionUpdate: ((Float) -> Unit)? = null
 
     // Track whether local audio was enabled via setLocalAudioEnabled()
     private var localEnabled: Boolean = true
@@ -65,9 +71,14 @@ class WebRtcClient(
 
     // --- NEW: connection / timeout guards ---
     private var callConnected: Boolean = false
+    private var iceInProgress: Boolean = false  // Track if ICE is actively negotiating
     private var ringTimeoutHandler: Handler? = null
     private var ringTimeoutRunnable: Runnable? = null
-    private val ringTimeoutMs: Long = 30_000
+    private val ringTimeoutMs: Long = 60_000  // Increased to 60s for cross-network calls
+    
+    // Audio capture for deepfake detection
+    private var audioRecord: android.media.AudioRecord? = null
+    private var audioCaptureThread: Thread? = null
 
     fun setOnReadyToAnswerListener(listener: (Boolean) -> Unit) { onReadyToAnswer = listener }
     fun setOnAnsweredListener(listener: () -> Unit) { onAnswered = listener }
@@ -304,32 +315,26 @@ class WebRtcClient(
     }
 
     private fun iceServers() = listOf(
-        // STUN
-        PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
-        PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
-        
-        // TURN - Multiple providers for fallback
-        // Twilio STUN fallback
-        PeerConnection.IceServer.builder("stun:global.stun.twilio.com:3478").createIceServer(),
-        
-        // Open Relay
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
-            .setUsername("openrelayproject")
-            .setPassword("openrelayproject")
+        // STUN server
+        PeerConnection.IceServer.builder("stun:global.stun.metered.ca:80")
             .createIceServer(),
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443")
-            .setUsername("openrelayproject")
-            .setPassword("openrelayproject")
+
+        // TURN (UDP)
+        PeerConnection.IceServer.builder("turn:global.relay.metered.ca:80")
+            .setUsername("f476761c5386c5bfd0c6cd56")
+            .setPassword("iLGaUaMpckATerwK")
             .createIceServer(),
-            
-        // Alternate free TURN
-        PeerConnection.IceServer.builder("turn:relay.backups.cz")
-            .setUsername("webrtc")
-            .setPassword("webrtc")
+
+        // TURN (TCP fallback)
+        PeerConnection.IceServer.builder("turn:global.relay.metered.ca:443?transport=tcp")
+            .setUsername("f476761c5386c5bfd0c6cd56")
+            .setPassword("iLGaUaMpckATerwK")
             .createIceServer(),
-        PeerConnection.IceServer.builder("turn:relay.backups.cz:443")
-            .setUsername("webrtc")
-            .setPassword("webrtc")
+
+        // TURN (TLS – most reliable on strict networks)
+        PeerConnection.IceServer.builder("turns:global.relay.metered.ca:443")
+            .setUsername("f476761c5386c5bfd0c6cd56")
+            .setPassword("iLGaUaMpckATerwK")
             .createIceServer()
     )
 
@@ -344,7 +349,11 @@ class WebRtcClient(
             bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
             rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+            // Use ALL for production (tries direct P2P first, falls back to TURN)
             iceTransportsType = PeerConnection.IceTransportsType.ALL
+            // Increase ICE timeout for cross-network connections
+            iceConnectionReceivingTimeout = 10000  // 10 seconds instead of default 5
+            iceBackupCandidatePairPingInterval = 25000  // 25 seconds
         }
         
         Log.w("ICE_CONFIG", "RTCConfiguration: bundle=${rtcConfig.bundlePolicy}, " +
@@ -356,11 +365,16 @@ class WebRtcClient(
             object : PeerConnectionObserver() {
 
                 override fun onIceCandidate(candidate: IceCandidate) {
+                    // Detect candidate type
+                    val candidateType = when {
+                        candidate.sdp.contains("typ relay") -> "RELAY ✅"
+                        candidate.sdp.contains("typ srflx") -> "SRFLX (STUN)"
+                        candidate.sdp.contains("typ host") -> "HOST (local)"
+                        else -> "UNKNOWN"
+                    }
                     Log.w(
                         "ICE_FLOW",
-                        "LOCAL ICE → sdpMid=${candidate.sdpMid}, " +
-                                "sdpMLineIndex=${candidate.sdpMLineIndex}, " +
-                                "candidate=${candidate.sdp.take(60)}..."
+                        "LOCAL ICE [$candidateType] → ${candidate.sdp}"
                     )
 
                     signaling.sendIceCandidate(
@@ -390,8 +404,15 @@ class WebRtcClient(
                     Log.w("ICE_STATE", "ICE connection state → $state")
 
                     when (state) {
+                        PeerConnection.IceConnectionState.CHECKING -> {
+                            // ICE is trying to connect - give it time
+                            iceInProgress = true
+                            Log.i("ICE_STATE", "🔄 ICE negotiation in progress...")
+                        }
+
                         PeerConnection.IceConnectionState.CONNECTED,
                         PeerConnection.IceConnectionState.COMPLETED -> {
+                            iceInProgress = false
                             if (!callConnected) {
                                 callConnected = true
                                 cancelRingTimeout()
@@ -403,18 +424,21 @@ class WebRtcClient(
                                     signaling.updateCallStatus(callId, "in_call")
                                 }
 
-                                Log.w("ICE_STATE", "ICE connected successfully")
+                                Log.w("ICE_STATE", "✅ ICE connected successfully")
                             }
                         }
 
+                        PeerConnection.IceConnectionState.DISCONNECTED -> {
+                            Log.w("ICE_STATE", "⚠️ ICE temporarily disconnected - attempting reconnect...")
+                            // Don't end call immediately, WebRTC will try to reconnect
+                        }
+
                         PeerConnection.IceConnectionState.FAILED -> {
-                            Log.e("ICE_STATE", "ICE FAILED")
+                            iceInProgress = false
+                            Log.e("ICE_STATE", "❌ ICE FAILED - ending call")
                             signaling.updateCallStatus(callId, "ended")
                             engineEnd("ICE_FAILED")
                         }
-
-                        PeerConnection.IceConnectionState.DISCONNECTED ->
-                            Log.w("ICE_STATE", "ICE temporarily disconnected")
 
                         else -> Unit
                     }
@@ -466,6 +490,12 @@ class WebRtcClient(
         ringTimeoutHandler = Handler(Looper.getMainLooper())
         ringTimeoutRunnable = Runnable {
             if (ended || callConnected) return@Runnable
+            // Don't timeout if ICE is actively negotiating
+            if (iceInProgress) {
+                Log.i("CALL_TIMEOUT", "ICE in progress, extending timeout...")
+                ringTimeoutHandler?.postDelayed(ringTimeoutRunnable!!, 30_000) // Give another 30s
+                return@Runnable
+            }
             Log.w("CALL_TIMEOUT", "No answer within ${ringTimeoutMs}ms → ending call")
             signaling.updateCallStatus(callId, "ended")
             engineEnd("RING_TIMEOUT")
@@ -632,6 +662,166 @@ class WebRtcClient(
 
         Log.d("WebRTC", "Audio routing released")
     }
+    
+    // --- Deepfake Detection Methods ---
+    
+    /**
+     * Start deepfake detection monitoring
+     */
+    fun startDeepfakeDetection(detectionDao: com.example.fyp_25_s4_23.entity.data.dao.DetectionResultDao? = null) {
+        Log.d("DEEPFAKE", "🎯 startDeepfakeDetection() called for callId=$callId")
+        
+        if (detectionService != null) {
+            Log.w("DEEPFAKE", "⚠️ Detection already running, skipping")
+            return
+        }
+        
+        try {
+            Log.d("DEEPFAKE", "📦 Creating DeepfakeDetectionService...")
+            detectionService = DeepfakeDetectionService(
+                context = context,
+                callId = callId,
+                detectionDao = detectionDao
+            )
+            Log.d("DEEPFAKE", "✅ DeepfakeDetectionService created")
+            
+            // Set up callbacks to send MY detection results to Firestore
+            detectionService?.onDeepfakeDetected = { score ->
+                Log.w("DEEPFAKE", "⚠️ MY voice flagged as deepfake! Score: $score")
+                // Send MY result so the OTHER user sees it
+                signaling.sendDetectionResult(callId, userId, score, true)
+            }
+            
+            detectionService?.onDetectionUpdate = { result ->
+                Log.d("DEEPFAKE", "MY detection: score=${result.score}, isDeepfake=${result.isDeepfake}")
+                // Send MY result so the OTHER user sees it
+                signaling.sendDetectionResult(callId, userId, result.score, result.isDeepfake)
+            }
+            
+            // Listen for the REMOTE user's detection results
+            Log.d("DEEPFAKE", "👂 Listening for remote user's detection results...")
+            signaling.listenForRemoteDetection(callId, remoteUserId) { score, isDeepfake ->
+                Log.w("DEEPFAKE", "🚨 REMOTE user detection: score=$score, isDeepfake=$isDeepfake")
+                // This triggers the UI alert for the REMOTE person
+                onDetectionUpdate?.invoke(score)
+                if (isDeepfake) {
+                    onDeepfakeDetected?.invoke(score, true)
+                }
+            }
+            
+            Log.d("DEEPFAKE", "📞 Calling startMonitoring()...")
+            // Start monitoring MY voice
+            detectionService?.startMonitoring()
+            
+            Log.d("DEEPFAKE", "🎤 Calling startAudioCapture()...")
+            // Start audio capture of MY microphone
+            startAudioCapture()
+            
+            Log.i("DEEPFAKE", "✅ Deepfake detection fully started for call $callId")
+        } catch (e: Exception) {
+            Log.e("WebRTC", "Failed to start deepfake detection", e)
+        }
+    }
+    
+    /**
+     * Stop deepfake detection monitoring
+     */
+    fun stopDeepfakeDetection() {
+        try {
+            stopAudioCapture()
+            detectionService?.stopMonitoring()
+            detectionService?.cleanup()
+            detectionService = null
+            
+            Log.i("WebRTC", "Deepfake detection stopped")
+        } catch (e: Exception) {
+            Log.e("WebRTC", "Failed to stop deepfake detection", e)
+        }
+    }
+    
+    /**
+     * Start capturing audio for deepfake detection
+     * 
+     * MONITORS YOUR OWN MICROPHONE (what YOU say)
+     * Results are sent to Firestore so the OTHER person sees if YOU are fake.
+     * 
+     * Architecture:
+     * - Caller monitors caller's mic → Callee sees if caller is deepfake
+     * - Callee monitors callee's mic → Caller sees if callee is deepfake
+     */
+    private fun startAudioCapture() {
+        try {
+            Log.d("DEEPFAKE_AUDIO", "🎤 Starting audio capture of MY microphone...")
+            
+            val minBufferSize = android.media.AudioRecord.getMinBufferSize(
+                16000,
+                android.media.AudioFormat.CHANNEL_IN_MONO,
+                android.media.AudioFormat.ENCODING_PCM_16BIT
+            )
+            Log.d("DEEPFAKE_AUDIO", "Min buffer size: $minBufferSize")
+            
+            // VOICE_COMMUNICATION monitors YOUR microphone during calls
+            audioRecord = android.media.AudioRecord(
+                android.media.MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                16000, // 16kHz sample rate for detection
+                android.media.AudioFormat.CHANNEL_IN_MONO,
+                android.media.AudioFormat.ENCODING_PCM_16BIT,
+                maxOf(minBufferSize, 16000 * 2) // At least 1 second buffer
+            )
+            
+            if (audioRecord?.state == android.media.AudioRecord.STATE_INITIALIZED) {
+                audioRecord?.startRecording()
+                Log.d("DEEPFAKE_AUDIO", "✅ AudioRecord started successfully")
+                
+                var chunkCount = 0
+                // Start background thread to read audio
+                audioCaptureThread = Thread {
+                    val buffer = ShortArray(3200) // 200ms chunks at 16kHz
+                    Log.d("DEEPFAKE_AUDIO", "📡 Audio capture thread started")
+                    
+                    while (detectionService != null && audioRecord?.recordingState == android.media.AudioRecord.RECORDSTATE_RECORDING) {
+                        val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
+                        if (read > 0) {
+                            chunkCount++
+                            if (chunkCount % 50 == 0) { // Log every ~10 seconds (50 chunks × 200ms)
+                                Log.d("DEEPFAKE_AUDIO", "📊 Captured $chunkCount audio chunks so far")
+                            }
+                            detectionService?.feedAudioChunk(buffer.copyOf(read))
+                        } else if (read < 0) {
+                            Log.e("DEEPFAKE_AUDIO", "❌ AudioRecord read error: $read")
+                            break
+                        }
+                    }
+                    
+                    Log.d("DEEPFAKE_AUDIO", "🛑 Audio capture thread stopped. Total chunks: $chunkCount")
+                    audioRecord?.stop()
+                    audioRecord?.release()
+                    audioRecord = null
+                }
+                audioCaptureThread?.start()
+                
+                Log.d("DEEPFAKE_AUDIO", "✅ Audio capture started for deepfake detection")
+            } else {
+                Log.e("DEEPFAKE_AUDIO", "❌ AudioRecord failed to initialize. State: ${audioRecord?.state}")
+            }
+        } catch (e: Exception) {
+            Log.e("DEEPFAKE_AUDIO", "❌ Failed to start audio capture", e)
+        }
+    }
+    
+    /**
+     * Stop audio capture
+     */
+    private fun stopAudioCapture() {
+        // Cleanup handled by detection service stop
+    }
+    
+    /**
+     * Get detection statistics
+     */
+    fun getDetectionStatistics(): DeepfakeDetectionService.DetectionStatistics? {
+        return detectionService?.getStatistics()
+    }
 
     private fun engineEnd(reason: String) {
         if (ended) return
@@ -640,6 +830,7 @@ class WebRtcClient(
         Log.w("CALL_END", "Call ending (engine): $reason")
 
         stopAudioMonitoring()
+        stopDeepfakeDetection()
         cancelRingTimeout()
         releaseAudioRouting()
 

@@ -81,6 +81,18 @@ fun CallInProgressScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     color = Color.Gray
                 )
+                
+                // Deepfake detection status
+                if (currentState is CallUiState.Active) {
+                    val activeState = currentState as CallUiState.Active
+                    if (activeState.isDetectionActive) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        DeepfakeDetectionIndicator(
+                            score = activeState.detectionScore,
+                            isDeepfake = activeState.isDeepfake
+                        )
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.weight(1f))
@@ -90,73 +102,100 @@ fun CallInProgressScreen(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // 3-button row
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(40.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 40.dp)
-                    ) {
-                        // Speaker button
-                        val speakerEnabled = (currentState as? CallUiState.Active)?.isSpeakerOn ?: false
-                        CallButton(
-                            icon = Icons.Default.Phone,
-                            label = "Speaker",
-                            isHighlighted = speakerEnabled,
-                            onClick = onToggleSpeaker,
-                            enabled = currentState is CallUiState.Active
-                        )
-                        
-                        // Accept/Decline button (changes based on state)
-                        when (currentState) {
-                            is CallUiState.Ringing -> {
-                                val ringingState = currentState as CallUiState.Ringing
-                                if (ringingState.isIncoming && ringingState.isReadyToAnswer) {
-                                    // Green Accept button
-                                    AcceptDeclineButton(
-                                        icon = Icons.Default.Check,
-                                        label = "Accept",
-                                        isAccept = true,
-                                        onClick = onAnswer
-                                    )
-                                } else {
-                                    // Red Decline button (not ready yet)
+                    when (currentState) {
+                        is CallUiState.Ringing -> {
+                            val ringingState = currentState as CallUiState.Ringing
+                            if (ringingState.isIncoming) {
+                                // CALLEE: 2-button layout (Accept + Decline)
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(60.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(bottom = 40.dp)
+                                ) {
+                                    // Decline button (Red)
                                     AcceptDeclineButton(
                                         icon = Icons.Default.Close,
                                         label = "Decline",
                                         isAccept = false,
                                         onClick = onHangUp
                                     )
+                                    
+                                    // Accept button (Green) - only show if ready
+                                    if (ringingState.isReadyToAnswer) {
+                                        AcceptDeclineButton(
+                                            icon = Icons.Default.Check,
+                                            label = "Accept",
+                                            isAccept = true,
+                                            onClick = onAnswer
+                                        )
+                                    }
+                                }
+                            } else {
+                                // CALLER: Single Decline button while ringing
+                                Row(
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier.padding(bottom = 40.dp)
+                                ) {
+                                    AcceptDeclineButton(
+                                        icon = Icons.Default.Close,
+                                        label = "Cancel",
+                                        isAccept = false,
+                                        onClick = onHangUp
+                                    )
                                 }
                             }
-                            is CallUiState.Active -> {
-                                // Red Hang Up button
+                        }
+                        
+                        is CallUiState.Active -> {
+                            // ACTIVE CALL: 3-button layout (Speaker + End + Mute)
+                            val activeState = currentState as CallUiState.Active
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(40.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(bottom = 40.dp)
+                            ) {
+                                // Speaker button
+                                CallButton(
+                                    icon = Icons.Default.Phone,
+                                    label = "Speaker",
+                                    isHighlighted = activeState.isSpeakerOn,
+                                    onClick = onToggleSpeaker,
+                                    enabled = true
+                                )
+                                
+                                // End call button (Red)
                                 AcceptDeclineButton(
                                     icon = Icons.Default.Close,
                                     label = "End",
                                     isAccept = false,
                                     onClick = onHangUp
                                 )
+                                
+                                // Mute button
+                                CallButton(
+                                    icon = if (activeState.isMuted) Icons.Default.Close else Icons.Default.Person,
+                                    label = "Mute",
+                                    isHighlighted = activeState.isMuted,
+                                    onClick = onMute,
+                                    enabled = true
+                                )
                             }
-                            else -> {
-                                // Red Decline button for other states
+                        }
+                        
+                        else -> {
+                            // CONNECTING/OTHER: Single Decline button
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(bottom = 40.dp)
+                            ) {
                                 AcceptDeclineButton(
                                     icon = Icons.Default.Close,
-                                    label = "Decline",
+                                    label = "Cancel",
                                     isAccept = false,
                                     onClick = onHangUp
                                 )
                             }
                         }
-                        
-                        // Mute button
-                        val isMuted = (currentState as? CallUiState.Active)?.isMuted ?: false
-                        CallButton(
-                            icon = if (isMuted) Icons.Default.Close else Icons.Default.Person,
-                            label = "Mute",
-                            isHighlighted = isMuted,
-                            onClick = onMute,
-                            enabled = currentState is CallUiState.Active
-                        )
                     }
                 }
             }
@@ -249,3 +288,97 @@ fun AcceptDeclineButton(
         )
     }
 }
+
+@Composable
+fun DeepfakeDetectionIndicator(
+    score: Float?,
+    isDeepfake: Boolean
+) {
+    if (score == null) {
+        // Analyzing state
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .background(
+                    Color(0xFF2C2C2E),
+                    shape = MaterialTheme.shapes.medium
+                )
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                color = Color.White,
+                strokeWidth = 2.dp
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Analyzing audio...",
+                color = Color.White,
+                fontSize = 14.sp
+            )
+        }
+    } else {
+        // Detection result
+        val (bgColor, textColor, emoji, statusText) = when {
+            isDeepfake -> Tuple4(
+                Color(0xFFFF3B30), // Red
+                Color.White,
+                "🚨",
+                "DEEPFAKE DETECTED"
+            )
+            score > 0.3f -> Tuple4(
+                Color(0xFFFF9500), // Orange
+                Color.White,
+                "⚠️",
+                "Suspicious"
+            )
+            else -> Tuple4(
+                Color(0xFF34C759), // Green
+                Color.White,
+                "✅",
+                "Real Voice"
+            )
+        }
+        
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .background(
+                    bgColor,
+                    shape = MaterialTheme.shapes.medium
+                )
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = emoji,
+                    fontSize = 20.sp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = statusText,
+                    color = textColor,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Confidence: ${(score * 100).toInt()}%",
+                color = textColor.copy(alpha = 0.9f),
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+// Helper data class for the indicator
+private data class Tuple4<A, B, C, D>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D
+)

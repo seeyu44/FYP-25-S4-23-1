@@ -11,6 +11,7 @@ class FirebaseSignalingManager {
 
     private var callListener: ListenerRegistration? = null
     private var iceListener: ListenerRegistration? = null
+    private var detectionListener: ListenerRegistration? = null
 
     private var lastStatus: String? = null
     private var lastOfferSdp: String? = null
@@ -202,13 +203,65 @@ class FirebaseSignalingManager {
     }
 
     /* =========================
+       DEEPFAKE DETECTION SYNC
+       ========================= */
+    
+    /**
+     * Send detection result to Firestore so the OTHER user can see it
+     */
+    fun sendDetectionResult(callId: String, userId: String, score: Float, isDeepfake: Boolean) {
+        firestore.collection("calls")
+            .document(callId)
+            .update(
+                mapOf(
+                    "${userId}_detection_score" to score,
+                    "${userId}_is_deepfake" to isDeepfake,
+                    "${userId}_detection_timestamp" to System.currentTimeMillis()
+                )
+            )
+            .addOnFailureListener { e ->
+                Log.e("DEEPFAKE_SYNC", "Failed to send detection result", e)
+            }
+    }
+    
+    /**
+     * Listen for the REMOTE user's detection results
+     */
+    fun listenForRemoteDetection(
+        callId: String,
+        remoteUserId: String,
+        onRemoteDetection: (score: Float, isDeepfake: Boolean) -> Unit
+    ) {
+        val ref = firestore.collection("calls").document(callId)
+        
+        detectionListener = ref.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                Log.e("DEEPFAKE_SYNC", "listenForRemoteDetection error", error)
+                return@addSnapshotListener
+            }
+            if (snapshot == null || !snapshot.exists()) return@addSnapshotListener
+            
+            // Read the remote user's detection result
+            val score = snapshot.getDouble("${remoteUserId}_detection_score")?.toFloat()
+            val isDeepfake = snapshot.getBoolean("${remoteUserId}_is_deepfake")
+            
+            if (score != null && isDeepfake != null) {
+                Log.d("DEEPFAKE_SYNC", "Remote user detection: score=$score, isDeepfake=$isDeepfake")
+                onRemoteDetection(score, isDeepfake)
+            }
+        }
+    }
+    
+    /* =========================
        CLEANUP
        ========================= */
     fun stopListening() {
         callListener?.remove()
         iceListener?.remove()
+        detectionListener?.remove()
         callListener = null
         iceListener = null
+        detectionListener = null
 
         lastStatus = null
         lastOfferSdp = null

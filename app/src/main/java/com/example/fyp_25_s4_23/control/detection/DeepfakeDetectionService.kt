@@ -34,8 +34,8 @@ class DeepfakeDetectionService(
     // Audio buffer queue
     private val audioBufferQueue = ConcurrentLinkedQueue<FloatArray>()
     private val bufferSizeSeconds = 3 // Match training data clip size
-    private val sampleRate = 48000 // WebRTC sample rate
-    private val targetSamples = sampleRate * bufferSizeSeconds
+    private val sampleRate = 16000 // Match AudioRecord capture rate (16kHz)
+    private val targetSamples = sampleRate * bufferSizeSeconds // 48,000 samples = 3 seconds
     
     // Background processing
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -78,23 +78,33 @@ class DeepfakeDetectionService(
      * Start monitoring audio for deepfake detection
      */
     fun startMonitoring() {
-        if (isRunning) return
+        if (isRunning) {
+            Log.w(TAG, "⚠️ startMonitoring called but already running")
+            return
+        }
         
         isRunning = true
         _detectionState.value = _detectionState.value.copy(isMonitoring = true)
         
-        Log.d(TAG, "Started deepfake monitoring for call $callId")
+        Log.d(TAG, "✅ Started deepfake monitoring for call $callId")
         
         // Start background processing
         processingJob = scope.launch {
+            Log.d(TAG, "🔄 Processing coroutine started")
+            var loopCount = 0
             while (isActive && isRunning) {
                 try {
+                    loopCount++
+                    if (loopCount % 5 == 0) {
+                        Log.d(TAG, "💓 Processing loop alive (iteration $loopCount), queue size: ${audioBufferQueue.size}")
+                    }
                     processAudioBuffer()
                     delay(1000) // Check buffer every second
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error processing audio buffer", e)
+                    Log.e(TAG, "❌ Error processing audio buffer", e)
                 }
             }
+            Log.d(TAG, "🛑 Processing coroutine stopped")
         }
     }
     
@@ -116,7 +126,15 @@ class DeepfakeDetectionService(
      * @param pcmData PCM audio data (16-bit samples)
      */
     fun feedAudioChunk(pcmData: ShortArray) {
-        if (!isRunning) return
+        if (!isRunning) {
+            Log.w("DEEPFAKE_DETECT", "⚠️ feedAudioChunk called but service not running")
+            return
+        }
+        
+        // Log first few chunks to verify audio is being received
+        if (audioBufferQueue.size < 5) {
+            Log.d("DEEPFAKE_DETECT", "📥 Received audio chunk: ${pcmData.size} samples, queue size: ${audioBufferQueue.size}")
+        }
         
         // Convert PCM to float array normalized to [-1, 1]
         val floatData = FloatArray(pcmData.size) { i ->
@@ -125,8 +143,8 @@ class DeepfakeDetectionService(
         
         audioBufferQueue.offer(floatData)
         
-        // Limit buffer size to prevent memory issues
-        while (audioBufferQueue.size > 10) {
+        // Limit buffer size to prevent memory issues (need 15 chunks minimum for 48k samples)
+        while (audioBufferQueue.size > 20) {
             audioBufferQueue.poll()
         }
     }
@@ -148,22 +166,32 @@ class DeepfakeDetectionService(
      * Process accumulated audio buffer and run inference
      */
     private suspend fun processAudioBuffer() {
-        // Collect enough samples for one inference
-        val samples = mutableListOf<Float>()
+        // Calculate how many samples we have in the queue WITHOUT draining it
+        val queueSize = audioBufferQueue.size
+        val estimatedSamples = queueSize * 3200  // Each chunk is 3200 samples
         
-        while (samples.size < targetSamples && audioBufferQueue.isNotEmpty()) {
+        if (estimatedSamples < targetSamples) {
+            // Not enough data yet - DON'T DRAIN THE QUEUE
+            Log.d("DEEPFAKE_DETECT", "⏳ Buffering audio... $estimatedSamples/$targetSamples samples (need ${targetSamples - estimatedSamples} more), queue has $queueSize chunks")
+            return
+        }
+        
+        // We have enough! Now drain the required chunks
+        Log.d("DEEPFAKE_DETECT", "✅ Queue has enough samples! Draining ${queueSize} chunks for inference...")
+        
+        val samples = mutableListOf<Float>()
+        val chunksNeeded = (targetSamples + 3199) / 3200  // Round up: 48000/3200 = 15 chunks
+        
+        repeat(chunksNeeded.coerceAtMost(audioBufferQueue.size)) {
             audioBufferQueue.poll()?.let { chunk ->
                 samples.addAll(chunk.toList())
             }
         }
         
-        if (samples.size < targetSamples) {
-            // Not enough data yet
-            return
-        }
-        
-        // Take exactly targetSamples
+        // Take exactly targetSamples (in case we got slightly more)
         val audioSegment = samples.take(targetSamples).toFloatArray()
+        
+        Log.d("DEEPFAKE_DETECT", "🔬 Running inference on ${audioSegment.size} samples...")
         
         // Run inference
         withContext(Dispatchers.Default) {
@@ -176,14 +204,21 @@ class DeepfakeDetectionService(
      */
     private suspend fun runInference(audioSegment: FloatArray) {
         try {
+            Log.d("DEEPFAKE_DETECT", "🔄 Preprocessing audio to mel spectrogram...")
             // Preprocess audio to mel spectrogram
             val mel = modelRunner.preprocess(audioSegment)
             
+            Log.d("DEEPFAKE_DETECT", "🧠 Running model inference...")
             // Run inference
-            val score = modelRunner.inferMel(mel) ?: return
+            val score = modelRunner.inferMel(mel) ?: run {
+                Log.e("DEEPFAKE_DETECT", "❌ Model inference returned null")
+                return
+            }
             
             val isDeepfake = score >= detectionThreshold
             val timestamp = System.currentTimeMillis()
+            
+            Log.i("DEEPFAKE_DETECT", "📊 Detection result: score=${"%.3f".format(score)}, isDeepfake=$isDeepfake (threshold=$detectionThreshold)")
             
             // Update state
             val currentState = _detectionState.value
@@ -205,6 +240,7 @@ class DeepfakeDetectionService(
             // Save to database
             detectionDao?.let { dao ->
                 val entity = DetectionResultEntity(
+                    id = "${callId}_${timestamp}",  // Unique ID: callId + timestamp
                     callId = callId,
                     probability = score,
                     isDeepfake = isDeepfake,
