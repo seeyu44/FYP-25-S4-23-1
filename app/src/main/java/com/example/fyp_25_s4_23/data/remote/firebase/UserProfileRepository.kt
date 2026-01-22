@@ -35,7 +35,6 @@ class UserProfileRepository {
 
     suspend fun createUserProfile(
         uid: String,
-        email: String,
         username: String,
         displayName: String,
         role: String

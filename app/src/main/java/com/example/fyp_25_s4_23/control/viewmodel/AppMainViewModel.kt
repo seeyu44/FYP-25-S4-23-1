@@ -285,12 +285,15 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 // Create user profile with ADMIN role
                 userProfileRepository.createUserProfile(
                     uid = newUserUid,
-                    email = cleanEmail,
                     username = cleanUsername,
                     displayName = displayName.trim(),
                     role = "ADMIN"
                 )
                 Log.d("CreateAdmin", "User profile created successfully")
+                
+                // Finalize admin user setup via Cloud Function
+                userProfileRepository.finalizeAdminUser(newUserUid, displayName.trim())
+                Log.d("CreateAdmin", "Admin user finalized")
             }.onSuccess {
                 refreshDashboard()
                 _state.update {
