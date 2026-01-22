@@ -1,9 +1,15 @@
 package com.example.fyp_25_s4_23.control.webrtc
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
 import android.os.Handler
 import android.os.Looper
+import androidx.core.content.ContextCompat
+import android.media.AudioRecord
+import android.media.AudioFormat
+import android.media.MediaRecorder
 import org.webrtc.*
 import com.example.fyp_25_s4_23.control.detection.DeepfakeDetectionService
 
@@ -19,7 +25,7 @@ class WebRtcClient(
     private lateinit var factory: PeerConnectionFactory
     private lateinit var peerConnection: PeerConnection
     private lateinit var audioSource: AudioSource
-    private lateinit var audioTrack: AudioTrack
+    private lateinit var audioTrack: org.webrtc.AudioTrack
 
     enum class AudioState { MUTED, SILENT, ACTIVE }
 
@@ -92,6 +98,14 @@ class WebRtcClient(
 
         factory = PeerConnectionFactory.builder().createPeerConnectionFactory()
     }
+
+    private fun hasRecordAudioPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
 
     fun createAudioTrack() {
         audioSource = factory.createAudioSource(MediaConstraints())
@@ -751,64 +765,103 @@ class WebRtcClient(
      */
     private fun startAudioCapture() {
         try {
+            // 1️⃣ Permission guard (MANDATORY)
+            if (!hasRecordAudioPermission()) {
+                Log.e("DEEPFAKE_AUDIO", "❌ RECORD_AUDIO permission not granted")
+                return
+            }
+
             Log.d("DEEPFAKE_AUDIO", "🎤 Starting audio capture of MY microphone...")
-            
-            val minBufferSize = android.media.AudioRecord.getMinBufferSize(
+
+            val minBufferSize = AudioRecord.getMinBufferSize(
                 16000,
-                android.media.AudioFormat.CHANNEL_IN_MONO,
-                android.media.AudioFormat.ENCODING_PCM_16BIT
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT
             )
             Log.d("DEEPFAKE_AUDIO", "Min buffer size: $minBufferSize")
-            
+
             // VOICE_COMMUNICATION monitors YOUR microphone during calls
-            audioRecord = android.media.AudioRecord(
-                android.media.MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+            audioRecord = AudioRecord(
+                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
                 16000, // 16kHz sample rate for detection
-                android.media.AudioFormat.CHANNEL_IN_MONO,
-                android.media.AudioFormat.ENCODING_PCM_16BIT,
-                maxOf(minBufferSize, 16000 * 2) // At least 1 second buffer
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                maxOf(minBufferSize, 16000 * 2) // ≥ 1 second buffer
             )
-            
-            if (audioRecord?.state == android.media.AudioRecord.STATE_INITIALIZED) {
-                audioRecord?.startRecording()
-                Log.d("DEEPFAKE_AUDIO", "✅ AudioRecord started successfully")
-                
-                var chunkCount = 0
-                // Start background thread to read audio
-                audioCaptureThread = Thread {
-                    val buffer = ShortArray(3200) // 200ms chunks at 16kHz
-                    Log.d("DEEPFAKE_AUDIO", "📡 Audio capture thread started")
-                    
-                    while (detectionService != null && audioRecord?.recordingState == android.media.AudioRecord.RECORDSTATE_RECORDING) {
-                        val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
-                        if (read > 0) {
+
+            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
+                Log.e(
+                    "DEEPFAKE_AUDIO",
+                    "❌ AudioRecord failed to initialize. State=${audioRecord?.state}"
+                )
+                audioRecord?.release()
+                audioRecord = null
+                return
+            }
+
+            audioRecord?.startRecording()
+            Log.d("DEEPFAKE_AUDIO", "✅ AudioRecord started successfully")
+
+            var chunkCount = 0
+
+            audioCaptureThread = Thread {
+                val buffer = ShortArray(3200) // 200ms @ 16kHz
+                Log.d("DEEPFAKE_AUDIO", "📡 Audio capture thread started")
+
+                while (
+                    detectionService != null &&
+                    audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING
+                ) {
+                    val read = audioRecord?.read(buffer, 0, buffer.size) ?: break
+
+                    when {
+                        read > 0 -> {
                             chunkCount++
-                            if (chunkCount % 50 == 0) { // Log every ~10 seconds (50 chunks × 200ms)
-                                Log.d("DEEPFAKE_AUDIO", "📊 Captured $chunkCount audio chunks so far")
+                            if (chunkCount % 50 == 0) {
+                                Log.d(
+                                    "DEEPFAKE_AUDIO",
+                                    "📊 Captured $chunkCount audio chunks so far"
+                                )
                             }
                             detectionService?.feedAudioChunk(buffer.copyOf(read))
-                        } else if (read < 0) {
+                        }
+
+                        read < 0 -> {
                             Log.e("DEEPFAKE_AUDIO", "❌ AudioRecord read error: $read")
                             break
                         }
                     }
-                    
-                    Log.d("DEEPFAKE_AUDIO", "🛑 Audio capture thread stopped. Total chunks: $chunkCount")
+                }
+
+                Log.d(
+                    "DEEPFAKE_AUDIO",
+                    "🛑 Audio capture thread stopped. Total chunks: $chunkCount"
+                )
+
+                try {
                     audioRecord?.stop()
                     audioRecord?.release()
-                    audioRecord = null
-                }
-                audioCaptureThread?.start()
-                
-                Log.d("DEEPFAKE_AUDIO", "✅ Audio capture started for deepfake detection")
-            } else {
-                Log.e("DEEPFAKE_AUDIO", "❌ AudioRecord failed to initialize. State: ${audioRecord?.state}")
+                } catch (_: Exception) { }
+
+                audioRecord = null
             }
+
+            audioCaptureThread?.start()
+            Log.d("DEEPFAKE_AUDIO", "✅ Audio capture started for deepfake detection")
+
+        } catch (se: SecurityException) {
+            // 2️⃣ Explicit security handling (lint requirement)
+            Log.e(
+                "DEEPFAKE_AUDIO",
+                "❌ Missing RECORD_AUDIO permission (SecurityException)",
+                se
+            )
         } catch (e: Exception) {
             Log.e("DEEPFAKE_AUDIO", "❌ Failed to start audio capture", e)
         }
     }
-    
+
+
     /**
      * Stop audio capture
      */
