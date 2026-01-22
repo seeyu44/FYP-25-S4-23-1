@@ -43,7 +43,7 @@ class UserProfileRepository {
             "displayName" to displayName,
             "role" to role,
             "createdAtSeconds" to System.currentTimeMillis() / 1000,
-            "adminVerificationSent" to false
+            "adminVerificationSent" to false,
             "needsVerificationOnFirstLogin" to true
         )
 
