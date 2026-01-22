@@ -64,7 +64,8 @@ class UserProfileRepository {
         
         val data = hashMapOf(
             "uid" to uid,
-            "displayName" to displayName
+            "displayName" to displayName,
+            "role" to "ADMIN"
         )
         
         addAdminUser.call(data).await()
