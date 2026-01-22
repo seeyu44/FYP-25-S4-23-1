@@ -36,8 +36,10 @@ import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
 import com.example.fyp_25_s4_23.control.controllers.SystemController
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 
@@ -219,35 +221,86 @@ fun CreateAdminDialog(
     var username by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf("") }
+    
+    fun validatePassword(pwd: String): String? {
+        if (pwd.length < 8) return "At least 8 characters required"
+        if (!pwd.any { it.isUpperCase() }) return "Needs one uppercase letter"
+        if (!pwd.any { it.isLowerCase() }) return "Needs one lowercase letter"
+        if (!pwd.any { it.isDigit() }) return "Needs one number"
+        if (!pwd.any { !it.isLetterOrDigit() }) return "Needs one special character"
+        return null
+    }
+    
+    fun canSubmit(): Boolean {
+        if (email.isBlank() || username.isBlank() || displayName.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
+            return false
+        }
+        if (password != confirmPassword) {
+            return false
+        }
+        if (validatePassword(password) != null) {
+            return false
+        }
+        return true
+    }
     
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Create Admin Account") },
         text = {
             Column {
-                TextField(
+                OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = { email = it; errorMessage = "" },
                     label = { Text("Email") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
                 )
-                TextField(
+                OutlinedTextField(
                     value = username,
-                    onValueChange = { username = it },
+                    onValueChange = { username = it; errorMessage = "" },
                     label = { Text("Username") },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    singleLine = true
                 )
-                TextField(
+                OutlinedTextField(
                     value = displayName,
                     onValueChange = { displayName = it },
                     label = { Text("Display Name") },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    singleLine = true
                 )
-                TextField(
+                OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
                     label = { Text("Password") },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    isError = password.isNotBlank() && validatePassword(password) != null,
+                    supportingText = {
+                        if (password.isNotBlank()) {
+                            validatePassword(password)?.let { 
+                                Text(it, color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                )
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = { Text("Confirm Password") },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    isError = confirmPassword.isNotBlank() && password != confirmPassword,
+                    supportingText = {
+                        if (confirmPassword.isNotBlank() && password != confirmPassword) {
+                            Text("Passwords do not match", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 )
                 Text(
                     text = "Role will be set to ADMIN automatically",
@@ -255,12 +308,20 @@ fun CreateAdminDialog(
                     color = Color.Gray,
                     modifier = Modifier.padding(top = 8.dp)
                 )
+                if (errorMessage.isNotBlank()) {
+                    Text(
+                        text = errorMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = { onConfirm(email, username, displayName, password) },
-                enabled = email.isNotBlank() && username.isNotBlank() && displayName.isNotBlank() && password.isNotBlank()
+                enabled = canSubmit()
             ) {
                 Text("Create")
             }

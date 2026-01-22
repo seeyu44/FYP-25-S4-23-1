@@ -45,6 +45,14 @@ object FirebaseAuthManager {
         user.sendEmailVerification().await()
     }
 
+    suspend fun checkEmailExists(email: String) {
+        // Firebase fetchSignInMethodsForEmail to check if email exists
+        val methods = auth.fetchSignInMethodsForEmail(email).await()
+        if (!methods.signInMethods.isNullOrEmpty()) {
+            throw IllegalStateException("Email already exists")
+        }
+    }
+
     suspend fun createAdminUser(email: String, password: String): String {
         // Save current user
         val currentUser = auth.currentUser

@@ -247,19 +247,40 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
             _state.update { it.copy(isBusy = true, message = null) }
 
             runCatching {
+                val cleanEmail = email.trim()
                 val cleanUsername = username.trim().lowercase()
+                
+                // Validate email format
+                if (!android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
+                    error("Invalid email format")
+                }
+                
+                // Validate password strength
+                if (password.length < 8) error("Password must be at least 8 characters")
+                if (!password.any { it.isUpperCase() }) error("Password needs one uppercase letter")
+                if (!password.any { it.isLowerCase() }) error("Password needs one lowercase letter")
+                if (!password.any { it.isDigit() }) error("Password needs one number")
+                if (!password.any { !it.isLetterOrDigit() }) error("Password needs one special character")
 
+                // Check if username already exists
                 if (!usernameService.checkUsername(cleanUsername)) {
                     error("Username already taken")
                 }
+                
+                // Check if email already exists (will throw error if email already registered)
+                try {
+                    FirebaseAuthManager.checkEmailExists(cleanEmail)
+                } catch (e: Exception) {
+                    error("Email already registered")
+                }
 
                 // Create Firebase auth user
-                val newUserUid = FirebaseAuthManager.createAdminUser(email.trim(), password)
+                val newUserUid = FirebaseAuthManager.createAdminUser(cleanEmail, password)
                 
                 // Create user profile with ADMIN role
                 userProfileRepository.createUserProfile(
                     uid = newUserUid,
-                    email = email.trim(),
+                    email = cleanEmail,
                     username = cleanUsername,
                     displayName = displayName.trim(),
                     role = "ADMIN"
