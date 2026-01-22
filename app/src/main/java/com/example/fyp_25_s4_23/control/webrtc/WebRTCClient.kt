@@ -25,9 +25,11 @@ class WebRtcClient(
     // Callbacks for UI: local audio state (MUTED/SILENT/ACTIVE) and remote audio activity (true/false)
     var onLocalAudioStateChanged: ((AudioState) -> Unit)? = null
     var onRemoteAudioStateChanged: ((Boolean) -> Unit)? = null
+    var onSpeakerStateChanged: ((Boolean) -> Unit)? = null
 
     // Track whether local audio was enabled via setLocalAudioEnabled()
     private var localEnabled: Boolean = true
+    private var speakerEnabled: Boolean = false
 
     // Monitoring / smoothing state
     private var monitoringHandler: Handler? = null
@@ -109,6 +111,61 @@ class WebRtcClient(
             }
         } catch (e: Exception) {
             Log.w("WebRTC", "Failed to set local audio enabled", e)
+        }
+    }
+
+    // Setup audio routing for WebRTC call
+    private fun setupAudioRouting() {
+        try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            
+            // Request audio focus for voice call
+            audioManager.requestAudioFocus(
+                null,
+                android.media.AudioManager.STREAM_VOICE_CALL,
+                android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+            )
+            
+            // Set mode to IN_COMMUNICATION for VoIP calls (crucial!)
+            audioManager.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+            
+            // Set speaker state
+            audioManager.isSpeakerphoneOn = speakerEnabled
+            
+            // Ensure microphone is not muted
+            audioManager.isMicrophoneMute = false
+            
+            Log.d("WebRTC", "Audio routing setup - mode=${audioManager.mode}, speaker=${audioManager.isSpeakerphoneOn}, volume=${audioManager.getStreamVolume(android.media.AudioManager.STREAM_VOICE_CALL)}")
+        } catch (e: Exception) {
+            Log.w("WebRTC", "Failed to setup audio routing", e)
+        }
+    }
+
+    // Toggle speaker on/off (earpiece vs speakerphone)
+    fun setSpeakerEnabled(enabled: Boolean) {
+        try {
+            speakerEnabled = enabled
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            
+            // Ensure we're in communication mode first
+            if (audioManager.mode != android.media.AudioManager.MODE_IN_COMMUNICATION) {
+                audioManager.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+                Log.d("WebRTC", "Set mode to IN_COMMUNICATION")
+            }
+            
+            // Toggle speaker
+            audioManager.isSpeakerphoneOn = enabled
+            
+            // Verify it worked
+            val actualSpeaker = audioManager.isSpeakerphoneOn
+            val volume = audioManager.getStreamVolume(android.media.AudioManager.STREAM_VOICE_CALL)
+            val maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_VOICE_CALL)
+            
+            Log.d("WebRTC", "Speaker toggle: requested=$enabled, actual=$actualSpeaker, volume=$volume/$maxVolume, mode=${audioManager.mode}")
+            
+            onSpeakerStateChanged?.invoke(actualSpeaker)
+        } catch (e: Exception) {
+            Log.e("WebRTC", "Failed to set speaker enabled", e)
         }
     }
 
@@ -338,6 +395,7 @@ class WebRtcClient(
                             if (!callConnected) {
                                 callConnected = true
                                 cancelRingTimeout()
+                                setupAudioRouting()
                                 startAudioMonitoring()
                                 onAnswered?.invoke()
 

@@ -32,6 +32,7 @@ sealed class CallUiState {
     data class Active(
         val handle: String,
         val isMuted: Boolean,
+        val isSpeakerOn: Boolean,
         val localAudioState: WebRtcClient.AudioState,
         val remoteAudioActive: Boolean
     ) : CallUiState()
@@ -87,6 +88,13 @@ class CallInProgressViewModel : ViewModel() {
             val current = _state.value
             if (current is CallUiState.Active) {
                 _state.value = current.copy(remoteAudioActive = active)
+            }
+        }
+
+        client?.onSpeakerStateChanged = { enabled ->
+            val current = _state.value
+            if (current is CallUiState.Active) {
+                _state.value = current.copy(isSpeakerOn = enabled)
             }
         }
     }
@@ -150,6 +158,15 @@ class CallInProgressViewModel : ViewModel() {
         _state.value = current.copy(isMuted = newMuted)
     }
 
+    fun toggleSpeaker() {
+        val current = _state.value
+        if (current !is CallUiState.Active) return
+
+        val newSpeaker = !current.isSpeakerOn
+        webRtcClient?.setSpeakerEnabled(newSpeaker)
+        _state.value = current.copy(isSpeakerOn = newSpeaker)
+    }
+
     /* =========================
        STATE TRANSITIONS
        ========================= */
@@ -183,6 +200,7 @@ class CallInProgressViewModel : ViewModel() {
         _state.value = CallUiState.Active(
             handle = handle,
             isMuted = false,
+            isSpeakerOn = false,
             localAudioState = WebRtcClient.AudioState.SILENT,
             remoteAudioActive = false
         )

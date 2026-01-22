@@ -82,7 +82,8 @@ class CallInProgressActivity : ComponentActivity() {
                         viewModel.hangUp()
                         finish()
                     },
-                    onMute = viewModel::toggleMute
+                    onMute = viewModel::toggleMute,
+                    onToggleSpeaker = viewModel::toggleSpeaker
                 )
             }
         }
