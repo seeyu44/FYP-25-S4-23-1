@@ -19,10 +19,16 @@ class UsernameService {
             .get("available") as Boolean
     }
 
-    suspend fun claimUsername(username: String) {
+    suspend fun claimUsername(username: String, uid: String? = null) {
+        val data = if (uid != null) {
+            mapOf("username" to username, "uid" to uid)
+        } else {
+            mapOf("username" to username)
+        }
+        
         functions
             .getHttpsCallable("claimUsername")
-            .call(mapOf("username" to username))
+            .call(data)
             .await()
     }
 }
