@@ -276,6 +276,11 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
                 // Create Firebase auth user
                 val newUserUid = FirebaseAuthManager.createAdminUser(cleanEmail, password)
+                Log.d("CreateAdmin", "Auth user created with UID: $newUserUid")
+                
+                // Claim the username in Firestore
+                usernameService.claimUsername(cleanUsername)
+                Log.d("CreateAdmin", "Username claimed: $cleanUsername")
                 
                 // Create user profile with ADMIN role
                 userProfileRepository.createUserProfile(
@@ -285,6 +290,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     displayName = displayName.trim(),
                     role = "ADMIN"
                 )
+                Log.d("CreateAdmin", "User profile created successfully")
             }.onSuccess {
                 refreshDashboard()
                 _state.update {

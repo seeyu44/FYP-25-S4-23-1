@@ -39,13 +39,11 @@ class UserProfileRepository {
         role: String
     ) {
         val userProfile = hashMapOf(
-            "email" to email,
             "username" to username,
-            "display_name" to displayName,
+            "displayName" to displayName,
             "role" to role,
-            "plan_tier" to "",
-            "verified" to false,
-            "created_at_seconds" to System.currentTimeMillis() / 1000
+            "createdAtSeconds" to System.currentTimeMillis() / 1000,
+            "adminVerificationSent" to false
         )
 
         db.collection("users")
