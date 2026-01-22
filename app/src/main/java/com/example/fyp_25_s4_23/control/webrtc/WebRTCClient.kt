@@ -247,13 +247,45 @@ class WebRtcClient(
     }
 
     private fun iceServers() = listOf(
-        //STUN
+        // STUN
         PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
+        PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
+        
+        // TURN - Multiple providers for fallback
+        // Twilio STUN fallback
+        PeerConnection.IceServer.builder("stun:global.stun.twilio.com:3478").createIceServer(),
+        
+        // Open Relay
+        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
+            .setUsername("openrelayproject")
+            .setPassword("openrelayproject")
+            .createIceServer(),
+        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443")
+            .setUsername("openrelayproject")
+            .setPassword("openrelayproject")
+            .createIceServer(),
+            
+        // Alternate free TURN
+        PeerConnection.IceServer.builder("turn:relay.backups.cz")
+            .setUsername("webrtc")
+            .setPassword("webrtc")
+            .createIceServer(),
+        PeerConnection.IceServer.builder("turn:relay.backups.cz:443")
+            .setUsername("webrtc")
+            .setPassword("webrtc")
+            .createIceServer()
     )
 
     fun createPeerConnection() {
+        val rtcConfig = PeerConnection.RTCConfiguration(iceServers()).apply {
+            bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
+            rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
+            continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+            iceTransportsType = PeerConnection.IceTransportsType.ALL
+        }
+        
         peerConnection = factory.createPeerConnection(
-            PeerConnection.RTCConfiguration(iceServers()),
+            rtcConfig,
             object : PeerConnectionObserver() {
 
                 override fun onIceCandidate(candidate: IceCandidate) {
