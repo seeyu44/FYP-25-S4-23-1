@@ -65,4 +65,16 @@ class UserProfileRepository {
     addAdminUser.call(data).await()
     }
 
+    suspend fun finalizeAdminUser(uid: String, displayName: String) {
+    val functions = Firebase.functions
+    val addAdminUser = functions.getHttpsCallable("addAdminUser")
+    
+    val data = hashMapOf(
+        "uid" to uid,
+        "displayName" to displayName
+    )
+    
+    addAdminUser.call(data).await()
+    }
+
 }
