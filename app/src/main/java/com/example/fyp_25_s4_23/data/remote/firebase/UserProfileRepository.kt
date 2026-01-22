@@ -39,6 +39,8 @@ class UserProfileRepository {
         displayName: String,
         role: String
     ) {
+        android.util.Log.d("UserProfileRepo", "Creating profile for UID: $uid, username: $username, role: $role")
+        
         val userProfile = hashMapOf(
             "username" to username,
             "displayName" to displayName,
@@ -52,6 +54,8 @@ class UserProfileRepository {
             .document(uid)
             .set(userProfile)
             .await()
+            
+        android.util.Log.d("UserProfileRepo", "Profile created successfully for UID: $uid")
     }
 
     suspend fun finalizeAdminUser(uid: String, displayName: String) {

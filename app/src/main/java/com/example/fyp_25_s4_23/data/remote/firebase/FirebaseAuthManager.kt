@@ -56,17 +56,20 @@ object FirebaseAuthManager {
     suspend fun createAdminUser(email: String, password: String): String {
         // Save current user
         val currentUser = auth.currentUser
+        android.util.Log.d("FirebaseAuth", "Current admin UID before creating new user: ${currentUser?.uid}")
         
         // Create new admin user
         val result = auth.createUserWithEmailAndPassword(email, password).await()
         val newUser = result.user ?: throw IllegalStateException("Failed to create admin user")
         val newUid = newUser.uid
+        android.util.Log.d("FirebaseAuth", "New admin user created with UID: $newUid")
         
         // Sign out the newly created user and restore previous session
         auth.signOut()
         currentUser?.let {
             // Re-authenticate the original admin
             auth.updateCurrentUser(it).await()
+            android.util.Log.d("FirebaseAuth", "Restored original admin session: ${it.uid}")
         }
         
         return newUid
