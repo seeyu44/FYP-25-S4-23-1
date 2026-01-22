@@ -751,17 +751,6 @@ class WebRtcClient(
      */
     private fun startAudioCapture() {
         try {
-            // Check permission first
-            if (android.content.pm.PackageManager.PERMISSION_GRANTED != 
-                androidx.core.content.ContextCompat.checkSelfPermission(
-                    context,
-                    android.Manifest.permission.RECORD_AUDIO
-                )
-            ) {
-                Log.e("DEEPFAKE_AUDIO", "❌ RECORD_AUDIO permission not granted")
-                return
-            }
-            
             Log.d("DEEPFAKE_AUDIO", "🎤 Starting audio capture of MY microphone...")
             
             val minBufferSize = android.media.AudioRecord.getMinBufferSize(
