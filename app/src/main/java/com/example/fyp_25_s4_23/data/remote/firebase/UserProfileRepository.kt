@@ -44,6 +44,7 @@ class UserProfileRepository {
             "role" to role,
             "createdAtSeconds" to System.currentTimeMillis() / 1000,
             "adminVerificationSent" to false
+            "needsVerificationOnFirstLogin" to true
         )
 
         db.collection("users")
@@ -51,4 +52,17 @@ class UserProfileRepository {
             .set(userProfile)
             .await()
     }
+
+    suspend fun finalizeAdminUser(uid: String, displayName: String) {
+    val functions = Firebase.functions
+    val addAdminUser = functions.getHttpsCallable("addAdminUser")
+    
+    val data = hashMapOf(
+        "uid" to uid,
+        "displayName" to displayName
+    )
+    
+    addAdminUser.call(data).await()
+    }
+
 }
