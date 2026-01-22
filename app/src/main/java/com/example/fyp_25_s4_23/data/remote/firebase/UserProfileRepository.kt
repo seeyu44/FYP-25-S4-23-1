@@ -1,6 +1,8 @@
 package com.example.fyp_25_s4_23.data.remote.firebase
 
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.ktx.functions
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
 import com.example.fyp_25_s4_23.data.remote.dto.UserProfile
 
@@ -54,27 +56,14 @@ class UserProfileRepository {
     }
 
     suspend fun finalizeAdminUser(uid: String, displayName: String) {
-    val functions = Firebase.functions
-    val addAdminUser = functions.getHttpsCallable("addAdminUser")
-    
-    val data = hashMapOf(
-        "uid" to uid,
-        "displayName" to displayName
-    )
-    
-    addAdminUser.call(data).await()
+        val functions = Firebase.functions
+        val addAdminUser = functions.getHttpsCallable("addAdminUser")
+        
+        val data = hashMapOf(
+            "uid" to uid,
+            "displayName" to displayName
+        )
+        
+        addAdminUser.call(data).await()
     }
-
-    suspend fun finalizeAdminUser(uid: String, displayName: String) {
-    val functions = Firebase.functions
-    val addAdminUser = functions.getHttpsCallable("addAdminUser")
-    
-    val data = hashMapOf(
-        "uid" to uid,
-        "displayName" to displayName
-    )
-    
-    addAdminUser.call(data).await()
-    }
-
 }

@@ -202,23 +202,13 @@ fun AdminDashboard(
     }
     
     if (showCreateAdminDialog) {
-    CreateAdminDialog(
-        onDismiss = { showCreateAdminDialog = false },
-        onConfirm = { email, username, displayName, password ->
-            viewModelScope.launch {  // or lifecycleScope.launch or scope.launch
-                try {
-                    val newUid = createAdminUser(email, password)
-                    createUserProfile(newUid, email, username, displayName, "admin")
-                    finalizeAdminUser(newUid, displayName)
-                    showCreateAdminDialog = false
-                    // Show success snackbar/toast here if you want
-                } catch (e: Exception) {
-                    // Show error message
-                    Log.e("CreateAdmin", "Failed to create admin", e)
-                }
+        CreateAdminDialog(
+            onDismiss = { showCreateAdminDialog = false },
+            onConfirm = { email, username, displayName, password ->
+                onCreateAdmin(email, username, displayName, password)
+                showCreateAdminDialog = false
             }
-        }
-    )
+        )
 }
 }
 
