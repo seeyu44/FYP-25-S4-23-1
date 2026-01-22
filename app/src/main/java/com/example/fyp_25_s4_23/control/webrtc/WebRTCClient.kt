@@ -277,12 +277,22 @@ class WebRtcClient(
     )
 
     fun createPeerConnection() {
-        val rtcConfig = PeerConnection.RTCConfiguration(iceServers()).apply {
+        val servers = iceServers()
+        Log.w("ICE_CONFIG", "Configured ${servers.size} ICE servers:")
+        servers.forEachIndexed { i, server -> 
+            Log.w("ICE_CONFIG", "  [$i] ${server.urls}")
+        }
+        
+        val rtcConfig = PeerConnection.RTCConfiguration(servers).apply {
             bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE
             rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
             iceTransportsType = PeerConnection.IceTransportsType.ALL
         }
+        
+        Log.w("ICE_CONFIG", "RTCConfiguration: bundle=${rtcConfig.bundlePolicy}, " +
+            "continualGathering=${rtcConfig.continualGatheringPolicy}, " +
+            "transports=${rtcConfig.iceTransportsType}")
         
         peerConnection = factory.createPeerConnection(
             rtcConfig,
