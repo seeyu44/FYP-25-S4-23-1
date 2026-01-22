@@ -206,7 +206,8 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                     modelRunner = modelRunner,
                     onRunModelTest = viewModel::runModelTest,
                     modelTestResult = uiState.modelTest,
-                    onSubmitReview = viewModel::submitReview
+                    onSubmitReview = viewModel::submitReview,
+                    onCreateAdmin = viewModel::createAdminUser
                 )
             }
         }

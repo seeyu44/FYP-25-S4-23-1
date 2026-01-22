@@ -35,6 +35,9 @@ import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
 import com.example.fyp_25_s4_23.control.controllers.SystemController
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 
@@ -50,13 +53,15 @@ fun AdminDashboard(
     isBusy: Boolean,
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
-    systemController: SystemController
+    systemController: SystemController,
+    onCreateAdmin: (String, String, String, String) -> Unit
 ) {
     val ctx = LocalContext.current
     LaunchedEffect(user.role) {
         Toast.makeText(ctx, "Dashboard role: ${user.role}", Toast.LENGTH_SHORT).show()
     }
     var menuExpanded by remember { mutableStateOf(false) }
+    var showCreateAdminDialog by remember { mutableStateOf(false) }
     
     Column(modifier = Modifier
         .fillMaxSize()
@@ -76,6 +81,13 @@ fun AdminDashboard(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false }
                 ) {
+                    DropdownMenuItem(
+                        text = { Text("Create Admin") },
+                        onClick = {
+                            menuExpanded = false
+                            showCreateAdminDialog = true
+                        }
+                    )
                     DropdownMenuItem(
                         text = { Text("Refresh") },
                         onClick = {
@@ -186,4 +198,77 @@ fun AdminDashboard(
             }
         }
     }
+    
+    if (showCreateAdminDialog) {
+        CreateAdminDialog(
+            onDismiss = { showCreateAdminDialog = false },
+            onConfirm = { email, username, displayName, password ->
+                onCreateAdmin(email, username, displayName, password)
+                showCreateAdminDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+fun CreateAdminDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, String, String) -> Unit
+) {
+    var email by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var displayName by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Create Admin Account") },
+        text = {
+            Column {
+                TextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                TextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text("Username") },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                )
+                TextField(
+                    value = displayName,
+                    onValueChange = { displayName = it },
+                    label = { Text("Display Name") },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                )
+                TextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                )
+                Text(
+                    text = "Role will be set to ADMIN automatically",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(email, username, displayName, password) },
+                enabled = email.isNotBlank() && username.isNotBlank() && displayName.isNotBlank() && password.isNotBlank()
+            ) {
+                Text("Create")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

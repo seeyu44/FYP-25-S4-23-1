@@ -45,6 +45,25 @@ object FirebaseAuthManager {
         user.sendEmailVerification().await()
     }
 
+    suspend fun createAdminUser(email: String, password: String): String {
+        // Save current user
+        val currentUser = auth.currentUser
+        
+        // Create new admin user
+        val result = auth.createUserWithEmailAndPassword(email, password).await()
+        val newUser = result.user ?: throw IllegalStateException("Failed to create admin user")
+        val newUid = newUser.uid
+        
+        // Sign out the newly created user and restore previous session
+        auth.signOut()
+        currentUser?.let {
+            // Re-authenticate the original admin
+            auth.updateCurrentUser(it).await()
+        }
+        
+        return newUid
+    }
+
     suspend fun logout() {
         auth.signOut()
     }

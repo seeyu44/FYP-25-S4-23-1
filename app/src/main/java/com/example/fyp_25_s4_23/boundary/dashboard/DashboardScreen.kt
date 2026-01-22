@@ -38,7 +38,8 @@ fun DashboardScreen(
     modelRunner: ModelRunner? = null,
     onRunModelTest: (String) -> Unit,
     modelTestResult: ModelTestResult = ModelTestResult(),
-    onSubmitReview: ((Int, String, Boolean) -> Unit)? = null
+    onSubmitReview: ((Int, String, Boolean) -> Unit)? = null,
+    onCreateAdmin: ((String, String, String, String) -> Unit)? = null
 ) {
     when (user.role) {
         UserRole.ADMIN -> {
@@ -50,7 +51,8 @@ fun DashboardScreen(
                 isBusy = isBusy,
                 onLogout = onLogout,
                 onRefresh = onRefresh,
-                systemController = systemController
+                systemController = systemController,
+                onCreateAdmin = onCreateAdmin ?: { _, _, _, _ -> }
             )
         }
         else -> {

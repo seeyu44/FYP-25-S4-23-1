@@ -242,6 +242,44 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun createAdminUser(email: String, username: String, displayName: String, password: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isBusy = true, message = null) }
+
+            runCatching {
+                val cleanUsername = username.trim().lowercase()
+
+                if (!usernameService.checkUsername(cleanUsername)) {
+                    error("Username already taken")
+                }
+
+                // Create Firebase auth user
+                val newUserUid = FirebaseAuthManager.createAdminUser(email.trim(), password)
+                
+                // Create user profile with ADMIN role
+                userProfileRepository.createUserProfile(
+                    uid = newUserUid,
+                    email = email.trim(),
+                    username = cleanUsername,
+                    displayName = displayName.trim(),
+                    role = "ADMIN"
+                )
+            }.onSuccess {
+                refreshDashboard()
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "Admin account created successfully"
+                    )
+                }
+            }.onFailure {
+                _state.update {
+                    it.copy(isBusy = false, message = it.message ?: "Failed to create admin")
+                }
+            }
+        }
+    }
+
 
     /* =========================
        DASHBOARD

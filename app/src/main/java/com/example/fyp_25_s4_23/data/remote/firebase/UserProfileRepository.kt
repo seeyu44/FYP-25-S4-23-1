@@ -30,4 +30,27 @@ class UserProfileRepository {
             createdAtSeconds = snapshot.getLong("created_at_seconds") ?: 0
         )
     }
+
+    suspend fun createUserProfile(
+        uid: String,
+        email: String,
+        username: String,
+        displayName: String,
+        role: String
+    ) {
+        val userProfile = hashMapOf(
+            "email" to email,
+            "username" to username,
+            "display_name" to displayName,
+            "role" to role,
+            "plan_tier" to "",
+            "verified" to false,
+            "created_at_seconds" to System.currentTimeMillis() / 1000
+        )
+
+        db.collection("users")
+            .document(uid)
+            .set(userProfile)
+            .await()
+    }
 }
