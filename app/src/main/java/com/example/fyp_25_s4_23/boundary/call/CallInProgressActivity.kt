@@ -1,22 +1,24 @@
 package com.example.fyp_25_s4_23.boundary.call
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.material3.Surface
+import androidx.core.content.ContextCompat
+import com.example.fyp_25_s4_23.control.call.ActiveCallStore
+import com.example.fyp_25_s4_23.control.call.IncomingCallIntent
+import com.example.fyp_25_s4_23.control.call.IncomingCallListener
 import com.example.fyp_25_s4_23.control.webrtc.FirebaseSignalingManager
 import com.example.fyp_25_s4_23.control.webrtc.WebRtcClient
 import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseAuthManager
 import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
-import com.example.fyp_25_s4_23.control.call.IncomingCallIntent
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
-import android.Manifest
-import android.content.pm.PackageManager
-import com.example.fyp_25_s4_23.control.call.IncomingCallListener
-import com.example.fyp_25_s4_23.control.call.ActiveCallStore
+
+private const val TAG_SIG = "CALL_SIG"
+private const val TAG_WEBRTC = "WEBRTC_FLOW"
 
 class CallInProgressActivity : ComponentActivity() {
 
@@ -24,211 +26,125 @@ class CallInProgressActivity : ComponentActivity() {
 
     private var webRtcClient: WebRtcClient? = null
     private var signaling: FirebaseSignalingManager? = null
-    private var callId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         IncomingCallListener.stop()
 
-        signaling = FirebaseSignalingManager()
-        val signalingRef = signaling!!
-
-        // READ INTENT EXTRAS
-        Log.d("CALL_INTENT", "extras=${intent.extras}")
-
-        callId = intent.getStringExtra(IncomingCallIntent.EXTRA_CALL_ID)
-
+        val callId =
+            intent.getStringExtra(IncomingCallIntent.EXTRA_CALL_ID) ?: return finish()
+        val remoteUserId =
+            intent.getStringExtra(IncomingCallIntent.EXTRA_REMOTE_USER_ID) ?: return finish()
         val isIncoming =
             intent.getBooleanExtra(IncomingCallIntent.EXTRA_IS_INCOMING, false)
 
-        val remoteUserId =
-            intent.getStringExtra(IncomingCallIntent.EXTRA_REMOTE_USER_ID)
+        Log.d(TAG_SIG, "Call started → id=$callId incoming=$isIncoming")
 
-        val localUserId = FirebaseAuthManager.currentUser()?.uid
-            ?: error("User not logged in")
+        viewModel.setCallDirection(isIncoming)
 
+        val localUserId =
+            FirebaseAuthManager.currentUser()?.uid ?: return finish()
 
-        // VALIDATION
-        val activeSnapshot = ActiveCallStore.state.value
+        signaling = FirebaseSignalingManager()
+        ActiveCallStore.setWebRtcActive(callId, remoteUserId)
 
-        if ((callId.isNullOrBlank() || remoteUserId.isNullOrBlank()) && activeSnapshot == null) {
-            Log.e(
-                "CALL_INTENT",
-                "Missing CALL_ID / REMOTE_USER_ID and no active telecom call"
-            )
-            finish()
-            return
-        }
+        webRtcClient = WebRtcClient(
+            context = this,
+            isCaller = !isIncoming,
+            signaling = signaling!!,
+            callId = callId,
+            userId = localUserId,
+            remoteUserId = remoteUserId
+        )
 
-        // SIGNALING + WEBRTC INITIALIZATION
-
-        if (!callId.isNullOrBlank() && !remoteUserId.isNullOrBlank()) {
-
-            val callIdNN = callId!!
-            val remoteUserNN = remoteUserId!!
-
-            ActiveCallStore.setWebRtcActive(
-                callId = callIdNN,
-                remoteUserId = remoteUserNN
-            )
-
-            Log.d(
-                "CALL_TYPE",
-                "Using SIGNALING/WebRTC call (callId=$callIdNN, remote=$remoteUserNN)"
-            )
-
-            Log.d(
-                "CALL_SIG",
-                "Initializing signaling (isIncoming=$isIncoming)"
-            )
-
-            val microphonePermissionLauncher =
-                registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-                    if (granted) {
-                        initializeWebRtc(
-                            client = webRtcClient,
-                            signalingRef = signalingRef,
-                            callIdNN = callIdNN,
-                            remoteUserNN = remoteUserNN,
-                            isIncoming = isIncoming
-                        )
-                    } else {
-                        Log.w("CALL_SIG", "Microphone permission denied")
-                        finish()
-                    }
-                }
-
-            webRtcClient = WebRtcClient(
-                context = this,
-                isCaller = !isIncoming,
-                signaling = signalingRef,
-                callId = callIdNN,
-                userId = localUserId,
-                remoteUserId = remoteUserNN
-            )
-
-            val hasMic =
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.RECORD_AUDIO
-                ) == PackageManager.PERMISSION_GRANTED
-
-            if (hasMic) {
-                initializeWebRtc(
-                    client = webRtcClient,
-                    signalingRef = signalingRef,
-                    callIdNN = callIdNN,
-                    remoteUserNN = remoteUserNN,
-                    isIncoming = isIncoming
-                )
-            } else {
-                microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        val micPermissionLauncher =
+            registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                if (granted) startWebRtc(callId, remoteUserId, isIncoming)
+                else finish()
             }
+
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            startWebRtc(callId, remoteUserId, isIncoming)
         } else {
-            Log.d("CALL_TYPE", "Using TELECOM-only call path")
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
 
-        // UI
         setContent {
             FYP25S423Theme {
-                Surface {
-                    CallInProgressScreen(
-                        state = viewModel.state,
-                        onAnswer = {
-                            viewModel.answer()
-                        },
-                        onHangUp = {
-                            viewModel.hangUp()
-                            finish()
-                        },
-                        onMute = viewModel::toggleMute
-                    )
-                }
+                CallInProgressScreen(
+                    state = viewModel.state,
+                    onAnswer = viewModel::answer,
+                    onHangUp = {
+                        viewModel.hangUp()
+                        finish()
+                    },
+                    onMute = viewModel::toggleMute
+                )
             }
         }
     }
 
+    private fun startWebRtc(callId: String, remoteUserId: String, isIncoming: Boolean) {
+        val client = webRtcClient ?: return
 
-    // WEBRTC + SIGNALING WIRING
-    private fun initializeWebRtc(
-        client: WebRtcClient?,
-        signalingRef: FirebaseSignalingManager,
-        callIdNN: String,
-        remoteUserNN: String,
-        isIncoming: Boolean
-    ) {
         viewModel.attachWebRtcClient(client)
 
-        client?.onEngineEnded ={
-            Log.w("CALL_END","Engine ended -> finishing activity")
+        client.onEngineEnded = {
+            Log.w("ICE_STATE", "Engine ended → finishing activity")
             ActiveCallStore.clear()
             runOnUiThread { finish() }
         }
-        client?.initialize()
-        client?.createAudioTrack()
-        client?.createPeerConnection()
 
-        signalingRef.listenToCall(
-            callId = callIdNN,
+        client.initialize()
+        client.createAudioTrack()
+        client.createPeerConnection()
+
+        signaling?.listenToCall(
+            callId = callId,
             isCaller = !isIncoming,
-            onOffer = { offer ->
-                Log.w(
-                    "WEBRTC_FLOW",
-                    "Activity received OFFER | client=${System.identityHashCode(client)}"
-                )
-                if (isIncoming) {
-                    viewModel.setRinging(remoteUserNN,preserveReady = true)
-                    client?.onRemoteOfferReceived(offer)
-                }
-            },
-            onAnswer = { answer ->
-                if (!isIncoming) {
-                    client?.onRemoteAnswerReceived(answer)
-                }
-            },
-            onStatus = { status ->
-                Log.d("CALL_SIG", "UI received status=$status (isIncoming=$isIncoming)")
 
+            onOffer = { offer ->
+                Log.d(TAG_WEBRTC, "OFFER received")
+                if (isIncoming) {
+                    viewModel.setRinging(remoteUserId, preserveReady = true)
+                    client.onRemoteOfferReceived(offer)
+                }
+            },
+
+            onAnswer = { answer ->
+                Log.d(TAG_WEBRTC, "ANSWER received")
+                if (!isIncoming) client.onRemoteAnswerReceived(answer)
+            },
+
+            onStatus = { status ->
+                Log.d(TAG_SIG, "Status → $status (incoming=$isIncoming)")
                 when (status) {
-                    "ringing" -> {
-                        // outgoing caller should show Ringing too
-                        viewModel.setRinging(remoteUserNN, preserveReady = true)
-                    }
+                    "ringing" ->
+                        viewModel.setRinging(remoteUserId, preserveReady = true)
 
                     "accepted", "in_call" -> {
-                        viewModel.setActive()
+                        if (!isIncoming) viewModel.setActive()
                     }
 
                     "ended" -> {
                         viewModel.setDisconnected()
-                        webRtcClient?.onRemoteEnded()
+                        client.onRemoteEnded()
                     }
                 }
             }
-
-
         )
 
-
-        client?.start()
+        client.start()
     }
 
-    // CLEANUP
     override fun onDestroy() {
         super.onDestroy()
-
-        try {
-            if (isFinishing) {
-                webRtcClient?.requestHangUp()
-            }
-            signaling?.stopListening()
-            IncomingCallListener.start(applicationContext)
-        } catch (e: Exception) {
-            Log.e("CALL_END", "Error during cleanup", e)
-        }
-
-        webRtcClient = null
-        signaling = null
+        signaling?.stopListening()
+        IncomingCallListener.start(applicationContext)
+        Log.d(TAG_SIG, "Call activity destroyed")
     }
-
 }

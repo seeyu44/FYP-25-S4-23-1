@@ -2,6 +2,7 @@ package com.example.fyp_25_s4_23.boundary.call
 
 import android.telecom.Call
 import android.telecom.VideoProfile
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fyp_25_s4_23.control.call.ActiveCallStore
@@ -11,24 +12,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-/* =========================
-   LOG TAGS
-   ========================= */
 private const val TAG_UI = "CALL_UI"
-private const val TAG_SIG = "CALL_SIG"
 private const val TAG_STORE = "CALL_STORE"
+private const val TAG_WEBRTC = "CALL_WEBRTC"
 
 /* =========================
-   SEALED UI STATE
+   UI STATE
    ========================= */
 sealed class CallUiState {
 
-    data class Connecting(
-        val handle: String
-    ) : CallUiState()
+    data class Connecting(val handle: String) : CallUiState()
 
     data class Ringing(
         val handle: String,
+        val isIncoming: Boolean,
         val isReadyToAnswer: Boolean
     ) : CallUiState()
 
@@ -39,46 +36,47 @@ sealed class CallUiState {
         val remoteAudioActive: Boolean
     ) : CallUiState()
 
-    data class Disconnected(
-        val handle: String
-    ) : CallUiState()
+    data class Disconnected(val handle: String) : CallUiState()
 }
 
 /* =========================
-   VIEW MODEL
+   VIEWMODEL
    ========================= */
 class CallInProgressViewModel : ViewModel() {
 
     private val _state =
-        MutableStateFlow<CallUiState>(CallUiState.Connecting(handle = ""))
+        MutableStateFlow<CallUiState>(CallUiState.Connecting(""))
     val state: StateFlow<CallUiState> = _state
 
     private var webRtcClient: WebRtcClient? = null
-    var onCallEnded: (() -> Unit)? = null
+    private var isIncomingCall: Boolean = false
+
+    fun setCallDirection(isIncoming: Boolean) {
+        isIncomingCall = isIncoming
+        Log.d(TAG_UI, "Call direction set → incoming=$isIncoming")
+    }
 
     /* =========================
        WEBRTC ATTACH
        ========================= */
     fun attachWebRtcClient(client: WebRtcClient?) {
         webRtcClient = client
-        android.util.Log.d(TAG_SIG, "attachWebRtcClient(client=${client != null})")
+        Log.d(TAG_WEBRTC, "attachWebRtcClient(client=${client != null})")
 
         client?.setOnReadyToAnswerListener { ready ->
-            android.util.Log.d(TAG_SIG, "onReadyToAnswer → $ready")
-
             val current = _state.value
             if (current is CallUiState.Ringing) {
+                Log.d(TAG_WEBRTC, "ReadyToAnswer → $ready")
                 _state.value = current.copy(isReadyToAnswer = ready)
             }
         }
 
         client?.setOnAnsweredListener {
-            android.util.Log.d(TAG_SIG, "onAnswered → setActive()")
+            Log.d(TAG_WEBRTC, "onAnswered → setActive()")
             setActive()
         }
 
         client?.onLocalAudioStateChanged = { audio ->
-            android.util.Log.d(TAG_SIG, "LocalAudioState → $audio")
             val current = _state.value
             if (current is CallUiState.Active) {
                 _state.value = current.copy(localAudioState = audio)
@@ -86,7 +84,6 @@ class CallInProgressViewModel : ViewModel() {
         }
 
         client?.onRemoteAudioStateChanged = { active ->
-            android.util.Log.d(TAG_SIG, "RemoteAudioActive → $active")
             val current = _state.value
             if (current is CallUiState.Active) {
                 _state.value = current.copy(remoteAudioActive = active)
@@ -95,40 +92,28 @@ class CallInProgressViewModel : ViewModel() {
     }
 
     /* =========================
-       ACTIVE CALL STORE BRIDGE
+       TELECOM BRIDGE
        ========================= */
     init {
         viewModelScope.launch {
             ActiveCallStore.state.collectLatest { snapshot ->
                 if (snapshot == null) {
-                    android.util.Log.d(TAG_STORE, "ActiveCallStore cleared")
-
-
-                    if (webRtcClient != null) {
-                        android.util.Log.d(TAG_STORE, "Ignoring store clear (WebRTC active)")
-                        return@collectLatest
-                    }
-
+                    if (webRtcClient != null) return@collectLatest
                     setDisconnected()
                     return@collectLatest
                 }
 
-                android.util.Log.d(
-                    TAG_STORE,
-                    "Store update → state=${snapshot.state} handle=${snapshot.handle}"
-                )
+                Log.d(TAG_STORE, "Telecom state=${snapshot.state}")
 
                 when (snapshot.state) {
                     Call.STATE_RINGING ->
-                        setRinging(snapshot.handle)
+                        setRinging(snapshot.handle, preserveReady = true)
 
                     Call.STATE_ACTIVE ->
                         setActive()
 
                     Call.STATE_DISCONNECTED ->
                         setDisconnected()
-
-                    else -> Unit
                 }
             }
         }
@@ -138,28 +123,21 @@ class CallInProgressViewModel : ViewModel() {
        USER ACTIONS
        ========================= */
     fun answer() {
-        android.util.Log.d(TAG_UI, "Answer pressed")
+        Log.d(TAG_UI, "Answer pressed")
 
-        // Telecom call
         ActiveCallStore.state.value?.call
             ?.answer(VideoProfile.STATE_AUDIO_ONLY)
             ?.also { return }
 
-        // WebRTC call
-        val answeredNow = webRtcClient?.answerIncomingCall() ?: false
-        android.util.Log.d(TAG_UI, "answerIncomingCall → $answeredNow")
-
-        if (answeredNow) {
+        if (webRtcClient?.answerIncomingCall() == true) {
             setActive()
         }
     }
 
     fun hangUp() {
-        android.util.Log.d(TAG_UI, "HangUp pressed")
-
+        Log.d(TAG_UI, "HangUp pressed")
         ActiveCallStore.state.value?.call?.disconnect()
         webRtcClient?.requestHangUp()
-
         setDisconnected()
     }
 
@@ -168,8 +146,6 @@ class CallInProgressViewModel : ViewModel() {
         if (current !is CallUiState.Active) return
 
         val newMuted = !current.isMuted
-        android.util.Log.d(TAG_UI, "toggleMute → $newMuted")
-
         webRtcClient?.setLocalAudioEnabled(!newMuted)
         _state.value = current.copy(isMuted = newMuted)
     }
@@ -177,22 +153,19 @@ class CallInProgressViewModel : ViewModel() {
     /* =========================
        STATE TRANSITIONS
        ========================= */
-    fun setRinging(handle: String, preserveReady: Boolean = false) {
-        android.util.Log.d(TAG_UI, "setRinging(handle=$handle)")
 
-        if (_state.value is CallUiState.Active) {
-            android.util.Log.w(TAG_UI, "Ignoring Ringing → already Active")
-            return
-        }
+    /** MUST BE PUBLIC */
+    fun setRinging(handle: String, preserveReady: Boolean = false) {
+        Log.d(TAG_UI, "setRinging(handle=$handle incoming=$isIncomingCall)")
 
         val ready =
             preserveReady && (_state.value as? CallUiState.Ringing)?.isReadyToAnswer == true
 
         _state.value = CallUiState.Ringing(
             handle = handle,
-            isReadyToAnswer = ready || (webRtcClient != null)
+            isIncoming = isIncomingCall,
+            isReadyToAnswer = ready
         )
-
     }
 
     fun setActive() {
@@ -205,7 +178,7 @@ class CallInProgressViewModel : ViewModel() {
             is CallUiState.Disconnected -> s.handle
         }
 
-        android.util.Log.d(TAG_UI, "Transition → Active")
+        Log.d(TAG_UI, "Transition → Active")
 
         _state.value = CallUiState.Active(
             handle = handle,
@@ -218,19 +191,12 @@ class CallInProgressViewModel : ViewModel() {
     fun setDisconnected() {
         val handle = when (val s = _state.value) {
             is CallUiState.Ringing -> s.handle
-            is CallUiState.Connecting -> s.handle
             is CallUiState.Active -> s.handle
+            is CallUiState.Connecting -> s.handle
             is CallUiState.Disconnected -> s.handle
         }
 
-        android.util.Log.d(TAG_UI, "Transition → Disconnected")
-
+        Log.d(TAG_UI, "Transition → Disconnected")
         _state.value = CallUiState.Disconnected(handle)
-        onCallEnded?.invoke()
-    }
-
-    fun setEndedfromEngine() {
-        android.util.Log.d(TAG_UI, "Engine ended call")
-        setDisconnected()
     }
 }

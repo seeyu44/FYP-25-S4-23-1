@@ -18,13 +18,11 @@ object IncomingCallIntent {
         isIncoming: Boolean
     ): Intent {
         return Intent(context, CallInProgressActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(EXTRA_CALL_ID, callId)
             putExtra(EXTRA_CALLER_ID, callerId)
-            putExtra(EXTRA_IS_INCOMING, isIncoming)
             putExtra(EXTRA_REMOTE_USER_ID, callerId)
-
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(EXTRA_IS_INCOMING, isIncoming)
         }
     }
 }
