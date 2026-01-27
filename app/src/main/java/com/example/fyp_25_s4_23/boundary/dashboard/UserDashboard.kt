@@ -48,7 +48,8 @@ fun UserDashboard(
     onNavigateToCallHistory: (() -> Unit)? = null,
     onRunModelTest: ((String) -> Unit)? = null,
     modelTestResult: ModelTestResult = ModelTestResult(),
-    onSubmitReview: ((Int, String, Boolean) -> Unit)? = null
+    onSubmitReview: ((Int, String, Boolean) -> Unit)? = null,
+    onNavigateToDialer: (() -> Unit)? = null
 ) {
     val ctx = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
@@ -232,7 +233,9 @@ fun UserDashboard(
                 contentPadding = PaddingValues(top = 12.dp)
             ) {
 
-                item { DialerCard() }
+                if (onNavigateToDialer != null) {
+                    item { DialerCard(onOpenDialer = onNavigateToDialer) }
+                }
 
                 if (userSettings != null && onToggleDetection != null) {
                     item {

@@ -39,7 +39,8 @@ fun DashboardScreen(
     onRunModelTest: (String) -> Unit,
     modelTestResult: ModelTestResult = ModelTestResult(),
     onSubmitReview: ((Int, String, Boolean) -> Unit)? = null,
-    onCreateAdmin: ((String, String, String, String) -> Unit)? = null
+    onCreateAdmin: ((String, String, String, String) -> Unit)? = null,
+    onNavigateToDialer: (() -> Unit)? = null
 ) {
     when (user.role) {
         UserRole.ADMIN -> {
@@ -72,7 +73,8 @@ fun DashboardScreen(
                 modelRunner = modelRunner,
                 onRunModelTest = onRunModelTest,
                 modelTestResult = modelTestResult,
-                onSubmitReview = onSubmitReview
+                onSubmitReview = onSubmitReview,
+                onNavigateToDialer = onNavigateToDialer
             )
         }
     }
