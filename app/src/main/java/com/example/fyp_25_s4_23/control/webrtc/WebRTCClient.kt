@@ -75,6 +75,8 @@ class WebRtcClient(
     private var onReadyToAnswer: ((Boolean) -> Unit)? = null
     private var onAnswered: (() -> Unit)? = null
 
+    private val pendingIceCandidates = mutableListOf<IceCandidate>()
+
     // --- NEW: connection / timeout guards ---
     private var callConnected: Boolean = false
     private var iceInProgress: Boolean = false  // Track if ICE is actively negotiating
@@ -481,17 +483,21 @@ class WebRtcClient(
 
         signaling.listenForIceCandidates(callId, remoteUserId) {
 
-            Log.w(
-                "ICE_FLOW",
-                "REMOTE ICE received → $it"
+            val candidate = IceCandidate(
+                it["sdpMid"] as String?,
+                (it["sdpMLineIndex"] as Long).toInt(),
+                it["candidate"] as String
             )
-            peerConnection.addIceCandidate(
-                IceCandidate(
-                    it["sdpMid"] as String?,
-                    (it["sdpMLineIndex"] as Long).toInt(),
-                    it["candidate"] as String
-                )
-            )
+
+            Log.w("ICE_FLOW", "REMOTE ICE received → ${candidate.sdp}")
+
+            if (peerConnection.remoteDescription != null) {
+                peerConnection.addIceCandidate(candidate)
+                Log.d("ICE_FLOW", "ICE applied immediately")
+            } else {
+                pendingIceCandidates.add(candidate)
+                Log.w("ICE_FLOW", "ICE queued (remote SDP not set yet)")
+            }
         }
 
         //startAudioMonitoring()
@@ -566,6 +572,7 @@ class WebRtcClient(
                 override fun onSetSuccess() {
                     remoteOfferApplied = true
                     Log.w("SDP_FLOW", "setRemoteDescription(offer) SUCCESS → ReadyToAnswer=true")
+                    flushPendingIce() //added
                     onReadyToAnswer?.invoke(true)
                     Log.d("CALL_UI","Answer enabled(offer applied)")
 
@@ -628,7 +635,7 @@ class WebRtcClient(
                 override fun onSetSuccess() {
                     remoteAnswerApplied = true
                     Log.w("SDP_FLOW", "setRemoteDescription(answer) SUCCESS")
-
+                    flushPendingIce()
                     //updates UI while waiting for ICE to connect
                     onAnswered?.invoke()
                 }
@@ -909,4 +916,20 @@ class WebRtcClient(
         Log.w("CALL_ENGINE", "Remote ended call")
         engineEnd("REMOTE_ENDED")
     }
+
+    private fun flushPendingIce() {
+        if (pendingIceCandidates.isEmpty()) return
+
+        Log.w(
+            "ICE_FLOW",
+            "Flushing ${pendingIceCandidates.size} queued ICE candidates"
+        )
+
+        pendingIceCandidates.forEach {
+            peerConnection.addIceCandidate(it)
+        }
+
+        pendingIceCandidates.clear()
+    }
+
 }
