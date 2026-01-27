@@ -28,6 +28,8 @@ class WebRtcClient(
     private lateinit var audioSource: AudioSource
     private lateinit var audioTrack: org.webrtc.AudioTrack
 
+    private var iceListeningStarted = false
+
     enum class AudioState { MUTED, SILENT, ACTIVE }
 
     // Callbacks for UI: local audio state (MUTED/SILENT/ACTIVE) and remote audio activity (true/false)
@@ -509,35 +511,6 @@ class WebRtcClient(
             startRingTimeout()
         }
 
-        signaling.listenForIceCandidates(callId, remoteUserId) { itMap ->
-
-            val candidate = IceCandidate(
-                itMap["sdpMid"] as String?,
-                (itMap["sdpMLineIndex"] as Long).toInt(),
-                itMap["candidate"] as String
-            )
-
-            Log.w(
-                "ICE_FLOW",
-                "REMOTE ICE received → sdpMid=${candidate.sdpMid}, " +
-                        "mLine=${candidate.sdpMLineIndex}, " +
-                        "candidate=${candidate.sdp}"
-            )
-
-            if (peerConnection.remoteDescription == null) {
-                Log.w("ICE_FLOW", "Remote SDP not set yet → queue ICE")
-                pendingIceCandidates.add(candidate)
-                return@listenForIceCandidates
-            }
-
-            val result = peerConnection.addIceCandidate(candidate)
-
-            Log.w(
-                "ICE_FLOW",
-                "addIceCandidate() called → result=$result"
-            )
-        }
-
 
         //startAudioMonitoring()
 
@@ -580,6 +553,7 @@ class WebRtcClient(
                     override fun onSetSuccess() {
                         Log.w("SDP_FLOW", "setLocalDescription(offer) SUCCESS → ICE can start")
                         signaling.sendOffer(callId, sdp.description)
+                        maybeStartIceListening()
                     }
 
                     override fun onSetFailure(error: String) {
@@ -612,6 +586,7 @@ class WebRtcClient(
                     remoteOfferApplied = true
                     Log.w("SDP_FLOW", "setRemoteDescription(offer) SUCCESS → ReadyToAnswer=true")
                     flushPendingIce()
+                    maybeStartIceListening()
                     onReadyToAnswer?.invoke(true)
                     Log.d("CALL_UI","Answer enabled(offer applied)")
 
@@ -675,6 +650,7 @@ class WebRtcClient(
                     remoteAnswerApplied = true
                     Log.w("SDP_FLOW", "setRemoteDescription(answer) SUCCESS")
                     flushPendingIce()
+                    maybeStartIceListening()
                     //updates UI while waiting for ICE to connect
                     onAnswered?.invoke()
                 }
@@ -697,6 +673,7 @@ class WebRtcClient(
                     override fun onSetSuccess() {
                         Log.w("SDP_FLOW", "setLocalDescription(answer) SUCCESS → ICE can start")
                         signaling.sendAnswer(callId, sdp.description)
+                        maybeStartIceListening()
                     }
 
                     override fun onSetFailure(error: String) {
@@ -1000,6 +977,56 @@ class WebRtcClient(
             └─ Remote: type=${remote?.members?.get("candidateType")} protocol=${remote?.members?.get("protocol")} address=${remote?.members?.get("address")}:${remote?.members?.get("port")}
             """.trimIndent()
             )
+        }
+    }
+
+    private fun maybeStartIceListening() {
+        Log.d(
+            "ICE_GUARD",
+            "maybeStartIceListening: started=$iceListeningStarted ended=$ended " +
+                    "localSDP=${peerConnection.localDescription != null} " +
+                    "remoteSDP=${peerConnection.remoteDescription != null}"
+        )
+        if (iceListeningStarted){
+            Log.d("ICE_GUARD", "ICE listener already started — skipping")
+            return
+        }
+        if (ended){
+            Log.d("ICE_GUARD", "Call ended — not starting ICE listener")
+            return
+        }
+
+        // Only start once BOTH SDPs exist
+        if (
+            peerConnection.localDescription != null &&
+            peerConnection.remoteDescription != null
+        ) {
+            iceListeningStarted = true
+
+            Log.w("ICE_FLOW", "🚀 Starting ICE listener (SDP ready)")
+
+            signaling.listenForIceCandidates(callId, remoteUserId) { itMap ->
+                val candidate = IceCandidate(
+                    itMap["sdpMid"] as String?,
+                    (itMap["sdpMLineIndex"] as Long).toInt(),
+                    itMap["candidate"] as String
+                )
+
+                Log.w(
+                    "ICE_FLOW",
+                    "REMOTE ICE received → sdpMid=${candidate.sdpMid}, " +
+                            "mLine=${candidate.sdpMLineIndex}, candidate=${candidate.sdp}"
+                )
+
+                if (peerConnection.remoteDescription == null) {
+                    Log.w("ICE_FLOW", "Remote SDP not set yet → queue ICE")
+                    pendingIceCandidates.add(candidate)
+                    return@listenForIceCandidates
+                }
+
+                val result = peerConnection.addIceCandidate(candidate)
+                Log.w("ICE_FLOW", "addIceCandidate() result=$result")
+            }
         }
     }
 
