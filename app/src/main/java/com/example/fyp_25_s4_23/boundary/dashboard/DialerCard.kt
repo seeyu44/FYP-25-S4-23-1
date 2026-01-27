@@ -12,11 +12,24 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.boundary.call.VoipCallManager
+import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
+import kotlinx.coroutines.launch
 
 @Composable
 fun DialerCard() {
-    var targetUsername by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val phoneLookupService = remember { PhoneLookupService() }
+    
+    var phoneNumber by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    
+    val isValidPhone = remember(phoneNumber) {
+        // Singapore phone number: 8 digits starting with 6, 8, or 9
+        val cleaned = phoneNumber.replace(Regex("[\\s-]"), "")
+        cleaned.length == 8 && cleaned.matches(Regex("^[689]\\d{7}$"))
+    }
 
     Card(
         modifier = Modifier
@@ -34,39 +47,95 @@ fun DialerCard() {
             )
 
             Text(
-                text = "Enter a username to start a protected call.",
+                text = "Enter a Singapore phone number to connect.",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier
                     .align(Alignment.Start)
                     .padding(bottom = 12.dp)
             )
 
+            // Phone number input
             OutlinedTextField(
-                value = targetUsername,
-                onValueChange = { targetUsername = it },
-                label = { Text("Target Username") },
+                value = phoneNumber,
+                onValueChange = { 
+                    // Only allow digits, spaces, and hyphens
+                    if (it.all { char -> char.isDigit() || char == ' ' || char == '-' }) {
+                        phoneNumber = it
+                        errorMessage = null
+                    }
+                },
+                label = { Text("Phone Number") },
+                placeholder = { Text("98765432") },
+                prefix = { Text("+65 ") },
                 modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                singleLine = true
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                singleLine = true,
+                enabled = !isLoading,
+                isError = phoneNumber.isNotEmpty() && !isValidPhone,
+                supportingText = {
+                    if (phoneNumber.isNotEmpty() && !isValidPhone) {
+                        Text("Must be 8 digits starting with 6, 8, or 9")
+                    }
+                }
             )
+
+            // Error message
+            if (errorMessage != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = errorMessage!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Call button
             Button(
                 onClick = {
-                    if (targetUsername.isNotBlank()) {
-                        VoipCallManager.startOutgoingVoipCall(
-                            context = context,
-                            calleeUserId = targetUsername // resolve to UID if needed
-                        )
+                    scope.launch {
+                        try {
+                            isLoading = true
+                            errorMessage = null
+                            
+                            val normalized = "+65${phoneNumber.replace(Regex("[\\s-]"), "")}"
+                            
+                            // Look up user by phone number
+                            val result = phoneLookupService.getUserByPhoneNumber(normalized)
+                            
+                            isLoading = false
+                            
+                            // Initiate call with the resolved UID
+                            VoipCallManager.startOutgoingVoipCall(
+                                context = context,
+                                calleeUserId = result.uid
+                            )
+                            
+                            // Clear the phone number after successful call initiation
+                            phoneNumber = ""
+                        } catch (e: Exception) {
+                            isLoading = false
+                            errorMessage = e.message ?: "Failed to look up phone number"
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = targetUsername.length >= 3
+                enabled = isValidPhone && !isLoading
             ) {
-                Icon(Icons.Default.Call, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Start Secure Call")
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Looking up...")
+                } else {
+                    Icon(Icons.Default.Call, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Start Secure Call")
+                }
             }
         }
     }
