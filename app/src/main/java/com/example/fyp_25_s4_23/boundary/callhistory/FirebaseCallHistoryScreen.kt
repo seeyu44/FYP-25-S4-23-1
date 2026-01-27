@@ -9,8 +9,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.PhoneIncoming
-import androidx.compose.material.icons.filled.PhoneOutgoing
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CallReceived
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -174,9 +174,9 @@ fun FirebaseCallHistoryCard(call: FirebaseCallRecord) {
             ) {
                 Icon(
                     imageVector = if (call.isCaller) {
-                        Icons.Default.PhoneOutgoing
+                        Icons.Default.Call
                     } else {
-                        Icons.Default.PhoneIncoming
+                        Icons.Default.CallReceived
                     },
                     contentDescription = if (call.isCaller) "Outgoing call" else "Incoming call",
                     tint = if (call.isCaller) Color(0xFF2196F3) else Color(0xFF4CAF50),
