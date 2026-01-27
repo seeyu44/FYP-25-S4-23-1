@@ -4,7 +4,7 @@ import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Backspace
+import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -91,7 +91,7 @@ fun DialerCard() {
                             errorMessage = null
                         }) {
                             Icon(
-                                Icons.Default.Backspace,
+                                Icons.AutoMirrored.Filled.Backspace,
                                 contentDescription = "Delete",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
