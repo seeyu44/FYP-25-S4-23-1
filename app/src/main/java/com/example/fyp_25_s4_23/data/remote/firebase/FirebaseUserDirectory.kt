@@ -13,36 +13,23 @@ class FirebaseUserDirectory {
 
     suspend fun getAllUsers(): List<RemoteUser> {
         val currentUid = auth.currentUser?.uid
-        Log.d("FirebaseUserDirectory", "Current UID: $currentUid")
-        
-        if (currentUid == null) {
-            Log.w("FirebaseUserDirectory", "No authenticated user")
-            return emptyList()
-        }
+            ?: return emptyList()
 
         return runCatching {
             val snapshot = db.collection("public_users").get().await()
-            Log.d("FirebaseUserDirectory", "Total documents in public_users: ${snapshot.size()}")
 
-            val users = snapshot.documents.mapNotNull { doc ->
+            snapshot.documents.mapNotNull { doc ->
                 val username = doc.getString("username")
                 val displayName = doc.getString("displayName")
-                Log.d("FirebaseUserDirectory", "Doc ID: ${doc.id}, username: $username, displayName: $displayName")
 
                 if (username != null && doc.id != currentUid) {
-                    Log.d("FirebaseUserDirectory", "Adding user: ${doc.id} ($username)")
                     RemoteUser(
                         uid = doc.id,
                         username = username,
                         displayName = displayName ?: username
                     )
-                } else {
-                    Log.d("FirebaseUserDirectory", "Skipping doc ${doc.id}: username=$username, isCurrentUser=${doc.id == currentUid}")
-                    null
-                }
+                } else null
             }
-            Log.d("FirebaseUserDirectory", "Returning ${users.size} users")
-            users
         }.getOrElse { e ->
             Log.e("FirebaseUserDirectory", "Failed to fetch public users", e)
             emptyList()
