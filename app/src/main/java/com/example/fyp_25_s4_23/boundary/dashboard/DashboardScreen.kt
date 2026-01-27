@@ -59,6 +59,7 @@ fun DashboardScreen(
             UserDashboard(
                 user = user,
                 callRecords = callRecords,
+                users = users,
                 message = message,
                 isBusy = isBusy,
                 onLogout = onLogout,
