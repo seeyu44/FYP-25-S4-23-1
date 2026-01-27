@@ -5,7 +5,6 @@ import com.example.fyp_25_s4_23.entity.domain.entities.CallHistoryResponse
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.OtherUser
 import com.google.firebase.functions.FirebaseFunctions
-import com.google.firebase.functions.httpsCallable
 import kotlinx.coroutines.tasks.await
 
 /**
