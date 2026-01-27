@@ -37,6 +37,7 @@ sealed interface AppScreen {
     data object Summary : AppScreen
     data object CallHistory : AppScreen
     data object Dashboard : AppScreen
+    data object Dialer : AppScreen
 }
 
 /* =========================
@@ -134,6 +135,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     fun navigateToDashboard() = _state.update { it.copy(screen = AppScreen.Dashboard) }
     fun navigateToSummary() = _state.update { it.copy(screen = AppScreen.Summary) }
     fun navigateToCallHistory() = _state.update { it.copy(screen = AppScreen.CallHistory) }
+    fun navigateToDialer() = _state.update { it.copy(screen = AppScreen.Dialer) }
 
     /* =========================
        AUTH
@@ -312,7 +314,12 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true) }
 
+            Log.d("VOIP_DEBUG", "RefreshDashboard: Current Firebase UID: ${firebaseUser.uid}")
             val remoteUsers = firebaseUserDirectory.getAllUsers()
+            Log.d("VOIP_DEBUG", "Remote users fetched: ${remoteUsers.size}")
+            remoteUsers.forEach { user ->
+                Log.d("VOIP_DEBUG", "Remote user: uid=${user.uid}, username=${user.username}")
+            }
 
             val mappedUsers = remoteUsers
                 .filter { it.uid != firebaseUser.uid }
@@ -326,7 +333,10 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                         createdAtSeconds = 0
                     )
                 }
-            Log.d("VOIP_DEBUG", "Remote users fetched: ${remoteUsers.size}")
+            Log.d("VOIP_DEBUG", "Mapped users after filtering: ${mappedUsers.size}")
+            mappedUsers.forEach { user ->
+                Log.d("VOIP_DEBUG", "Mapped user: id=${user.id}, firebaseUid=${user.firebaseUid}, username=${user.username}")
+            }
 
             val calls = callRepository.listRecent()
 
