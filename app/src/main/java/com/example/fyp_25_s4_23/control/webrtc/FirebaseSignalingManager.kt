@@ -48,19 +48,20 @@ class FirebaseSignalingManager {
         onAnswer: (String) -> Unit,
         onStatus: (String) -> Unit
     ) {
+        stopListening()
         val ref = firestore.collection("calls").document(callId)
 
-        /* ---- Initial one-time sync ---- */
-        ref.get().addOnSuccessListener { snap ->
-            if (snap == null || !snap.exists()) return@addOnSuccessListener
-            applySnapshot(
-                snapshot = snap,
-                isCaller = isCaller,
-                onOffer = onOffer,
-                onAnswer = onAnswer,
-                onStatus = onStatus
-            )
-        }
+//        /* ---- Initial one-time sync ---- */
+//        ref.get().addOnSuccessListener { snap ->
+//            if (snap == null || !snap.exists()) return@addOnSuccessListener
+//            applySnapshot(
+//                snapshot = snap,
+//                isCaller = isCaller,
+//                onOffer = onOffer,
+//                onAnswer = onAnswer,
+//                onStatus = onStatus
+//            )
+//        }
 
         /* ---- Realtime listener ---- */
         callListener = ref.addSnapshotListener { snapshot, error ->
@@ -96,6 +97,11 @@ class FirebaseSignalingManager {
                 lastStatus = status
                 Log.d("CALL_SIG", "Status → $status")
                 onStatus(status)
+
+                if (status == "ended") {
+                    Log.d("CALL_SIG", "Call ended → stopping listeners for callId=${snapshot.id}")
+                    stopListening()
+                }
             }
         }
 
