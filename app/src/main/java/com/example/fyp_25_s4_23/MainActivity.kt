@@ -27,6 +27,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fyp_25_s4_23.boundary.auth.LoginScreen
 import com.example.fyp_25_s4_23.boundary.auth.RegisterScreen
 import com.example.fyp_25_s4_23.boundary.callhistory.CallHistoryScreen
+import com.example.fyp_25_s4_23.boundary.callhistory.FirebaseCallHistoryScreen
+import com.example.fyp_25_s4_23.boundary.callhistory.FirebaseCallHistoryScreen
 import com.example.fyp_25_s4_23.boundary.dashboard.DashboardScreen
 import com.example.fyp_25_s4_23.boundary.dashboard.SummaryScreen
 import com.example.fyp_25_s4_23.boundary.dashboard.UserDashboard
@@ -177,9 +179,11 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             if (user == null) {
                 viewModel.navigateToLogin()
             } else {
-                CallHistoryScreen(
-                    user = user,
-                    callRecords = uiState.callRecords,
+                FirebaseCallHistoryScreen(
+                    calls = uiState.firebaseCalls,
+                    isLoading = uiState.isBusy,
+                    errorMessage = uiState.message,
+                    onRefresh = { viewModel.loadFirebaseCallHistory() },
                     onBack = viewModel::navigateToDashboard
                 )
             }

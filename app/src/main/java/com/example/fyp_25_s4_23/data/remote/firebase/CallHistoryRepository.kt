@@ -41,7 +41,8 @@ class CallHistoryRepository {
                 CallHistoryResponse()
             }
         } catch (e: Exception) {
-            Log.e("CallHistoryRepository", "Error fetching call history", e)
+            Log.e("CallHistoryRepository", "Error fetching call history: ${e.message}", e)
+            e.printStackTrace()
             throw e
         }
     }

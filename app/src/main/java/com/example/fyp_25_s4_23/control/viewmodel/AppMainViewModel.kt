@@ -517,6 +517,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 _state.update {
                     it.copy(
                         isBusy = false,
+                        firebaseCalls = response.calls,
                         message = if (response.calls.isEmpty()) "No calls in history" else null
                     )
                 }
