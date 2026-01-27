@@ -50,6 +50,7 @@ class WebRtcCallViewModel(
         //listen to OFFER / ANSWER / STATUS
         signaling.listenToCall(
             callId = callId,
+            isCaller = isCaller,   // ⭐ REQUIRED
 
             onOffer = { offer ->
                 if (!isCaller) {
@@ -74,7 +75,6 @@ class WebRtcCallViewModel(
                 }
             }
         )
-
         webRtcClient?.start()
     }
 

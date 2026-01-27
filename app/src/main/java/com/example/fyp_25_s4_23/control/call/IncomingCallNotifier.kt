@@ -60,6 +60,7 @@ object IncomingCallNotifier {
 
             if (!granted) {
                 // Permission not granted → fail silently (do NOT crash)
+                Log.w("INCOMING_CALL","POST_NOTIFICATIONS permission not granted")
                 return
             }
         }

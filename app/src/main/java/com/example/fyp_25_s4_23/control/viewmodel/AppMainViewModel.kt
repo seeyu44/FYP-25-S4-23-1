@@ -116,7 +116,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     refreshDashboard()
                 }
                 else{
-                    IncomingCallListener.stop() // stop checking for incoming call on logout
+                     // stop checking for incoming call on logout
                 }
             }
 
@@ -183,8 +183,6 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     detectionController.startMonitoring()
                 }
 
-                IncomingCallListener.start(getApplication())
-
                 refreshDashboard()
             }.onFailure {
                 _state.update {
@@ -229,8 +227,6 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             FirebaseAuthManager.logout()
             detectionController.stopMonitoring()
-            IncomingCallListener.stop()
-
             _state.update {
                 it.copy(
                     currentUser = null,

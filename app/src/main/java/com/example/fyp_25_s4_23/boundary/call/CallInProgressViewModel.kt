@@ -2,165 +2,250 @@ package com.example.fyp_25_s4_23.boundary.call
 
 import android.telecom.Call
 import android.telecom.VideoProfile
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.fyp_25_s4_23.boundary.call.ActiveCallStore
-import com.example.fyp_25_s4_23.boundary.call.InCallServiceHolder
+import com.example.fyp_25_s4_23.control.call.ActiveCallStore
+import com.example.fyp_25_s4_23.control.webrtc.WebRtcClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import com.example.fyp_25_s4_23.control.webrtc.WebRtcClient
 
-data class CallUiState(
-    val handle: String = "",
-    val stateLabel: String = "Connecting",
-    val isMuted: Boolean = false,
-    val call: Call? = null,
-    val isReadyToAnswer: Boolean = false,
-    val localAudioState: com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState = com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState.SILENT,
-    val remoteAudioActive: Boolean = false
-)
+private const val TAG_UI = "CALL_UI"
+private const val TAG_STORE = "CALL_STORE"
+private const val TAG_WEBRTC = "CALL_WEBRTC"
 
+/* =========================
+   UI STATE
+   ========================= */
+sealed class CallUiState {
+
+    data class Connecting(val handle: String) : CallUiState()
+
+    data class Ringing(
+        val handle: String,
+        val isIncoming: Boolean,
+        val isReadyToAnswer: Boolean
+    ) : CallUiState()
+
+    data class Active(
+        val handle: String,
+        val isMuted: Boolean,
+        val isSpeakerOn: Boolean,
+        val localAudioState: WebRtcClient.AudioState,
+        val remoteAudioActive: Boolean,
+        val detectionScore: Float? = null,
+        val isDeepfake: Boolean = false,
+        val isDetectionActive: Boolean = false
+    ) : CallUiState()
+
+    data class Disconnected(val handle: String) : CallUiState()
+}
+
+/* =========================
+   VIEWMODEL
+   ========================= */
 class CallInProgressViewModel : ViewModel() {
-    private val _state = MutableStateFlow(CallUiState())
+
+    private val _state =
+        MutableStateFlow<CallUiState>(CallUiState.Connecting(""))
     val state: StateFlow<CallUiState> = _state
 
-    // Optional WebRTC client used for signaling-based calls (non-Telecom)
     private var webRtcClient: WebRtcClient? = null
+    private var isIncomingCall: Boolean = false
 
+    fun setCallDirection(isIncoming: Boolean) {
+        isIncomingCall = isIncoming
+        Log.d(TAG_UI, "Call direction set → incoming=$isIncoming")
+    }
+
+    /* =========================
+       WEBRTC ATTACH
+       ========================= */
     fun attachWebRtcClient(client: WebRtcClient?) {
         webRtcClient = client
+        Log.d(TAG_WEBRTC, "attachWebRtcClient(client=${client != null})")
 
         client?.setOnReadyToAnswerListener { ready ->
-            _state.value = _state.value.copy(isReadyToAnswer = ready)
-            android.util.Log.d("CALL_SIG", "UI Received ReadyToAnswer: $ready")
+            val current = _state.value
+            if (current is CallUiState.Ringing) {
+                Log.d(TAG_WEBRTC, "ReadyToAnswer → $ready")
+                _state.value = current.copy(isReadyToAnswer = ready)
+            }
         }
 
         client?.setOnAnsweredListener {
-
+            Log.d(TAG_WEBRTC, "onAnswered → setActive()")
+            setActive()
         }
 
-        // Subscribe to audio indicator callbacks
-        client?.onLocalAudioStateChanged = { state ->
-            _state.value = _state.value.copy(localAudioState = state)
-            android.util.Log.d("CALL_SIG", "LocalAudioState: $state")
+        client?.onLocalAudioStateChanged = { audio ->
+            val current = _state.value
+            if (current is CallUiState.Active) {
+                _state.value = current.copy(localAudioState = audio)
+            }
         }
 
         client?.onRemoteAudioStateChanged = { active ->
-            _state.value = _state.value.copy(remoteAudioActive = active)
-            android.util.Log.d("CALL_SIG", "RemoteAudioActive: $active")
+            val current = _state.value
+            if (current is CallUiState.Active) {
+                _state.value = current.copy(remoteAudioActive = active)
+            }
+        }
+
+        client?.onSpeakerStateChanged = { enabled ->
+            val current = _state.value
+            if (current is CallUiState.Active) {
+                _state.value = current.copy(isSpeakerOn = enabled)
+            }
+        }
+        
+        // Deepfake detection callbacks
+        client?.onDeepfakeDetected = { score, isDeepfake ->
+            val current = _state.value
+            if (current is CallUiState.Active) {
+                Log.w(TAG_WEBRTC, "🚨 DEEPFAKE DETECTED: score=$score")
+                _state.value = current.copy(
+                    detectionScore = score,
+                    isDeepfake = isDeepfake,
+                    isDetectionActive = true
+                )
+            }
+        }
+        
+        client?.onDetectionUpdate = { score ->
+            val current = _state.value
+            if (current is CallUiState.Active) {
+                _state.value = current.copy(
+                    detectionScore = score,
+                    isDeepfake = score >= 0.7f,
+                    isDetectionActive = true
+                )
+            }
         }
     }
 
+    /* =========================
+       TELECOM BRIDGE
+       ========================= */
     init {
         viewModelScope.launch {
             ActiveCallStore.state.collectLatest { snapshot ->
                 if (snapshot == null) {
-                    // Keep any existing signaling state (e.g., ringing) if present
-                    if (_state.value.stateLabel == "Ringing") return@collectLatest
-                    _state.value = CallUiState()
-                } else {
-                    _state.value = _state.value.copy(
-                        handle = snapshot.handle,
-                        stateLabel = stateToLabel(snapshot.state),
-                        call = snapshot.call
-                    )
-                    // For Telecom calls (no WebRTC client), update localAudioState based on mute state
-                    if (webRtcClient == null) {
-                        val audioState = if (_state.value.isMuted) {
-                            com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState.MUTED
-                        } else {
-                            com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState.SILENT // Assume silent when unmuted
-                        }
-                        _state.value = _state.value.copy(localAudioState = audioState)
-                    }
+                    if (webRtcClient != null) return@collectLatest
+                    setDisconnected()
+                    return@collectLatest
+                }
+
+                Log.d(TAG_STORE, "Telecom state=${snapshot.state}")
+
+                when (snapshot.state) {
+                    Call.STATE_RINGING ->
+                        setRinging(snapshot.handle, preserveReady = true)
+
+                    Call.STATE_ACTIVE ->
+                        setActive()
+
+                    Call.STATE_DISCONNECTED ->
+                        setDisconnected()
                 }
             }
         }
     }
 
+    /* =========================
+       USER ACTIONS
+       ========================= */
     fun answer() {
-        android.util.Log.d("CALL_UI","Answer requested (state=${_state.value.stateLabel})")
-        // If there's a telecom Call, use platform API
-        _state.value.call?.answer(VideoProfile.STATE_AUDIO_ONLY)
+        Log.d(TAG_UI, "Answer pressed")
 
-        // If this is a signaling/WebRTC call, instruct WebRtcClient to answer
-        if (_state.value.call == null) {
-            val answeredNow = webRtcClient?.answerIncomingCall() ?: false
-            if (answeredNow) {
-                _state.value = _state.value.copy(stateLabel = "Active")
-            } else {
-                android.util.Log.d("CALL_UI", "Answer queued; waiting for remote offer to be applied")
-                // keep Ringing; UI will enable when remote offer applied
-            }
+        ActiveCallStore.state.value?.call
+            ?.answer(VideoProfile.STATE_AUDIO_ONLY)
+            ?.also { return }
+
+        if (webRtcClient?.answerIncomingCall() == true) {
+            setActive()
         }
     }
 
     fun hangUp() {
-        // Hangup platform call if present
-        _state.value.call?.disconnect()
-
-        // End WebRTC call if attached
+        Log.d(TAG_UI, "HangUp pressed")
+        ActiveCallStore.state.value?.call?.disconnect()
         webRtcClient?.requestHangUp()
-
-        _state.value = _state.value.copy(stateLabel = "Disconnected")
+        setDisconnected()
     }
 
     fun toggleMute() {
-        val newMuted = !_state.value.isMuted
-        android.util.Log.d("CALL_UI", "toggleMute -> newMuted=$newMuted")
+        val current = _state.value
+        if (current !is CallUiState.Active) return
 
-        // If there's a platform Telecom Call, use platform mute
-        if (_state.value.call != null) {
-            InCallServiceHolder.service?.setMuted(newMuted)
-            android.util.Log.d("CALL_UI", "Telecom mute set to $newMuted")
-        } else {
-            // Signaling/WebRTC call: toggle local audio track
-            webRtcClient?.setLocalAudioEnabled(!newMuted)
-            android.util.Log.d("CALL_UI", "WebRTC local audio set to ${!newMuted}")
-        }
-
-        _state.value = _state.value.copy(isMuted = newMuted)
-
-        // Update localAudioState for Telecom calls
-        if (_state.value.call != null) {
-            val audioState = if (newMuted) {
-                com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState.MUTED
-            } else {
-                com.example.fyp_25_s4_23.control.webrtc.WebRtcClient.AudioState.SILENT
-            }
-            _state.value = _state.value.copy(localAudioState = audioState)
-        }
+        val newMuted = !current.isMuted
+        webRtcClient?.setLocalAudioEnabled(!newMuted)
+        _state.value = current.copy(isMuted = newMuted)
     }
 
+    fun toggleSpeaker() {
+        val current = _state.value
+        if (current !is CallUiState.Active) return
+
+        val newSpeaker = !current.isSpeakerOn
+        webRtcClient?.setSpeakerEnabled(newSpeaker)
+        _state.value = current.copy(isSpeakerOn = newSpeaker)
+    }
+
+    /* =========================
+       STATE TRANSITIONS
+       ========================= */
+
+    /** MUST BE PUBLIC */
     fun setRinging(handle: String, preserveReady: Boolean = false) {
-        _state.value = _state.value.copy(
+        Log.d(TAG_UI, "setRinging(handle=$handle incoming=$isIncomingCall)")
+
+        val ready =
+            preserveReady && (_state.value as? CallUiState.Ringing)?.isReadyToAnswer == true
+
+        _state.value = CallUiState.Ringing(
             handle = handle,
-            stateLabel = "Ringing",
-            isReadyToAnswer = if (preserveReady) _state.value.isReadyToAnswer else false
+            isIncoming = isIncomingCall,
+            isReadyToAnswer = ready
         )
     }
 
     fun setActive() {
-        _state.value = _state.value.copy(stateLabel = "Active")
+        if (_state.value is CallUiState.Active) return
+
+        val handle = when (val s = _state.value) {
+            is CallUiState.Ringing -> s.handle
+            is CallUiState.Connecting -> s.handle
+            is CallUiState.Active -> s.handle
+            is CallUiState.Disconnected -> s.handle
+        }
+
+        Log.d(TAG_UI, "Transition → Active")
+
+        _state.value = CallUiState.Active(
+            handle = handle,
+            isMuted = false,
+            isSpeakerOn = false,
+            localAudioState = WebRtcClient.AudioState.SILENT,
+            remoteAudioActive = false
+        )
+        
+        // Start deepfake detection when call becomes active
+        webRtcClient?.startDeepfakeDetection()
+        Log.d(TAG_UI, "Deepfake detection started")
     }
 
     fun setDisconnected() {
-        _state.value = _state.value.copy(stateLabel = "Disconnected")
-    }
+        val handle = when (val s = _state.value) {
+            is CallUiState.Ringing -> s.handle
+            is CallUiState.Active -> s.handle
+            is CallUiState.Connecting -> s.handle
+            is CallUiState.Disconnected -> s.handle
+        }
 
-    fun setEndedfromEngine(){
-        _state.value = _state.value.copy(stateLabel = "Disconnected")
-    }
-
-    private fun stateToLabel(state: Int): String = when (state) {
-        Call.STATE_ACTIVE -> "Active"
-        Call.STATE_DIALING -> "Dialing"
-        Call.STATE_RINGING -> "Ringing"
-        Call.STATE_CONNECTING -> "Connecting"
-        Call.STATE_DISCONNECTING -> "Hanging up"
-        Call.STATE_DISCONNECTED -> "Disconnected"
-        else -> "Idle"
+        Log.d(TAG_UI, "Transition → Disconnected")
+        _state.value = CallUiState.Disconnected(handle)
     }
 }
