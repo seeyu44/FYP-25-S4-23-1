@@ -1,0 +1,239 @@
+package com.example.fyp_25_s4_23.boundary.callhistory
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PhoneIncoming
+import androidx.compose.material.icons.filled.PhoneOutgoing
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+/**
+ * Displays call history fetched from Firebase Cloud Functions
+ * Shows calls where the user is either caller or callee
+ */
+@Composable
+fun FirebaseCallHistoryScreen(
+    calls: List<FirebaseCallRecord>,
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
+    onRefresh: () -> Unit,
+    onBack: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        // Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Call History",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Row {
+                Button(
+                    onClick = onRefresh,
+                    modifier = Modifier.padding(end = 8.dp),
+                    enabled = !isLoading
+                ) {
+                    Text("Refresh")
+                }
+                Button(onClick = onBack) {
+                    Text("Back")
+                }
+            }
+        }
+
+        // Loading state
+        if (isLoading) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator()
+                Text(
+                    text = "Loading call history...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
+            }
+            return
+        }
+
+        // Error state
+        if (errorMessage != null) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFFFEBEE)
+                )
+            ) {
+                Text(
+                    text = errorMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFFC62828),
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+        }
+
+        // Empty state
+        if (calls.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Phone,
+                    contentDescription = "No calls",
+                    modifier = Modifier
+                        .padding(bottom = 16.dp)
+                        .align(Alignment.CenterHorizontally),
+                    tint = Color.Gray
+                )
+                Text(
+                    text = "No call history",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "Your calls will appear here",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            return
+        }
+
+        // Call count summary
+        Text(
+            text = "${calls.size} call${if (calls.size != 1) "s" else ""}",
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.Gray,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // Call list
+        LazyColumn(modifier = Modifier.fillMaxWidth()) {
+            items(calls) { call ->
+                FirebaseCallHistoryCard(call = call)
+            }
+        }
+    }
+}
+
+/**
+ * Individual call card for Firebase call history
+ */
+@Composable
+fun FirebaseCallHistoryCard(call: FirebaseCallRecord) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp),
+        colors = CardDefaults.cardColors(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Contact info with call direction icon
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (call.isCaller) {
+                        Icons.Default.PhoneOutgoing
+                    } else {
+                        Icons.Default.PhoneIncoming
+                    },
+                    contentDescription = if (call.isCaller) "Outgoing call" else "Incoming call",
+                    tint = if (call.isCaller) Color(0xFF2196F3) else Color(0xFF4CAF50),
+                    modifier = Modifier
+                        .padding(end = 8.dp)
+                )
+                Text(
+                    text = call.getContactName(),
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            // Status badge
+            val statusColor = when (call.status) {
+                "completed" -> Color(0xFF4CAF50)
+                "missed" -> Color(0xFFF44336)
+                "declined" -> Color(0xFFFFA726)
+                else -> Color.Gray
+            }
+            Text(
+                text = call.status.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = statusColor,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Timestamp
+            val dateFormat = SimpleDateFormat("MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
+            val createdAtMillis = call.getCreatedAtMillis()
+            if (createdAtMillis > 0) {
+                Text(
+                    text = dateFormat.format(Date(createdAtMillis)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+
+            // Duration (only show if call is completed)
+            if (call.isCompleted() && call.duration > 0) {
+                Text(
+                    text = "Duration: ${call.getDurationString()}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
+            // Other user info
+            if (call.otherUser.phoneNumber != null) {
+                Text(
+                    text = call.otherUser.phoneNumber,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
+    }
+}

@@ -88,6 +88,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val pendingUsernameStore = PendingUsernameStore(application)
     private val tokenStore = FCMTokenStore(application)
     private val reviewRepository = ReviewRepository()
+    private val callHistoryRepository = CallHistoryRepository()
 
     /* ---------- Detection ---------- */
     private val modelRunner = ModelRunner(application)
@@ -491,6 +492,60 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                         isBusy = false,
                         message = "Failed to submit review: ${ex.message}"
                     )
+                }
+            }
+        }
+    }
+
+    /* =========================
+       CALL HISTORY
+       ========================= */
+
+    /**
+     * Fetch call history from Firebase Cloud Function
+     * Queries calls where user is either caller or callee
+     */
+    fun loadFirebaseCallHistory(limit: Int = 50) {
+        viewModelScope.launch {
+            _state.update { it.copy(isBusy = true, message = null) }
+
+            runCatching {
+                callHistoryRepository.getCallHistory(limit)
+            }.onSuccess { response ->
+                Log.d("CallHistory", "Loaded ${response.calls.size} calls from Firebase")
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = if (response.calls.isEmpty()) "No calls in history" else null
+                    )
+                }
+            }.onFailure { ex ->
+                Log.e("CallHistory", "Error loading call history: ${ex.message}", ex)
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "Failed to load call history: ${ex.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * End an active call and update its status in Firebase
+     */
+    fun endFirebaseCall(callId: String, durationSeconds: Long) {
+        viewModelScope.launch {
+            runCatching {
+                callHistoryRepository.endCall(callId, durationSeconds, "completed")
+            }.onSuccess {
+                Log.d("CallHistory", "Call ended successfully: $callId")
+                // Refresh call history after ending call
+                loadFirebaseCallHistory()
+            }.onFailure { ex ->
+                Log.e("CallHistory", "Error ending call: ${ex.message}", ex)
+                _state.update {
+                    it.copy(message = "Failed to end call: ${ex.message}")
                 }
             }
         }
