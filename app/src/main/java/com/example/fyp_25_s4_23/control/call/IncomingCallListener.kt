@@ -6,6 +6,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.example.fyp_25_s4_23.control.call.ActiveCallStore
+import com.google.firebase.firestore.DocumentChange
+
 
 object IncomingCallListener {
 
@@ -31,6 +33,7 @@ object IncomingCallListener {
         // Listen for ringing calls for this user
         listener = db.collection("calls")
             .whereEqualTo("callee_user_id", uid) // MUST be Firebase UID
+            .whereEqualTo("status", "ringing")
             .addSnapshotListener { snapshots, error ->
                 if (error != null) {
                     Log.e("INCOMING_CALL", "Listen failed", error)
@@ -44,36 +47,27 @@ object IncomingCallListener {
 
                 val activeCallId = ActiveCallStore.state.value?.callId
 
-                for (doc in snapshots.documents) {
+                for (change in snapshots.documentChanges) {
+                    if (change.type != DocumentChange.Type.ADDED) continue
+
+                    val doc = change.document
+
                     val callId = doc.id
                     val status = doc.getString("status") ?: continue
                     val callerId = doc.getString("caller_user_id") ?: continue
-                    if(callId == activeCallId) continue
+
+                    if (callId == activeCallId) continue
+
                     Log.d("INCOMING_CALL", "callId=$callId status=$status caller=$callerId")
 
-                    when (status) {
-                        "ringing" -> {
-                            if (handledCalls.contains(callId)) {
-                                Log.d("INCOMING_CALL", "Already handled $callId")
-                                continue
-                            }
+                    if (!handledCalls.contains(callId)) {
+                        handledCalls.add(callId)
 
-                            handledCalls.add(callId)
-
-                            IncomingCallNotifier.showIncomingCall(
-                                context = context.applicationContext,
-                                callId = callId,
-                                callerId = callerId
-                            )
-                        }
-
-                        "ended" -> {
-                            handledCalls.remove(callId)
-                            IncomingCallNotifier.cancelNotification(
-                                context.applicationContext,
-                                callId
-                            )
-                        }
+                        IncomingCallNotifier.showIncomingCall(
+                            context = context.applicationContext,
+                            callId = callId,
+                            callerId = callerId
+                        )
                     }
                 }
             }
