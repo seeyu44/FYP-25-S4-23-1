@@ -353,13 +353,6 @@ class WebRtcClient(
         PeerConnection.IceServer.builder("stun:stun.l.google.com:19302")
             .createIceServer(),
 
-        // TURN (TLS – most reliable on strict networks)
-        PeerConnection.IceServer.builder("turns:global.relay.metered.ca:443")
-            .setUsername("f476761c5386c5bfd0c6cd56")
-            .setPassword("iLGaUaMpckATerwK")
-            .setTlsCertPolicy(PeerConnection.TlsCertPolicy.TLS_CERT_POLICY_INSECURE_NO_CHECK)
-            .createIceServer(),
-
         // TURN (UDP)
         PeerConnection.IceServer.builder("turn:global.relay.metered.ca:80")
             .setUsername("f476761c5386c5bfd0c6cd56")
@@ -369,6 +362,13 @@ class WebRtcClient(
 
         // TURN (TCP fallback)
         PeerConnection.IceServer.builder("turn:global.relay.metered.ca:443?transport=tcp")
+            .setUsername("f476761c5386c5bfd0c6cd56")
+            .setPassword("iLGaUaMpckATerwK")
+            .setTlsCertPolicy(PeerConnection.TlsCertPolicy.TLS_CERT_POLICY_INSECURE_NO_CHECK)
+            .createIceServer(),
+
+        // TURN (TLS – most reliable on strict networks)
+        PeerConnection.IceServer.builder("turns:global.relay.metered.ca:443")
             .setUsername("f476761c5386c5bfd0c6cd56")
             .setPassword("iLGaUaMpckATerwK")
             .setTlsCertPolicy(PeerConnection.TlsCertPolicy.TLS_CERT_POLICY_INSECURE_NO_CHECK)
@@ -389,7 +389,7 @@ class WebRtcClient(
             rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
             // Use ALL for production (tries direct P2P first, falls back to TURN)
-            iceTransportsType = PeerConnection.IceTransportsType.RELAY
+            iceTransportsType = PeerConnection.IceTransportsType.ALL
             // Increase ICE timeout for cross-network connections
             iceConnectionReceivingTimeout = 10000  // 10 seconds instead of default 5
             iceBackupCandidatePairPingInterval = 25000  // 25 seconds
