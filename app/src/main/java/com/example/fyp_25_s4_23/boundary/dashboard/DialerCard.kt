@@ -2,15 +2,16 @@ package com.example.fyp_25_s4_23.boundary.dashboard
 
 import android.util.Log
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.boundary.call.VoipCallManager
 import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
@@ -28,8 +29,7 @@ fun DialerCard() {
     
     val isValidPhone = remember(phoneNumber) {
         // Singapore phone number: 8 digits starting with 6, 8, or 9
-        val cleaned = phoneNumber.replace(Regex("[\\s-]"), "")
-        cleaned.length == 8 && cleaned.matches(Regex("^[689]\\d{7}$"))
+        phoneNumber.length == 8 && phoneNumber.matches(Regex("^[689]\\d{7}$"))
     }
 
     Card(
@@ -55,30 +55,50 @@ fun DialerCard() {
                     .padding(bottom = 12.dp)
             )
 
-            // Phone number input
-            OutlinedTextField(
-                value = phoneNumber,
-                onValueChange = { 
-                    // Only allow digits, spaces, and hyphens
-                    if (it.all { char -> char.isDigit() || char == ' ' || char == '-' }) {
-                        phoneNumber = it
-                        errorMessage = null
-                    }
-                },
-                label = { Text("Phone Number") },
-                placeholder = { Text("98765432") },
-                prefix = { Text("+65 ") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                singleLine = true,
-                enabled = !isLoading,
-                isError = phoneNumber.isNotEmpty() && !isValidPhone,
-                supportingText = {
-                    if (phoneNumber.isNotEmpty() && !isValidPhone) {
-                        Text("Must be 8 digits starting with 6, 8, or 9")
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Phone number display
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "+65 ",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = if (phoneNumber.isEmpty()) "98765432" else phoneNumber,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = if (phoneNumber.isEmpty()) 
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        else 
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (phoneNumber.isNotEmpty()) {
+                        IconButton(onClick = { 
+                            phoneNumber = phoneNumber.dropLast(1)
+                            errorMessage = null
+                        }) {
+                            Icon(
+                                Icons.Default.Backspace,
+                                contentDescription = "Delete",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
-            )
+            }
 
             // Error message
             if (errorMessage != null) {
@@ -86,8 +106,69 @@ fun DialerCard() {
                 Text(
                     text = errorMessage!!,
                     color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
+            } else if (phoneNumber.isNotEmpty() && !isValidPhone) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Must be 8 digits starting with 6, 8, or 9",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Number pad
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Rows 1-3: digits 1-9
+                for (row in 0..2) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        for (col in 1..3) {
+                            val digit = (row * 3 + col).toString()
+                            DialerButton(
+                                text = digit,
+                                enabled = !isLoading && phoneNumber.length < 8,
+                                onClick = {
+                                    if (phoneNumber.length < 8) {
+                                        phoneNumber += digit
+                                        errorMessage = null
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Row 4: 0
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Spacer(modifier = Modifier.size(72.dp))
+                    DialerButton(
+                        text = "0",
+                        enabled = !isLoading && phoneNumber.length < 8,
+                        onClick = {
+                            if (phoneNumber.length < 8) {
+                                phoneNumber += "0"
+                                errorMessage = null
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.size(72.dp))
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -100,7 +181,7 @@ fun DialerCard() {
                             isLoading = true
                             errorMessage = null
                             
-                            val normalized = "+65${phoneNumber.replace(Regex("[\\s-]"), "")}"
+                            val normalized = "+65$phoneNumber"
                             Log.d("DialerCard", "Calling phone number: $normalized")
                             
                             // Look up user by phone number
@@ -125,7 +206,10 @@ fun DialerCard() {
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = isValidPhone && !isLoading
+                enabled = isValidPhone && !isLoading,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
@@ -142,5 +226,25 @@ fun DialerCard() {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun DialerButton(
+    text: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = Modifier.size(72.dp),
+        enabled = enabled,
+        shape = CircleShape,
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.headlineMedium
+        )
     }
 }
