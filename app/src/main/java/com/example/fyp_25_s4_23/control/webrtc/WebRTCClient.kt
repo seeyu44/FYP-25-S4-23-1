@@ -64,8 +64,8 @@ class WebRtcClient(
     private var currentRemoteActive: Boolean = false
 
     // State guards for offer/answer ordering
+    private val pendingIceCandidates = mutableListOf<IceCandidate>()
     private var remoteOfferApplied: Boolean = false
-
     private var remoteAnswerApplied: Boolean = false
     private var pendingAnswer: Boolean = false
     private var ended: Boolean = false
@@ -97,6 +97,14 @@ class WebRtcClient(
         )
 
         factory = PeerConnectionFactory.builder().createPeerConnectionFactory()
+    }
+
+    private fun flushPendingIce() {
+        if (pendingIceCandidates.isEmpty()) return
+
+        Log.w("ICE_FLOW", "Flushing ${pendingIceCandidates.size} queued ICE candidates")
+        pendingIceCandidates.forEach { peerConnection.addIceCandidate(it) }
+        pendingIceCandidates.clear()
     }
 
     private fun hasRecordAudioPermission(): Boolean {
@@ -337,18 +345,21 @@ class WebRtcClient(
         PeerConnection.IceServer.builder("turn:global.relay.metered.ca:80")
             .setUsername("f476761c5386c5bfd0c6cd56")
             .setPassword("iLGaUaMpckATerwK")
+            .setTlsCertPolicy(PeerConnection.TlsCertPolicy.TLS_CERT_POLICY_INSECURE_NO_CHECK)
             .createIceServer(),
 
         // TURN (TCP fallback)
         PeerConnection.IceServer.builder("turn:global.relay.metered.ca:443?transport=tcp")
             .setUsername("f476761c5386c5bfd0c6cd56")
             .setPassword("iLGaUaMpckATerwK")
+            .setTlsCertPolicy(PeerConnection.TlsCertPolicy.TLS_CERT_POLICY_INSECURE_NO_CHECK)
             .createIceServer(),
 
         // TURN (TLS – most reliable on strict networks)
         PeerConnection.IceServer.builder("turns:global.relay.metered.ca:443")
             .setUsername("f476761c5386c5bfd0c6cd56")
             .setPassword("iLGaUaMpckATerwK")
+            .setTlsCertPolicy(PeerConnection.TlsCertPolicy.TLS_CERT_POLICY_INSECURE_NO_CHECK)
             .createIceServer()
     )
 
@@ -364,7 +375,7 @@ class WebRtcClient(
             rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
             // Use ALL for production (tries direct P2P first, falls back to TURN)
-            iceTransportsType = PeerConnection.IceTransportsType.ALL
+            iceTransportsType = PeerConnection.IceTransportsType.RELAY
             // Increase ICE timeout for cross-network connections
             iceConnectionReceivingTimeout = 10000  // 10 seconds instead of default 5
             iceBackupCandidatePairPingInterval = 25000  // 25 seconds
@@ -449,9 +460,15 @@ class WebRtcClient(
 
                         PeerConnection.IceConnectionState.FAILED -> {
                             iceInProgress = false
-                            Log.e("ICE_STATE", "❌ ICE FAILED - ending call")
-                            signaling.updateCallStatus(callId, "ended")
-                            engineEnd("ICE_FAILED")
+                            Log.e("ICE_STATE", "❌ ICE FAILED — waiting briefly before ending...")
+
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                if (!callConnected && !ended) {
+                                    Log.e("ICE_STATE", "❌ ICE still failed — ending call")
+                                    signaling.updateCallStatus(callId, "ended")
+                                    engineEnd("ICE_FAILED")
+                                }
+                            }, 15_000)
                         }
 
                         else -> Unit
@@ -479,19 +496,23 @@ class WebRtcClient(
             startRingTimeout()
         }
 
-        signaling.listenForIceCandidates(callId, remoteUserId) {
+        signaling.listenForIceCandidates(callId, remoteUserId) { itMap ->
 
-            Log.w(
-                "ICE_FLOW",
-                "REMOTE ICE received → $it"
+            val candidate = IceCandidate(
+                itMap["sdpMid"] as String?,
+                (itMap["sdpMLineIndex"] as Long).toInt(),
+                itMap["candidate"] as String
             )
-            peerConnection.addIceCandidate(
-                IceCandidate(
-                    it["sdpMid"] as String?,
-                    (it["sdpMLineIndex"] as Long).toInt(),
-                    it["candidate"] as String
-                )
-            )
+
+            Log.w("ICE_FLOW", "REMOTE ICE received → ${candidate.sdp}")
+
+            if (peerConnection.remoteDescription != null) {
+                peerConnection.addIceCandidate(candidate)
+                Log.d("ICE_FLOW", "ICE applied immediately")
+            } else {
+                pendingIceCandidates.add(candidate)
+                Log.w("ICE_FLOW", "ICE queued (remote SDP not set yet)")
+            }
         }
 
         //startAudioMonitoring()
@@ -566,6 +587,7 @@ class WebRtcClient(
                 override fun onSetSuccess() {
                     remoteOfferApplied = true
                     Log.w("SDP_FLOW", "setRemoteDescription(offer) SUCCESS → ReadyToAnswer=true")
+                    flushPendingIce()
                     onReadyToAnswer?.invoke(true)
                     Log.d("CALL_UI","Answer enabled(offer applied)")
 
@@ -628,7 +650,7 @@ class WebRtcClient(
                 override fun onSetSuccess() {
                     remoteAnswerApplied = true
                     Log.w("SDP_FLOW", "setRemoteDescription(answer) SUCCESS")
-
+                    flushPendingIce()
                     //updates UI while waiting for ICE to connect
                     onAnswered?.invoke()
                 }
