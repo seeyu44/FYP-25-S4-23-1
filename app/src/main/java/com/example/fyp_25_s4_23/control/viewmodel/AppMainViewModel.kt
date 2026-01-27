@@ -56,6 +56,7 @@ data class AppUiState(
     val userSettings: UserSettings = UserSettings(),
     val users: List<UserAccount> = emptyList(),
     val callRecords: List<CallRecord> = emptyList(),
+    val firebaseCalls: List<FirebaseCallRecord> = emptyList(),
 
     val summaryMetrics: List<SummaryMetrics> = emptyList(),
 

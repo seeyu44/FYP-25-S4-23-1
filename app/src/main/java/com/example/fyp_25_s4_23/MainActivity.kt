@@ -202,7 +202,10 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                     onLogout = viewModel::logout,
                     onRefresh = viewModel::refreshDashboard,
                     onNavigateToSummary = viewModel::navigateToSummary,
-                    onNavigateToCallHistory = viewModel::navigateToCallHistory,
+                    onNavigateToCallHistory = {
+                        viewModel.loadFirebaseCallHistory()
+                        viewModel.navigateToCallHistory()
+                    },
                     onToggleDetection = detectionToggleHandler,
                     systemController = systemController,
                     modelRunner = modelRunner,
