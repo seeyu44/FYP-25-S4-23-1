@@ -11,6 +11,7 @@ import android.media.AudioRecord
 import android.media.AudioFormat
 import android.media.MediaRecorder
 import org.webrtc.*
+import org.webrtc.CandidatePairChangeEvent
 import com.example.fyp_25_s4_23.control.detection.DeepfakeDetectionService
 
 class WebRtcClient(
@@ -103,7 +104,16 @@ class WebRtcClient(
         if (pendingIceCandidates.isEmpty()) return
 
         Log.w("ICE_FLOW", "Flushing ${pendingIceCandidates.size} queued ICE candidates")
-        pendingIceCandidates.forEach { peerConnection.addIceCandidate(it) }
+
+        pendingIceCandidates.forEach { candidate ->
+            Log.w(
+                "ICE_FLOW",
+                "addIceCandidate (flush) → ${candidate.sdp}"
+            )
+            val result = peerConnection.addIceCandidate(candidate)
+            Log.w("ICE_FLOW", "addIceCandidate (flush) result=$result")
+        }
+
         pendingIceCandidates.clear()
     }
 
@@ -338,7 +348,14 @@ class WebRtcClient(
 
     private fun iceServers() = listOf(
         // STUN server
-        PeerConnection.IceServer.builder("stun:global.stun.metered.ca:80")
+        PeerConnection.IceServer.builder("stun:stun.l.google.com:19302")
+            .createIceServer(),
+
+        // TURN (TLS – most reliable on strict networks)
+        PeerConnection.IceServer.builder("turns:global.relay.metered.ca:443")
+            .setUsername("f476761c5386c5bfd0c6cd56")
+            .setPassword("iLGaUaMpckATerwK")
+            .setTlsCertPolicy(PeerConnection.TlsCertPolicy.TLS_CERT_POLICY_INSECURE_NO_CHECK)
             .createIceServer(),
 
         // TURN (UDP)
@@ -353,14 +370,9 @@ class WebRtcClient(
             .setUsername("f476761c5386c5bfd0c6cd56")
             .setPassword("iLGaUaMpckATerwK")
             .setTlsCertPolicy(PeerConnection.TlsCertPolicy.TLS_CERT_POLICY_INSECURE_NO_CHECK)
-            .createIceServer(),
-
-        // TURN (TLS – most reliable on strict networks)
-        PeerConnection.IceServer.builder("turns:global.relay.metered.ca:443")
-            .setUsername("f476761c5386c5bfd0c6cd56")
-            .setPassword("iLGaUaMpckATerwK")
-            .setTlsCertPolicy(PeerConnection.TlsCertPolicy.TLS_CERT_POLICY_INSECURE_NO_CHECK)
             .createIceServer()
+
+
     )
 
     fun createPeerConnection() {
@@ -438,6 +450,7 @@ class WebRtcClient(
                         PeerConnection.IceConnectionState.CONNECTED,
                         PeerConnection.IceConnectionState.COMPLETED -> {
                             iceInProgress = false
+                            logSelectedCandidatePairViaStats()
                             if (!callConnected) {
                                 callConnected = true
                                 cancelRingTimeout()
@@ -504,16 +517,27 @@ class WebRtcClient(
                 itMap["candidate"] as String
             )
 
-            Log.w("ICE_FLOW", "REMOTE ICE received → ${candidate.sdp}")
+            Log.w(
+                "ICE_FLOW",
+                "REMOTE ICE received → sdpMid=${candidate.sdpMid}, " +
+                        "mLine=${candidate.sdpMLineIndex}, " +
+                        "candidate=${candidate.sdp}"
+            )
 
-            if (peerConnection.remoteDescription != null) {
-                peerConnection.addIceCandidate(candidate)
-                Log.d("ICE_FLOW", "ICE applied immediately")
-            } else {
+            if (peerConnection.remoteDescription == null) {
+                Log.w("ICE_FLOW", "Remote SDP not set yet → queue ICE")
                 pendingIceCandidates.add(candidate)
-                Log.w("ICE_FLOW", "ICE queued (remote SDP not set yet)")
+                return@listenForIceCandidates
             }
+
+            val result = peerConnection.addIceCandidate(candidate)
+
+            Log.w(
+                "ICE_FLOW",
+                "addIceCandidate() called → result=$result"
+            )
         }
+
 
         //startAudioMonitoring()
 
@@ -931,4 +955,52 @@ class WebRtcClient(
         Log.w("CALL_ENGINE", "Remote ended call")
         engineEnd("REMOTE_ENDED")
     }
+
+    private fun logSelectedCandidatePairViaStats() {
+        peerConnection.getStats { report ->
+            val stats = report.statsMap.values.toList()
+
+            // 1) Best method: transport.selectedCandidatePairId
+            val transport = stats.firstOrNull { it.type == "transport" }
+            val selectedPairId = transport?.members?.get("selectedCandidatePairId") as? String
+
+            // 2) Fallback: candidate-pair where selected OR nominated is true
+            val selectedPair = when {
+                selectedPairId != null ->
+                    stats.firstOrNull { it.id == selectedPairId && it.type == "candidate-pair" }
+
+                else ->
+                    stats.firstOrNull { s ->
+                        s.type == "candidate-pair" && (
+                                (s.members["selected"] == true) ||
+                                        (s.members["nominated"] == true) ||
+                                        (s.members["state"] == "succeeded")
+                                )
+                    }
+            }
+
+            if (selectedPair == null) {
+                Log.w("ICE_PAIR", "⚠️ Connected, but couldn't resolve selected pair from stats")
+                return@getStats
+            }
+
+            val localId = selectedPair.members["localCandidateId"] as? String
+            val remoteId = selectedPair.members["remoteCandidateId"] as? String
+
+            val local = stats.firstOrNull { it.id == localId }
+            val remote = stats.firstOrNull { it.id == remoteId }
+
+            Log.i(
+                "ICE_PAIR",
+                """
+            ✅ Selected ICE candidate pair
+            ├─ pairId=${selectedPair.id}
+            ├─ state=${selectedPair.members["state"]} nominated=${selectedPair.members["nominated"]} selected=${selectedPair.members["selected"]}
+            ├─ Local : type=${local?.members?.get("candidateType")} protocol=${local?.members?.get("protocol")} address=${local?.members?.get("address")}:${local?.members?.get("port")}
+            └─ Remote: type=${remote?.members?.get("candidateType")} protocol=${remote?.members?.get("protocol")} address=${remote?.members?.get("address")}:${remote?.members?.get("port")}
+            """.trimIndent()
+            )
+        }
+    }
+
 }
