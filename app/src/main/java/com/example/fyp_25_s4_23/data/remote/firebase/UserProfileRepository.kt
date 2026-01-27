@@ -33,31 +33,6 @@ class UserProfileRepository {
         )
     }
 
-    suspend fun createUserProfile(
-        uid: String,
-        username: String,
-        displayName: String,
-        role: String
-    ) {
-        android.util.Log.d("UserProfileRepo", "Creating profile for UID: $uid, username: $username, role: $role")
-        
-        val userProfile = hashMapOf(
-            "username" to username,
-            "displayName" to displayName,
-            "role" to role,
-            "createdAtSeconds" to System.currentTimeMillis() / 1000,
-            "adminVerificationSent" to false,
-            "needsVerificationOnFirstLogin" to true
-        )
-
-        db.collection("users")
-            .document(uid)
-            .set(userProfile)
-            .await()
-            
-        android.util.Log.d("UserProfileRepo", "Profile created successfully for UID: $uid")
-    }
-
     suspend fun finalizeAdminUser(uid: String, displayName: String) {
         val functions = Firebase.functions
         val addAdminUser = functions.getHttpsCallable("addAdminUser")
