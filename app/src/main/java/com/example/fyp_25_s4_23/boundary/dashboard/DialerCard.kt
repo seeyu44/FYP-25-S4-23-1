@@ -1,5 +1,6 @@
 package com.example.fyp_25_s4_23.boundary.dashboard
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -100,10 +101,12 @@ fun DialerCard() {
                             errorMessage = null
                             
                             val normalized = "+65${phoneNumber.replace(Regex("[\\s-]"), "")}"
+                            Log.d("DialerCard", "Calling phone number: $normalized")
                             
                             // Look up user by phone number
                             val result = phoneLookupService.getUserByPhoneNumber(normalized)
                             
+                            Log.d("DialerCard", "Found user: ${result.username} (${result.uid})")
                             isLoading = false
                             
                             // Initiate call with the resolved UID
@@ -115,6 +118,7 @@ fun DialerCard() {
                             // Clear the phone number after successful call initiation
                             phoneNumber = ""
                         } catch (e: Exception) {
+                            Log.e("DialerCard", "Error during phone lookup", e)
                             isLoading = false
                             errorMessage = e.message ?: "Failed to look up phone number"
                         }
