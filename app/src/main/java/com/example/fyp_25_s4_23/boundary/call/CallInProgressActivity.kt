@@ -73,6 +73,9 @@ class CallInProgressActivity : ComponentActivity() {
             micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
 
+        // Load available demo audio files
+        val demoAudioFiles = loadDemoAudioFiles()
+        
         setContent {
             FYP25S423Theme {
                 CallInProgressScreen(
@@ -83,7 +86,11 @@ class CallInProgressActivity : ComponentActivity() {
                         finish()
                     },
                     onMute = viewModel::toggleMute,
-                    onToggleSpeaker = viewModel::toggleSpeaker
+                    onToggleSpeaker = viewModel::toggleSpeaker,
+                    onPlayDemoAudio = { filename ->
+                        webRtcClient?.playDemoAudio(filename)
+                    },
+                    demoAudioFiles = demoAudioFiles
                 )
             }
         }
@@ -147,5 +154,20 @@ class CallInProgressActivity : ComponentActivity() {
         signaling?.stopListening()
         IncomingCallListener.start(applicationContext)
         Log.d(TAG_SIG, "Call activity destroyed")
+    }
+    
+    private fun loadDemoAudioFiles(): List<String> {
+        return try {
+            assets.list("demo_audio")?.filter { filename ->
+                filename.endsWith(".wav", ignoreCase = true) ||
+                filename.endsWith(".mp3", ignoreCase = true) ||
+                filename.endsWith(".mp4", ignoreCase = true) ||
+                filename.endsWith(".m4a", ignoreCase = true) ||
+                filename.endsWith(".flac", ignoreCase = true)
+            }?.sorted() ?: emptyList()
+        } catch (e: Exception) {
+            Log.e(TAG_SIG, "Failed to load demo audio files", e)
+            emptyList()
+        }
     }
 }

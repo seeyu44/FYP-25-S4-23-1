@@ -241,10 +241,15 @@ class FirebaseSignalingManager {
     
     /**
      * Listen for the REMOTE user's detection results
+     * 
+     * IMPORTANT: We only read the SCORE from Firestore and calculate isDeepfake locally
+     * using OUR threshold. This ensures both devices can use different thresholds if needed
+     * (e.g., 0.05 for demo testing vs 0.7 for production).
      */
     fun listenForRemoteDetection(
         callId: String,
         remoteUserId: String,
+        threshold: Float = 0.7f,  // Production threshold
         onRemoteDetection: (score: Float, isDeepfake: Boolean) -> Unit
     ) {
         val ref = firestore.collection("calls").document(callId)
@@ -256,12 +261,13 @@ class FirebaseSignalingManager {
             }
             if (snapshot == null || !snapshot.exists()) return@addSnapshotListener
             
-            // Read the remote user's detection result
+            // Read only the SCORE - we'll calculate isDeepfake ourselves with our threshold
             val score = snapshot.getDouble("${remoteUserId}_detection_score")?.toFloat()
-            val isDeepfake = snapshot.getBoolean("${remoteUserId}_is_deepfake")
             
-            if (score != null && isDeepfake != null) {
-                Log.d("DEEPFAKE_SYNC", "Remote user detection: score=$score, isDeepfake=$isDeepfake")
+            if (score != null) {
+                // Calculate isDeepfake using OUR threshold (receiving device decides)
+                val isDeepfake = score >= threshold
+                Log.d("DEEPFAKE_SYNC", "Remote user detection: score=$score, isDeepfake=$isDeepfake (threshold=$threshold)")
                 onRemoteDetection(score, isDeepfake)
             }
         }
