@@ -13,6 +13,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.example.fyp_25_s4_23.ml.AudioFeatureExtractor
@@ -24,11 +25,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import com.example.fyp_25_s4_23.control.AlertHandlerHolder
+import com.example.fyp_25_s4_23.util.VibratorUtil
 
-/**
- * Foreground service placeholder for monitoring audio during calls.
- * Does not capture audio yet; scaffolding only.
- */
 class CallMonitorService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var audioRecord: AudioRecord? = null
@@ -79,11 +77,13 @@ class CallMonitorService : Service() {
             stopSelf()
             return
         }
+
         val bufferSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT
         ).coerceAtLeast(SAMPLE_RATE)
+
         audioRecord = AudioRecord(
             MediaRecorder.AudioSource.VOICE_COMMUNICATION,
             SAMPLE_RATE,
@@ -92,26 +92,28 @@ class CallMonitorService : Service() {
             bufferSize
         )
         audioRecord?.startRecording()
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
         currentJob = serviceScope.launch {
             val shortBuffer = ShortArray(FRAME_SIZE)
-//            var alertId = ALERT_NOTIF_ID
             while (isActive && audioRecord != null) {
                 val read = audioRecord?.read(shortBuffer, 0, FRAME_SIZE) ?: 0
                 if (read > 0) {
                     val frame = shortBuffer.copyOf(read)
                     val energy = AudioFeatureExtractor.energy(frame)
                     val zcr = AudioFeatureExtractor.zeroCrossRate(frame)
+
                     val probability = modelRunner.infer(floatArrayOf(energy, zcr))
+
                     if (probability >= ALERT_THRESHOLD && System.currentTimeMillis() - lastAlertTime > ALERT_COOLDOWN) {
-//                        val notification = NotificationCompat.Builder(this@CallMonitorService, MONITOR_CHANNEL_ID)
-//                            .setContentTitle("Possible deepfake detected")
-//                            .setContentText("Confidence ${(probability * 100).toInt()}%")
-//                            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-//                            .setPriority(NotificationCompat.PRIORITY_HIGH)
-//                            .build()
-//                        manager.notify(alertId++, notification)
                         lastAlertTime = System.currentTimeMillis()
+
+                        Log.d("CallMonitorService", "REAL-TIME Deepfake Detected! Prob: $probability")
+
+                        VibratorUtil.vibrate(this@CallMonitorService)
+
+                        launch(Dispatchers.Main) {
+                            AlertHandlerHolder.handler?.displayCriticalAlert(probability)
+                        }
                     }
                 }
             }
@@ -128,11 +130,10 @@ class CallMonitorService : Service() {
 
     companion object {
         private const val NOTIF_ID = 1001
-        private const val ALERT_NOTIF_ID = 2001
         private const val MONITOR_CHANNEL_ID = "call_monitor_channel"
         private const val SAMPLE_RATE = 16_000
         private const val FRAME_SIZE = 1024
-        private const val ALERT_THRESHOLD = 0.75f
+        private const val ALERT_THRESHOLD = 0.7f
         private const val ALERT_COOLDOWN = 10_000L
     }
 }
