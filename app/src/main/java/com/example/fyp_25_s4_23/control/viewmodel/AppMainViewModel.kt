@@ -26,9 +26,20 @@ import kotlinx.coroutines.flow.*
 import com.example.fyp_25_s4_23.control.call.IncomingCallListener
 import com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics
 
+import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseAuthManager
+import com.example.fyp_25_s4_23.data.remote.firebase.UserProfileRepository
+import com.example.fyp_25_s4_23.data.remote.firebase.UsernameService
+import com.example.fyp_25_s4_23.data.remote.dto.PendingUsernameStore
+
+import com.example.fyp_25_s4_23.domain.entities.Contact
+import com.example.fyp_25_s4_23.domain.entities.ContactLabel
+import com.example.fyp_25_s4_23.util.VibratorUtil
+
+
 /* =========================
    NAVIGATION
    ========================= */
+
 
 sealed interface AppScreen {
     data object Loading : AppScreen
@@ -37,6 +48,8 @@ sealed interface AppScreen {
     data object Summary : AppScreen
     data object CallHistory : AppScreen
     data object Dashboard : AppScreen
+    data object ContactList : AppScreen
+    data object ManagedContacts : AppScreen
 }
 
 /* =========================
@@ -58,6 +71,7 @@ data class AppUiState(
 
     val summaryMetrics: List<SummaryMetrics> = emptyList(),
 
+    val contacts: List<Contact> = emptyList(),
     val message: String? = null,
     val isBusy: Boolean = false,
     val modelTest: ModelTestResult = ModelTestResult()
@@ -120,7 +134,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
         viewModelScope.launch {
             userRepository.ensureDefaultAdmin()
-            _state.update { it.copy(screen = AppScreen.Login) }
+            _state.update { it.copy(screen = AppScreen.Login, contacts = emptyList()) }
         }
     }
 
@@ -133,6 +147,9 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     fun navigateToDashboard() = _state.update { it.copy(screen = AppScreen.Dashboard) }
     fun navigateToSummary() = _state.update { it.copy(screen = AppScreen.Summary) }
     fun navigateToCallHistory() = _state.update { it.copy(screen = AppScreen.CallHistory) }
+    fun navigateToContactList() = _state.update { it.copy(screen = AppScreen.ContactList, message = null) }
+    fun navigateToManagedContacts() { _state.update { it.copy(screen = AppScreen.ManagedContacts, message = null) } }
+
 
     /* =========================
        AUTH
