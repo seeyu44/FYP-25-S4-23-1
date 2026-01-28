@@ -48,19 +48,20 @@ class FirebaseSignalingManager {
         onAnswer: (String) -> Unit,
         onStatus: (String) -> Unit
     ) {
+        stopListening()
         val ref = firestore.collection("calls").document(callId)
 
-        /* ---- Initial one-time sync ---- */
-        ref.get().addOnSuccessListener { snap ->
-            if (snap == null || !snap.exists()) return@addOnSuccessListener
-            applySnapshot(
-                snapshot = snap,
-                isCaller = isCaller,
-                onOffer = onOffer,
-                onAnswer = onAnswer,
-                onStatus = onStatus
-            )
-        }
+//        /* ---- Initial one-time sync ---- */
+//        ref.get().addOnSuccessListener { snap ->
+//            if (snap == null || !snap.exists()) return@addOnSuccessListener
+//            applySnapshot(
+//                snapshot = snap,
+//                isCaller = isCaller,
+//                onOffer = onOffer,
+//                onAnswer = onAnswer,
+//                onStatus = onStatus
+//            )
+//        }
 
         /* ---- Realtime listener ---- */
         callListener = ref.addSnapshotListener { snapshot, error ->
@@ -173,6 +174,7 @@ class FirebaseSignalingManager {
         userId: String,
         candidate: Map<String, Any>
     ) {
+        Log.w("ICE_DB", "WRITE ICE: callId=$callId userIdDoc=$userId candidate=${candidate["candidate"]}")
         firestore.collection("calls")
             .document(callId)
             .collection("ice_candidates")
@@ -186,20 +188,33 @@ class FirebaseSignalingManager {
         remoteUserId: String,
         onCandidate: (Map<String, Any>) -> Unit
     ) {
+        Log.w("ICE_DB", "LISTEN ICE: callId=$callId remoteUserIdDoc=$remoteUserId")
+
         iceListener = firestore.collection("calls")
             .document(callId)
             .collection("ice_candidates")
             .document(remoteUserId)
             .collection("candidates")
             .addSnapshotListener { snapshot, error ->
-                if (error != null || snapshot == null) return@addSnapshotListener
+                if (error != null) {
+                    Log.e("ICE_DB", "listenForIceCandidates ERROR callId=$callId remoteUserId=$remoteUserId", error)
+                    return@addSnapshotListener
+                }
+                if (snapshot == null) {
+                    Log.w("ICE_DB", "listenForIceCandidates snapshot=null callId=$callId remoteUserId=$remoteUserId")
+                    return@addSnapshotListener
+                }
+
+                Log.d("ICE_DB", "listenForIceCandidates docs=${snapshot.size()} changes=${snapshot.documentChanges.size}")
 
                 for (change in snapshot.documentChanges) {
                     if (change.type == com.google.firebase.firestore.DocumentChange.Type.ADDED) {
+                        Log.d("ICE_DB", "ICE doc added id=${change.document.id} data=${change.document.data}")
                         change.document.data?.let(onCandidate)
                     }
                 }
             }
+
     }
 
     /* =========================
