@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.domain.entities.Contact
 import com.example.fyp_25_s4_23.domain.entities.ContactLabel
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,6 +102,9 @@ fun ManagedContactsScreen(
         if (showAddDialog) {
             AddContactDialog(
                 onDismiss = { showAddDialog = false },
+                onVerifyUsername = {username->
+                    viewModel.verifyUsername(username)
+                },
                 onAdd = { targetUsername, label ->
                     viewModel.addContactByUsername(targetUsername, label) {
                         showAddDialog = false
@@ -114,10 +118,28 @@ fun ManagedContactsScreen(
 @Composable
 fun AddContactDialog(
     onDismiss: () -> Unit,
+    onVerifyUsername: suspend (String) -> Boolean,
     onAdd: (String, ContactLabel) -> Unit
 ) {
     var username by remember { mutableStateOf("") }
+    var isChecking by remember { mutableStateOf(false) }
+    var isValidUser by remember { mutableStateOf<Boolean?>(null) }
     var selectedLabel by remember { mutableStateOf(ContactLabel.BLACK) }
+
+    LaunchedEffect(username) {
+        val clean = username.trim().lowercase()
+
+        if (clean.length < 3) {
+            isValidUser = null
+            return@LaunchedEffect
+        }
+
+        delay(400) // debounce check
+
+        isChecking = true
+        isValidUser = onVerifyUsername(clean)
+        isChecking = false
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -138,6 +160,17 @@ fun AddContactDialog(
                     placeholder = { Text("e.g. user_id_123") },
                     singleLine = true
                 )
+                when {
+                    isChecking -> {
+                        Text("Checking username…", color = Color.Gray)
+                    }
+                    isValidUser == true -> {
+                        Text("User found ✅", color = Color(0xFF4CAF50))
+                    }
+                    isValidUser == false -> {
+                        Text("User not found ❌", color = Color.Red)
+                    }
+                }
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("Label Type:", style = MaterialTheme.typography.labelLarge)
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -158,7 +191,7 @@ fun AddContactDialog(
         confirmButton = {
             Button(
                 onClick = { onAdd(username, selectedLabel) },
-                enabled = username.isNotBlank()
+                enabled = (isValidUser == true && !isChecking)
             ) {
                 Text("Search & Add")
             }

@@ -10,11 +10,11 @@ import kotlinx.coroutines.flow.map
 class ContactRepository(
     private val contactDao: ContactDao
 ) {
-    fun getAllContacts(): Flow<List<Contact>> {
-        return contactDao.getAllContacts().map { entities ->
+
+    fun getAllContacts(): Flow<List<Contact>> =
+        contactDao.getAllContacts().map { entities ->
             entities.map { it.toDomain() }
         }
-    }
 
     suspend fun insertContact(contact: Contact) {
         contactDao.insertContact(contact.toEntity())
@@ -28,5 +28,9 @@ class ContactRepository(
         id.toIntOrNull()?.let { intId ->
             contactDao.deleteById(intId)
         }
+    }
+
+    suspend fun existsByUsername(username: String): Boolean {
+        return contactDao.existsByUsername(username)
     }
 }

@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ContactDao {
+
     @Query("SELECT * FROM contacts")
     fun getAllContacts(): Flow<List<ContactEntity>>
 
@@ -20,4 +21,11 @@ interface ContactDao {
 
     @Query("DELETE FROM contacts WHERE id = :id")
     suspend fun deleteById(id: Int)
+
+    @Query(
+        "SELECT EXISTS(" +
+                "SELECT 1 FROM contacts WHERE displayName = :username LIMIT 1" +
+                ")"
+    )
+    suspend fun existsByUsername(username: String): Boolean
 }

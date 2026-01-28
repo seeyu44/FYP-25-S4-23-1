@@ -29,33 +29,55 @@ class ManagedContactsViewModel(
             initialValue = emptyList()
         )
 
-    fun addContactByUsername(username: String, label: ContactLabel, onSuccess: () -> Unit) {
+    fun addContactByUsername(
+        username: String,
+        label: ContactLabel,
+        onSuccess: () -> Unit
+    ) {
         val cleanUsername = username.trim().lowercase()
-        if (cleanUsername.isEmpty()) {
-            _uiMessage.value = "Please enter a username"
-            return
-        }
 
         viewModelScope.launch {
             try {
-                val isAvailable = usernameService.checkUsername(cleanUsername)
-
-                if (!isAvailable) {
-                    val newContact = Contact(
-                        id = java.util.UUID.randomUUID().toString(),
-                        displayName = cleanUsername,
-                        phoneNumber = "VOIP_USER",
-                        label = label
-                    )
-                    repository.insertContact(newContact)
-                    _uiMessage.value = "Contact added successfully"
-                    onSuccess()
-                } else {
-                    _uiMessage.value = "User '$cleanUsername' not found on server"
+                val exists = !usernameService.checkUsername(cleanUsername)
+                if (!exists) {
+                    _uiMessage.value = "User not found"
+                    return@launch
                 }
+
+                val newContact = Contact(
+                    id = java.util.UUID.randomUUID().toString(),
+                    displayName = cleanUsername,
+                    phoneNumber = "VOIP_USER",
+                    label = label
+                )
+
+                val alreadyExists = repository.existsByUsername(cleanUsername)
+                if (alreadyExists) {
+                    _uiMessage.value = "Contact already exists"
+                    return@launch
+                }
+
+                repository.insertContact(newContact)
+                _uiMessage.value = "Contact added"
+                onSuccess()
+
             } catch (e: Exception) {
-                _uiMessage.value = "Error: ${e.message}"
+                _uiMessage.value = "Failed to add contact"
             }
+        }
+    }
+
+    suspend fun verifyUsername(username: String): Boolean {
+        // This MUST return:
+        // true  → user EXISTS in Firebase
+        // false → user does NOT exist
+        return try {
+            // usernameService.checkUsername() returns:
+            // true  = available (NOT TAKEN)
+            // false = already taken (EXISTS)
+            !usernameService.checkUsername(username)
+        } catch (e: Exception) {
+            false
         }
     }
 
