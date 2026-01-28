@@ -22,10 +22,18 @@ interface ContactDao {
     @Query("DELETE FROM contacts WHERE id = :id")
     suspend fun deleteById(id: Int)
 
+    @Query("SELECT * FROM contacts WHERE displayName = :username LIMIT 1")
+    suspend fun getByUsername(username: String): ContactEntity?
+
     @Query(
         "SELECT EXISTS(" +
                 "SELECT 1 FROM contacts WHERE displayName = :username LIMIT 1" +
                 ")"
     )
     suspend fun existsByUsername(username: String): Boolean
+
+
+
+    @Query("DELETE FROM contacts")
+    suspend fun clearAll()
 }

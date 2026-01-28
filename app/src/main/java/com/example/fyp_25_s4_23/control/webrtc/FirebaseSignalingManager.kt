@@ -20,13 +20,14 @@ class FirebaseSignalingManager {
     /* =========================
        CREATE CALL
        ========================= */
-    fun createCall(callId: String, callerUid: String, calleeUid: String) {
+    fun createCall(callId: String, callerUid: String, calleeUid: String, callerUsername: String) {
         firestore.collection("calls")
             .document(callId)
             .set(
                 mapOf(
                     "caller_user_id" to callerUid,
                     "callee_user_id" to calleeUid,
+                    "caller_username" to callerUsername,
                     "status" to "ringing",
                     "offer_sdp" to null,
                     "answer_sdp" to null,
@@ -177,7 +178,8 @@ class FirebaseSignalingManager {
         Log.w("ICE_DB", "WRITE ICE: callId=$callId userIdDoc=$userId candidate=${candidate["candidate"]}")
         firestore.collection("calls")
             .document(callId)
-            .collection("ice_candidates")
+            .collection(
+                "ice_candidates")
             .document(userId)
             .collection("candidates")
             .add(candidate)

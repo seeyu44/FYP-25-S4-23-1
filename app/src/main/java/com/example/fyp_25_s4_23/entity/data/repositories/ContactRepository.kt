@@ -33,4 +33,13 @@ class ContactRepository(
     suspend fun existsByUsername(username: String): Boolean {
         return contactDao.existsByUsername(username)
     }
+
+    suspend fun getContactByUsername(username: String): Contact? {
+        return contactDao.getByUsername(username)?.toDomain()
+    }
+
+
+    suspend fun clearAll(){
+        contactDao.clearAll()
+    }
 }

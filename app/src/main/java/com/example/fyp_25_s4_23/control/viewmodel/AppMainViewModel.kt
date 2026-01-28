@@ -23,6 +23,7 @@ import com.example.fyp_25_s4_23.util.mapUserRole
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import com.example.fyp_25_s4_23.control.usecases.SyncContactsUseCase
 import com.example.fyp_25_s4_23.control.call.IncomingCallListener
 import com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics
 
@@ -110,6 +111,15 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val _state = MutableStateFlow(AppUiState())
     val state: StateFlow<AppUiState> = _state.asStateFlow()
 
+    /*--------Contacts---------*/
+    private val contactRepository = ContactRepository(db.contactDao())
+    private val firebaseContactRepository = FirebaseContactRepository()
+
+    private val contactSyncUseCase = SyncContactsUseCase(
+        firebaseRepo = firebaseContactRepository,
+        localRepo = contactRepository
+    )
+
     /* =========================
        INIT
        ========================= */
@@ -183,6 +193,10 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
                 user to settingsRepository.get(user.id)
             }.onSuccess { (user, settings) ->
+
+                    //Sync Contacts from stored in firebase
+                    contactSyncUseCase.execute()
+
                 _state.update {
                     it.copy(
                         currentUser = user,

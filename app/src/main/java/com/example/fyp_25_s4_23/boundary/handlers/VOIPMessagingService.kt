@@ -17,7 +17,7 @@ class VOIPMessagingService : FirebaseMessagingService() {
         if (type == "incoming_call" && !caller.isNullOrBlank() && !callId.isNullOrBlank()) {
             Log.i("VOIPMessaging", "Incoming call from $caller")
             startActivity(
-                IncomingCallIntent.create(this, callId, caller, true)
+                IncomingCallIntent.create(this, callId, caller, caller, isIncoming=true)
             )
         }
     }

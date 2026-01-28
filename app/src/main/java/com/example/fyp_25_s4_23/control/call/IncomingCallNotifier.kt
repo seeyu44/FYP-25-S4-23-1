@@ -20,7 +20,8 @@ object IncomingCallNotifier {
     fun showIncomingCall(
         context: Context,
         callId: String,
-        callerId: String
+        callerId: String,
+        displayName: String
     ) {
         Log.d("INCOMING_CALL", "Showing notification for callId=$callId caller=$callerId")
         createChannel(context)
@@ -29,6 +30,7 @@ object IncomingCallNotifier {
             context = context,
             callId = callId,
             callerId = callerId,
+            displayName = displayName,
             isIncoming = true
         ).apply{
             action = "INCOMING_CALL_$callId"
@@ -44,7 +46,7 @@ object IncomingCallNotifier {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.sym_call_incoming) //icon
             .setContentTitle("Incoming VoIP Call")
-            .setContentText("Caller: $callerId")
+            .setContentText("Caller: $displayName")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setAutoCancel(true)

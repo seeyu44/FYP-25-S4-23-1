@@ -2,6 +2,7 @@ package com.example.fyp_25_s4_23.boundary.callhistory
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseContactRepository
 import com.example.fyp_25_s4_23.domain.entities.Contact
 import com.example.fyp_25_s4_23.domain.entities.ContactLabel
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
@@ -20,6 +21,7 @@ class ManagedContactsViewModel(
     private val usernameService = UsernameService()
 
     private val _uiMessage = MutableStateFlow<String?>(null)
+    private val firebaseRepo = FirebaseContactRepository()
     val uiMessage = _uiMessage.asStateFlow()
 
     val contacts: StateFlow<List<Contact>> = repository.getAllContacts()
@@ -61,6 +63,7 @@ class ManagedContactsViewModel(
                     return@launch
                 }
 
+                firebaseRepo.addContact(cleanUsername, label)
                 repository.insertContact(newContact)
                 _uiMessage.value = "Contact added"
                 onSuccess()
