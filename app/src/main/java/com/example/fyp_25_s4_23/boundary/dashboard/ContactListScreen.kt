@@ -64,7 +64,7 @@ fun ContactListScreen(viewModel: AppMainViewModel) {
                         ContactItemRow(
                             contact = contact,
                             onUpdateLabel = { newLabel ->
-                                viewModel.updateContactLabel(contact.id, newLabel)
+                                viewModel.  updateContactLabel(contact.id, newLabel)
                             }
                         )
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
