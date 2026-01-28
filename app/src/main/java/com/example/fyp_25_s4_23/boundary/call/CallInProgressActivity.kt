@@ -16,7 +16,8 @@ import com.example.fyp_25_s4_23.control.webrtc.FirebaseSignalingManager
 import com.example.fyp_25_s4_23.control.webrtc.WebRtcClient
 import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseAuthManager
 import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
-
+import androidx.lifecycle.lifecycleScope
+import com.example.fyp_25_s4_23.util.VibratorUtil
 private const val TAG_SIG = "CALL_SIG"
 private const val TAG_WEBRTC = "WEBRTC_FLOW"
 private lateinit var displayName : String
@@ -106,6 +107,17 @@ class CallInProgressActivity : ComponentActivity() {
                 )
             }
         }
+        lifecycleScope.launchWhenStarted {
+            viewModel.events.collect { event ->
+                when (event) {
+                    is CallUiEvent.Vibrate -> {
+                        Log.w("CALL_UI", "🔔 Vibrating (deepfake score=${event.score})")
+                        VibratorUtil.vibrate(this@CallInProgressActivity)
+                    }
+                }
+            }
+        }
+
     }
 
     private fun startWebRtc(callId: String, remoteUserId: String, isIncoming: Boolean) {
