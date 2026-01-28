@@ -35,6 +35,10 @@ class ManagedContactsViewModel(
         onSuccess: () -> Unit
     ) {
         val cleanUsername = username.trim().lowercase()
+      val currentUsername = com.google.firebase.auth.FirebaseAuth.getInstance()
+          .currentUser
+          ?.displayName
+          ?.lowercase()
 
         viewModelScope.launch {
             try {

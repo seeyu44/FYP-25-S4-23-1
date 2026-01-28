@@ -134,9 +134,15 @@ fun AddContactDialog(
             return@LaunchedEffect
         }
 
-        delay(400) // debounce check
-
         isChecking = true
+        delay(400)
+
+        // cancel stale check
+        if (clean != username.trim().lowercase()) {
+            isChecking = false
+            return@LaunchedEffect
+        }
+
         isValidUser = onVerifyUsername(clean)
         isChecking = false
     }
@@ -193,7 +199,7 @@ fun AddContactDialog(
                 onClick = { onAdd(username, selectedLabel) },
                 enabled = (isValidUser == true && !isChecking)
             ) {
-                Text("Search & Add")
+                Text(if (isChecking) "Checking…" else "Add Contact")
             }
         },
         dismissButton = {

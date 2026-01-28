@@ -121,6 +121,14 @@ fun UserDashboard(
                             }
 
                             DropdownMenuItem(
+                                text = { Text("Manage Contacts")},
+                                onClick = {
+                                    menuExpanded = false
+                                    onNavigateToContactList?.invoke()
+                                }
+                            )
+
+                            DropdownMenuItem(
                                 text = { Text("Logout") },
                                 onClick = {
                                     menuExpanded = false
