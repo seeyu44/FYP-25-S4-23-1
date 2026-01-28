@@ -321,6 +321,19 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun updateContactLabel(contactId: String, newLabel: ContactLabel) {
+        _state.update { currentState ->
+            val updatedContacts = currentState.contacts.map { contact ->
+                if (contact.id == contactId) {
+                    contact.copy(label = newLabel)
+                } else {
+                    contact
+                }
+            }
+            currentState.copy(contacts = updatedContacts)
+        }
+    }
+
     /* =========================
        MODEL TEST
        ========================= */
