@@ -20,7 +20,7 @@ class DeepfakeDetectionService(
     private val context: Context,
     private val callId: String,
     private val detectionDao: DetectionResultDao? = null,
-    private val detectionThreshold: Float = 0.7f
+    private val detectionThreshold: Float = 0.7f 
 ) {
     private val TAG = "DeepfakeDetection"
     
