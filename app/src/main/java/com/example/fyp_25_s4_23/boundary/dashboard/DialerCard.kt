@@ -51,7 +51,6 @@ fun DialerCard() {
             )
 
             Spacer(modifier = Modifier.height(16.dp))
-g
             Button(
                 onClick = {
                     if (targetUsername.isNotBlank()) {
