@@ -26,6 +26,7 @@ fun CallInProgressScreen(
     onMute: () -> Unit,
     onToggleSpeaker: () -> Unit,
     onPlayDemoAudio: ((String?) -> Unit)? = null,
+    onInjectDemoAudio: ((String?) -> Unit)? = null,
     demoAudioFiles: List<String> = emptyList()
 ) {
     val currentState by state.collectAsState()
@@ -155,6 +156,7 @@ fun CallInProgressScreen(
                             // Demo audio selector (if enabled)
                             if (onPlayDemoAudio != null && demoAudioFiles.isNotEmpty()) {
                                 var isDemoPlaying by remember { mutableStateOf(false) }
+                                var isInjecting by remember { mutableStateOf(false) }
                                 var selectedFile by remember { mutableStateOf<String?>(null) }
                                 var menuExpanded by remember { mutableStateOf(false) }
                                 
@@ -164,12 +166,12 @@ fun CallInProgressScreen(
                                         .fillMaxWidth()
                                         .padding(bottom = 24.dp)
                                 ) {
-                                    // Show currently playing file
-                                    if (isDemoPlaying && selectedFile != null) {
+                                    // Show currently playing/injecting file
+                                    if ((isDemoPlaying || isInjecting) && selectedFile != null) {
                                         Text(
-                                            "Playing: $selectedFile",
+                                            if (isDemoPlaying) "Playing: $selectedFile" else "Injecting: $selectedFile",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFFFF9500),
+                                            color = if (isDemoPlaying) Color(0xFFFF9500) else Color(0xFFFF006E),
                                             modifier = Modifier.padding(bottom = 8.dp)
                                         )
                                     }
@@ -181,7 +183,7 @@ fun CallInProgressScreen(
                                         Box {
                                             Button(
                                                 onClick = { menuExpanded = true },
-                                                enabled = !isDemoPlaying,
+                                                enabled = !isDemoPlaying && !isInjecting,
                                                 colors = ButtonDefaults.buttonColors(
                                                     containerColor = Color(0xFF007AFF)
                                                 )
@@ -211,20 +213,21 @@ fun CallInProgressScreen(
                                             }
                                         }
                                         
-                                        // Play/Stop button
+                                        // Play Speaker button (unrealistic demo)
                                         if (selectedFile != null) {
                                             Button(
                                                 onClick = {
                                                     if (isDemoPlaying) {
-                                                        // Stop playing
                                                         isDemoPlaying = false
                                                         onPlayDemoAudio(null)
                                                     } else {
-                                                        // Start playing selected file
                                                         isDemoPlaying = true
+                                                        isInjecting = false
+                                                        onInjectDemoAudio?.invoke(null) // Stop injection if running
                                                         onPlayDemoAudio(selectedFile)
                                                     }
                                                 },
+                                                enabled = !isInjecting,
                                                 colors = ButtonDefaults.buttonColors(
                                                     containerColor = if (isDemoPlaying) Color(0xFFFF3B30) else Color(0xFF34C759)
                                                 )
@@ -232,10 +235,37 @@ fun CallInProgressScreen(
                                                 Icon(
                                                     imageVector = if (isDemoPlaying) Icons.Default.Close else Icons.Default.PlayArrow,
                                                     contentDescription = null,
-                                                    modifier = Modifier.size(20.dp)
+                                                    modifier = Modifier.size(18.dp)
                                                 )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text(if (isDemoPlaying) "Stop" else "Play")
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(if (isDemoPlaying) "Stop" else "Speaker", fontSize = 12.sp)
+                                            }
+                                            
+                                            // Inject button (realistic attack simulation)
+                                            Button(
+                                                onClick = {
+                                                    if (isInjecting) {
+                                                        isInjecting = false
+                                                        onInjectDemoAudio?.invoke(null)
+                                                    } else {
+                                                        isInjecting = true
+                                                        isDemoPlaying = false
+                                                        onPlayDemoAudio(null) // Stop speaker if playing
+                                                        onInjectDemoAudio?.invoke(selectedFile)
+                                                    }
+                                                },
+                                                enabled = !isDemoPlaying,
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = if (isInjecting) Color(0xFFFF3B30) else Color(0xFFFF006E)
+                                                )
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isInjecting) Icons.Default.Close else Icons.Default.PlayArrow,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(if (isInjecting) "Stop" else "Inject", fontSize = 12.sp)
                                             }
                                         }
                                     }

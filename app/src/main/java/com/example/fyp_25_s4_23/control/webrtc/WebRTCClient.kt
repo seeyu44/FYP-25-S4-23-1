@@ -12,6 +12,8 @@ import android.media.AudioFormat
 import android.media.MediaRecorder
 import android.media.MediaPlayer
 import android.media.AudioManager
+import android.media.MediaCodec
+import android.media.MediaExtractor
 import org.webrtc.*
 import org.webrtc.CandidatePairChangeEvent
 import com.example.fyp_25_s4_23.control.detection.DeepfakeDetectionService
@@ -94,6 +96,10 @@ class WebRtcClient(
     // Demo audio playback
     private var demoMediaPlayer: MediaPlayer? = null
     private var isDemoMode = false
+    
+    // Audio injection for realistic deepfake simulation
+    private var demoAudioInjector: AudioInjector? = null
+    private var isInjectionMode = false
 
     fun setOnReadyToAnswerListener(listener: (Boolean) -> Unit) { onReadyToAnswer = listener }
     fun setOnAnsweredListener(listener: () -> Unit) { onAnswered = listener }
@@ -815,6 +821,261 @@ class WebRtcClient(
     }
     
     /**
+     * Inner class to handle direct audio file injection into the call stream.
+     * This simulates a REAL deepfake attack by injecting audio data directly,
+     * bypassing the speaker-microphone degradation of playDemoAudio().
+     */
+    inner class AudioInjector(
+        private val context: Context,
+        private val filename: String
+    ) {
+        private var injectionThread: Thread? = null
+        @Volatile private var isRunning = false
+        
+        fun startInjection() {
+            if (isRunning) return
+            
+            isRunning = true
+            injectionThread = Thread {
+                try {
+                    val audioData = loadAudioFile(filename)
+                    if (audioData == null) {
+                        Log.e("AUDIO_INJECT", "Failed to load $filename")
+                        return@Thread
+                    }
+                    
+                    Log.d("AUDIO_INJECT", "🎭 Injecting ${audioData.size} samples from $filename")
+                    
+                    val chunkSize = 3200 // 200ms @ 16kHz (same as mic)
+                    var position = 0
+                    var chunkCount = 0
+                    
+                    while (isRunning && detectionService != null) {
+                        val remaining = audioData.size - position
+                        val size = minOf(chunkSize, remaining)
+                        
+                        if (size <= 0) {
+                            // Loop the audio
+                            position = 0
+                            Log.d("AUDIO_INJECT", "🔄 Looping injected audio")
+                            continue
+                        }
+                        
+                        val chunk = audioData.copyOfRange(position, position + size)
+                        detectionService?.feedAudioChunk(chunk)
+                        
+                        chunkCount++
+                        if (chunkCount % 50 == 0) {
+                            Log.d("AUDIO_INJECT", "📊 Injected $chunkCount chunks")
+                        }
+                        
+                        position += size
+                        
+                        // Simulate real-time: sleep for chunk duration
+                        Thread.sleep((size * 1000L) / 16000) // 200ms for 3200 samples
+                    }
+                    
+                    Log.d("AUDIO_INJECT", "🛑 Audio injection stopped. Total: $chunkCount chunks")
+                    
+                } catch (e: Exception) {
+                    Log.e("AUDIO_INJECT", "Error during injection: ${e.message}", e)
+                }
+            }.apply { start() }
+        }
+        
+        fun stopInjection() {
+            isRunning = false
+            injectionThread?.interrupt()
+            injectionThread = null
+        }
+        
+        private fun loadAudioFile(filename: String): ShortArray? {
+            return try {
+                val assetPath = "demo_audio/$filename"
+                Log.d("AUDIO_INJECT", "Loading audio file: $assetPath")
+                
+                // Try direct loading first
+                val afd = try {
+                    context.assets.openFd(assetPath)
+                } catch (e: java.io.FileNotFoundException) {
+                    // Compressed file - copy to temp location
+                    Log.d("AUDIO_INJECT", "File is compressed, using temp file approach")
+                    val extension = filename.substringAfterLast('.', "tmp")
+                    val tempFile = java.io.File.createTempFile("inject_", ".$extension", context.cacheDir)
+                    
+                    context.assets.open(assetPath).use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    
+                    val samples = decodeAudioFile(tempFile.absolutePath, null)
+                    tempFile.delete()
+                    return samples
+                }
+                
+                val samples = decodeAudioFile(null, afd)
+                afd.close()
+                samples
+                
+            } catch (e: Exception) {
+                Log.e("AUDIO_INJECT", "Failed to load audio file: ${e.message}", e)
+                null
+            }
+        }
+        
+        private fun decodeAudioFile(filePath: String?, afd: android.content.res.AssetFileDescriptor?): ShortArray? {
+            return try {
+                val mediaExtractor = android.media.MediaExtractor()
+                
+                if (filePath != null) {
+                    mediaExtractor.setDataSource(filePath)
+                } else if (afd != null) {
+                    mediaExtractor.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                } else {
+                    return null
+                }
+                
+                val format = mediaExtractor.getTrackFormat(0)
+                val sampleRate = format.getInteger(android.media.MediaFormat.KEY_SAMPLE_RATE)
+                val channels = format.getInteger(android.media.MediaFormat.KEY_CHANNEL_COUNT)
+                val mimeType = format.getString(android.media.MediaFormat.KEY_MIME) ?: ""
+                
+                Log.d("AUDIO_INJECT", "Audio format: $sampleRate Hz, $channels ch, $mimeType")
+                
+                // Select track
+                mediaExtractor.selectTrack(0)
+                
+                // Decode to PCM
+                val codec = android.media.MediaCodec.createDecoderByType(mimeType)
+                codec.configure(format, null, null, 0)
+                codec.start()
+                
+                val samples = mutableListOf<Short>()
+                val bufferInfo = android.media.MediaCodec.BufferInfo()
+                var isEOS = false
+                
+                while (!isEOS) {
+                    // Input buffer
+                    val inIndex = codec.dequeueInputBuffer(10000)
+                    if (inIndex >= 0) {
+                        val buffer = codec.getInputBuffer(inIndex)
+                        val sampleSize = mediaExtractor.readSampleData(buffer!!, 0)
+                        
+                        if (sampleSize < 0) {
+                            codec.queueInputBuffer(inIndex, 0, 0, 0, android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                        } else {
+                            codec.queueInputBuffer(inIndex, 0, sampleSize, mediaExtractor.sampleTime, 0)
+                            mediaExtractor.advance()
+                        }
+                    }
+                    
+                    // Output buffer
+                    val outIndex = codec.dequeueOutputBuffer(bufferInfo, 10000)
+                    if (outIndex >= 0) {
+                        val buffer = codec.getOutputBuffer(outIndex)
+                        
+                        if (bufferInfo.size > 0) {
+                            // Convert bytes to shorts (16-bit PCM)
+                            val pcmData = ByteArray(bufferInfo.size)
+                            buffer!!.position(bufferInfo.offset)
+                            buffer.get(pcmData, 0, bufferInfo.size)
+                            
+                            for (i in pcmData.indices step 2) {
+                                if (i + 1 < pcmData.size) {
+                                    val sample = ((pcmData[i + 1].toInt() shl 8) or 
+                                                 (pcmData[i].toInt() and 0xFF)).toShort()
+                                    samples.add(sample)
+                                }
+                            }
+                        }
+                        
+                        codec.releaseOutputBuffer(outIndex, false)
+                        
+                        if (bufferInfo.flags and android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                            isEOS = true
+                        }
+                    }
+                }
+                
+                codec.stop()
+                codec.release()
+                mediaExtractor.release()
+                
+                val audioArray = samples.toShortArray()
+                
+                // Convert to mono if stereo
+                val monoArray = if (channels == 2) {
+                    Log.d("AUDIO_INJECT", "Converting stereo to mono")
+                    val mono = ShortArray(audioArray.size / 2)
+                    for (i in mono.indices) {
+                        val left = audioArray[i * 2].toInt()
+                        val right = audioArray[i * 2 + 1].toInt()
+                        mono[i] = ((left + right) / 2).toShort()
+                    }
+                    mono
+                } else {
+                    audioArray
+                }
+                
+                // Resample to 16kHz if needed
+                val resampled = if (sampleRate != 16000) {
+                    Log.d("AUDIO_INJECT", "Resampling from $sampleRate Hz to 16000 Hz")
+                    resampleAudio(monoArray, sampleRate, 16000)
+                } else {
+                    monoArray
+                }
+                
+                Log.d("AUDIO_INJECT", "✅ Loaded ${resampled.size} samples (16kHz mono)")
+                resampled
+                
+            } catch (e: Exception) {
+                Log.e("AUDIO_INJECT", "Decode failed: ${e.message}", e)
+                null
+            }
+        }
+        
+        private fun resampleAudio(input: ShortArray, fromRate: Int, toRate: Int): ShortArray {
+            val ratio = fromRate.toFloat() / toRate
+            val outputSize = (input.size / ratio).toInt()
+            val output = ShortArray(outputSize)
+            
+            for (i in output.indices) {
+                val srcIndex = (i * ratio).toInt()
+                output[i] = if (srcIndex < input.size) input[srcIndex] else 0
+            }
+            
+            return output
+        }
+    }
+    
+    /**
+     * Start injecting audio file directly into detection stream.
+     * This simulates a REAL deepfake attack by bypassing speaker-mic degradation.
+     * @param filename Name of file in assets/demo_audio/ folder
+     */
+    fun startDemoAudioInjection(filename: String) {
+        stopDemoAudioInjection() // Clean up any existing injection
+        
+        isInjectionMode = true
+        demoAudioInjector = AudioInjector(context, filename)
+        demoAudioInjector?.startInjection()
+        
+        Log.d("AUDIO_INJECT", "🚀 Demo audio injection started: $filename")
+    }
+    
+    /**
+     * Stop audio injection and return to normal microphone capture.
+     */
+    fun stopDemoAudioInjection() {
+        demoAudioInjector?.stopInjection()
+        demoAudioInjector = null
+        isInjectionMode = false
+        
+        Log.d("AUDIO_INJECT", "⏹️ Demo audio injection stopped")
+    }
+    
+    /**
      * Play demo audio file through speaker for presentation demos
      * Supports: WAV, MP3, MP4, M4A, FLAC (all common formats)
      * The mic picks it up, feeding both WebRTC and detection
@@ -925,6 +1186,11 @@ class WebRtcClient(
      * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      */
     private fun startAudioCapture() {
+        if (isInjectionMode) {
+            Log.d("DEEPFAKE_AUDIO", "🎭 INJECTION MODE - Skipping mic capture (audio injected directly)")
+            return
+        }
+        
         try {
             // 1️⃣ Permission guard (MANDATORY)
             if (!hasRecordAudioPermission()) {
@@ -1045,12 +1311,18 @@ class WebRtcClient(
 
         stopAudioMonitoring()
         stopDeepfakeDetection()
+        stopDemoAudioInjection() // Clean up audio injection
         cancelRingTimeout()
         releaseAudioRouting()
         
         // Stop demo audio if playing
-        demoMediaPlayer?.release()
-        demoMediaPlayer = null
+        try {
+            demoMediaPlayer?.stop()
+            demoMediaPlayer?.release()
+            demoMediaPlayer = null
+        } catch (e: Exception) {
+            Log.e("DEMO_AUDIO", "Error releasing MediaPlayer", e)
+        }
 
         try {
             signaling.stopListening()

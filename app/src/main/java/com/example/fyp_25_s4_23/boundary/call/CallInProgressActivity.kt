@@ -90,6 +90,13 @@ class CallInProgressActivity : ComponentActivity() {
                     onPlayDemoAudio = { filename ->
                         webRtcClient?.playDemoAudio(filename)
                     },
+                    onInjectDemoAudio = { filename ->
+                        if (filename != null) {
+                            webRtcClient?.startDemoAudioInjection(filename)
+                        } else {
+                            webRtcClient?.stopDemoAudioInjection()
+                        }
+                    },
                     demoAudioFiles = demoAudioFiles
                 )
             }
