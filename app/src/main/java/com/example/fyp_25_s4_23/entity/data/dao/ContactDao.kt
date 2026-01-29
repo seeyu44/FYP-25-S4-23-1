@@ -32,7 +32,18 @@ interface ContactDao {
     )
     suspend fun existsByUsername(username: String): Boolean
 
+    @Query("SELECT * FROM contacts WHERE phoneNumber = :phoneNumber LIMIT 1")
+    suspend fun getByPhoneNumber(phoneNumber: String): ContactEntity?
 
+    @Query(
+        "SELECT EXISTS(" +
+                "SELECT 1 FROM contacts WHERE phoneNumber = :phoneNumber LIMIT 1" +
+                ")"
+    )
+    suspend fun existsByPhoneNumber(phoneNumber: String): Boolean
+
+    @Query("UPDATE contacts SET label = :label WHERE id = :id")
+    suspend fun updateLabel(id: String, label: String)
 
     @Query("DELETE FROM contacts")
     suspend fun clearAll()

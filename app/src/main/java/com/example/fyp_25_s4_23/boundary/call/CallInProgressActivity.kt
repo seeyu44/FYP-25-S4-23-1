@@ -167,6 +167,14 @@ class CallInProgressActivity : ComponentActivity() {
                         client.onRemoteEnded()
                     }
                 }
+            },
+
+            onStatusWithReason = { status, reason ->
+                if (status == "ended" && reason == "blocked_contact") {
+                    Log.w(TAG_SIG, "Call rejected: contact is blocked")
+                    viewModel.setDisconnectedWithReason(reason)
+                    client.onRemoteEnded()
+                }
             }
         )
 

@@ -47,7 +47,7 @@ sealed class CallUiState {
         val isDetectionActive: Boolean = false
     ) : CallUiState()
 
-    data class Disconnected(val handle: String) : CallUiState()
+    data class Disconnected(val handle: String, val reason: String = "Call Ended") : CallUiState()
 }
 
 /* =========================
@@ -254,7 +254,7 @@ class CallInProgressViewModel : ViewModel() {
         Log.d(TAG_UI, "Deepfake detection started")
     }
 
-    fun setDisconnected() {
+    fun setDisconnected(reason: String = "Call Ended") {
         val handle = when (val s = _state.value) {
             is CallUiState.Ringing -> s.handle
             is CallUiState.Active -> s.handle
@@ -262,7 +262,16 @@ class CallInProgressViewModel : ViewModel() {
             is CallUiState.Disconnected -> s.handle
         }
 
-        Log.d(TAG_UI, "Transition → Disconnected")
-        _state.value = CallUiState.Disconnected(handle)
+        Log.d(TAG_UI, "Transition → Disconnected (reason=$reason)")
+        _state.value = CallUiState.Disconnected(handle, reason)
+    }
+
+    fun setDisconnectedWithReason(reason: String?) {
+        val finalReason = when (reason) {
+            "blocked_contact" -> "Call Failed"
+            null, "" -> "Call Ended"
+            else -> reason
+        }
+        setDisconnected(finalReason)
     }
 }

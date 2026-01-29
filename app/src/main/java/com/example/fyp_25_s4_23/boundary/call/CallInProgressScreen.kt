@@ -78,7 +78,7 @@ fun CallInProgressScreen(
                                 WebRtcClient.AudioState.ACTIVE -> "Speaking"
                             }
                         }
-                        is CallUiState.Disconnected -> "Call Ended"
+                        is CallUiState.Disconnected -> (currentState as CallUiState.Disconnected).reason
                     },
                     style = MaterialTheme.typography.bodyLarge,
                     color = Color.Gray

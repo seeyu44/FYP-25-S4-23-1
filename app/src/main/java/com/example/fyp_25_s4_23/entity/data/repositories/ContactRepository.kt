@@ -38,6 +38,17 @@ class ContactRepository(
         return contactDao.getByUsername(username)?.toDomain()
     }
 
+    suspend fun existsByPhoneNumber(phoneNumber: String): Boolean {
+        return contactDao.existsByPhoneNumber(phoneNumber)
+    }
+
+    suspend fun getContactByPhoneNumber(phoneNumber: String): Contact? {
+        return contactDao.getByPhoneNumber(phoneNumber)?.toDomain()
+    }
+
+    suspend fun updateContactLabel(id: String, label: String) {
+        contactDao.updateLabel(id, label)
+    }
 
     suspend fun clearAll(){
         contactDao.clearAll()

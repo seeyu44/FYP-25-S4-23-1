@@ -3,6 +3,7 @@ package com.example.fyp_25_s4_23.boundary.callhistory
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseContactRepository
+import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
 import com.example.fyp_25_s4_23.domain.entities.Contact
 import com.example.fyp_25_s4_23.domain.entities.ContactLabel
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
@@ -19,6 +20,7 @@ class ManagedContactsViewModel(
 ) : ViewModel() {
 
     private val usernameService = UsernameService()
+    private val phoneLookupService = PhoneLookupService()
 
     private val _uiMessage = MutableStateFlow<String?>(null)
     private val firebaseRepo = FirebaseContactRepository()
@@ -74,6 +76,68 @@ class ManagedContactsViewModel(
         }
     }
 
+    fun addContactByPhoneNumber(
+        phoneNumber: String,
+        contactName: String,
+        label: ContactLabel,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                // Validate phone number format (8 digits starting with 8 or 9)
+                val cleanPhone = phoneNumber.trim()
+                if (!isValidPhoneNumber(cleanPhone)) {
+                    _uiMessage.value = "Invalid phone number. Enter 8 digits starting with 8 or 9."
+                    return@launch
+                }
+
+                // Format phone number to +65XXXXXXXX
+                val formattedPhone = "+65$cleanPhone"
+
+                // Check if phone number already exists in local database
+                if (repository.existsByPhoneNumber(formattedPhone)) {
+                    _uiMessage.value = "Contact with this phone number already exists"
+                    return@launch
+                }
+
+                // Look up the username from the phone number
+                val lookupResult = try {
+                    phoneLookupService.getUserByPhoneNumber(formattedPhone)
+                } catch (e: Exception) {
+                    _uiMessage.value = "Phone number not found in system"
+                    return@launch
+                }
+
+                // Create the contact
+                val newContact = Contact(
+                    id = java.util.UUID.randomUUID().toString(),
+                    displayName = contactName.trim(),
+                    phoneNumber = formattedPhone,
+                    label = label
+                )
+
+                // Add to local database
+                repository.insertContact(newContact)
+
+                // Add to Firebase
+                firebaseRepo.addContact(lookupResult.username, label)
+
+                _uiMessage.value = "Contact added successfully"
+                onSuccess()
+
+            } catch (e: Exception) {
+                _uiMessage.value = "Failed to add contact: ${e.message}"
+            }
+        }
+    }
+
+    private fun isValidPhoneNumber(phoneNumber: String): Boolean {
+        // Should be 8 digits starting with 8 or 9
+        return phoneNumber.length == 8 && 
+               (phoneNumber[0] == '8' || phoneNumber[0] == '9') &&
+               phoneNumber.all { it.isDigit() }
+    }
+
     suspend fun verifyUsername(username: String): Boolean {
         // This MUST return:
         // true  → user EXISTS in Firebase
@@ -88,9 +152,61 @@ class ManagedContactsViewModel(
         }
     }
 
+    suspend fun verifyPhoneNumber(phoneNumber: String): Boolean {
+        return try {
+            val cleanPhone = phoneNumber.trim()
+            if (!isValidPhoneNumber(cleanPhone)) return false
+            
+            val formattedPhone = "+65$cleanPhone"
+            phoneLookupService.getUserByPhoneNumber(formattedPhone)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     fun deleteContact(contact: Contact) {
         viewModelScope.launch {
             repository.deleteContact(contact)
+        }
+    }
+
+    fun blockContact(contact: Contact) {
+        viewModelScope.launch {
+            try {
+                val blacklistedContact = contact.copy(label = ContactLabel.BLACK)
+                repository.updateContactLabel(contact.id, ContactLabel.BLACK.toString())
+                _uiMessage.value = "Contact has been blocked"
+            } catch (e: Exception) {
+                _uiMessage.value = "Failed to block contact"
+            }
+        }
+    }
+
+    fun callContact(phoneNumber: String, onComplete: (username: String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val cleanPhone = phoneNumber.trim()
+                if (!isValidPhoneNumber(cleanPhone)) {
+                    _uiMessage.value = "Invalid phone number format"
+                    onComplete(null)
+                    return@launch
+                }
+
+                val formattedPhone = "+65$cleanPhone"
+                val lookupResult = try {
+                    phoneLookupService.getUserByPhoneNumber(formattedPhone)
+                } catch (e: Exception) {
+                    _uiMessage.value = "Phone number not found"
+                    onComplete(null)
+                    return@launch
+                }
+
+                onComplete(lookupResult.uid)
+            } catch (e: Exception) {
+                _uiMessage.value = "Failed to initiate call: ${e.message}"
+                onComplete(null)
+            }
         }
     }
 
