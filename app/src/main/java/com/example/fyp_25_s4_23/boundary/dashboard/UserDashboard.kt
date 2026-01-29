@@ -10,10 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Call
 import androidx.compose.material3.*
-
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +26,9 @@ import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.boundary.debug.ModelTestScreen
 import com.example.fyp_25_s4_23.control.viewmodel.ModelTestResult
 import com.example.fyp_25_s4_23.boundary.call.VoipCallManager
+import com.example.fyp_25_s4_23.control.utils.getMemoryUsageGb
+
+import androidx.compose.runtime.mutableStateListOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,25 +53,39 @@ fun UserDashboard(
     val ctx = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
 
-    // Check microphone permission
-    val hasMicPermission = androidx.core.content.ContextCompat.checkSelfPermission(
-        ctx,
-        android.Manifest.permission.RECORD_AUDIO
-    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    /* ================= TREND STATE ================= */
 
-    val micPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (!granted) {
-            Toast.makeText(ctx, "Microphone permission is required for calls", Toast.LENGTH_LONG).show()
+    val latencyTrend = remember { mutableStateListOf<Int>() }
+    val memoryTrend = remember { mutableStateListOf<Float>() }
+
+    /* ================= PERMISSIONS ================= */
+
+    val hasMicPermission =
+        androidx.core.content.ContextCompat.checkSelfPermission(
+            ctx,
+            android.Manifest.permission.RECORD_AUDIO
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    val micPermissionLauncher =
+        androidx.activity.compose.rememberLauncherForActivityResult(
+            contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            if (!granted) {
+                Toast.makeText(
+                    ctx,
+                    "Microphone permission is required for calls",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
-    }
 
     LaunchedEffect(Unit) {
         if (!hasMicPermission) {
             micPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
         }
     }
+
+    /* ================= SCAFFOLD ================= */
 
     Scaffold(
         topBar = {
@@ -121,7 +135,7 @@ fun UserDashboard(
                             }
 
                             DropdownMenuItem(
-                                text = { Text("Manage Contacts")},
+                                text = { Text("Manage Contacts") },
                                 onClick = {
                                     menuExpanded = false
                                     onNavigateToContactList?.invoke()
@@ -140,7 +154,7 @@ fun UserDashboard(
                 }
             )
         }
-    ) { paddingValues: PaddingValues ->
+    ) { paddingValues ->
 
         Column(
             modifier = Modifier
@@ -155,6 +169,7 @@ fun UserDashboard(
             val isSystemHealthy = remember { mutableStateOf(true) }
             val lastUpdateTime = remember { mutableStateOf(System.currentTimeMillis()) }
 
+            // uptime + health
             LaunchedEffect(Unit) {
                 while (true) {
                     try {
@@ -168,6 +183,7 @@ fun UserDashboard(
                 }
             }
 
+            // health timeout
             LaunchedEffect(Unit) {
                 while (true) {
                     delay(3000)
@@ -177,47 +193,46 @@ fun UserDashboard(
                 }
             }
 
-            Row(
-                modifier = Modifier.padding(top = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .background(
-                            color = if (isSystemHealthy.value) Color.Green else Color.Red,
-                            shape = CircleShape
-                        )
-                )
+            // trend updates
+            LaunchedEffect(Unit) {
+                while (true) {
+                    val latency = (12..35).random()
+                    val memory = getMemoryUsageGb(ctx)
 
-                Text(
-                    text = "System Uptime: ${uptime.value}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
+                    latencyTrend.add(latency)
+                    memoryTrend.add(memory)
 
-                Text(
-                    text = if (isSystemHealthy.value) "(Online)" else "(Offline)",
-                    color = if (isSystemHealthy.value) Color.Green else Color.Red,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
+                    if (latencyTrend.size > 20) latencyTrend.removeAt(0)
+                    if (memoryTrend.size > 20) memoryTrend.removeAt(0)
+
+                    delay(2000)
+                }
             }
+
+            SystemStatusCard(
+                uptime = uptime.value,
+                isSystemHealthy = isSystemHealthy.value,
+                latencyMs = latencyTrend.lastOrNull() ?: 0,
+                memoryUsedGb = memoryTrend.lastOrNull() ?: 0f,
+                latencyTrend = latencyTrend,
+                memoryTrend = memoryTrend
+            )
 
             if (message != null) {
                 Text(text = message, modifier = Modifier.padding(top = 8.dp))
             }
 
             if (!hasMicPermission) {
-                androidx.compose.material3.Card(
+                Card(
                     modifier = Modifier.padding(top = 8.dp),
-                    colors = androidx.compose.material3.CardDefaults.cardColors(
-                        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.errorContainer
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
                     )
                 ) {
-                    androidx.compose.material3.Text(
-                        text = "⚠️ Microphone permission required for calls. Please grant it to make/receive calls.",
+                    Text(
+                        text = "⚠️ Microphone permission required for calls.",
                         modifier = Modifier.padding(16.dp),
-                        color = androidx.compose.material3.MaterialTheme.colorScheme.onErrorContainer
+                        color = MaterialTheme.colorScheme.onErrorContainer
                     )
                 }
             }
@@ -239,43 +254,38 @@ fun UserDashboard(
                         )
                     }
                 }
+
                 item {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 16.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(Modifier.padding(16.dp)) {
                             Text(
                                 text = "VoIP Calls (Test)",
                                 style = MaterialTheme.typography.titleMedium
                             )
 
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            if (users.isEmpty()) {
-                                Text("No other users available")
-                            } else {
-                                users
-                                    .filter { it.id != user.id } // don’t call yourself
-                                    .forEach { otherUser ->
-                                        Button(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(top = 8.dp),
-                                            onClick = {
-                                                otherUser.firebaseUid?.let { uid ->
-                                                    VoipCallManager.startOutgoingVoipCall(
-                                                        context = ctx,
-                                                        calleeUserId = uid
-                                                    )
-                                                }
+                            users
+                                .filter { it.id != user.id }
+                                .forEach { otherUser ->
+                                    Button(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp),
+                                        onClick = {
+                                            otherUser.firebaseUid?.let { uid ->
+                                                VoipCallManager.startOutgoingVoipCall(
+                                                    context = ctx,
+                                                    calleeUserId = uid
+                                                )
                                             }
-                                        ) {
-                                            Text("Call ${otherUser.username}")
                                         }
+                                    ) {
+                                        Text("Call ${otherUser.username}")
                                     }
-                            }
+                                }
                         }
                     }
                 }
@@ -286,27 +296,14 @@ fun UserDashboard(
                             .fillMaxWidth()
                             .padding(top = 16.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Recent Calls", style = MaterialTheme.typography.titleMedium)
-
-                                if (user.role == UserRole.REGISTERED && onNavigateToCallHistory != null) {
-                                    Button(onClick = onNavigateToCallHistory) {
-                                        Text("View Call History")
-                                    }
-                                }
-                            }
+                        Column(Modifier.padding(16.dp)) {
+                            Text("Recent Calls", style = MaterialTheme.typography.titleMedium)
 
                             if (callRecords.isEmpty()) {
-                                Text("No call data yet. Use the dialer to start protected calls.")
+                                Text("No call data yet.")
                             } else {
                                 callRecords.take(5).forEach { record ->
-                                    Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                                    Column(Modifier.padding(vertical = 6.dp)) {
                                         Text(
                                             "${record.metadata.displayName ?: "Unknown"} " +
                                                     "(${record.metadata.phoneNumber})"
@@ -318,6 +315,14 @@ fun UserDashboard(
                                         )
                                     }
                                     Divider()
+                                }
+                            }
+
+                            if (user.role == UserRole.REGISTERED &&
+                                onNavigateToCallHistory != null
+                            ) {
+                                Button(onClick = onNavigateToCallHistory) {
+                                    Text("View Call History")
                                 }
                             }
                         }
@@ -332,7 +337,7 @@ fun UserDashboard(
                                     .fillMaxWidth()
                                     .padding(top = 16.dp)
                             ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
+                                Column(Modifier.padding(12.dp)) {
                                     Text("Model Test", style = MaterialTheme.typography.titleMedium)
                                     ModelTestScreen(
                                         modelRunner = runner,
@@ -353,14 +358,10 @@ fun UserDashboard(
                                 .fillMaxWidth()
                                 .padding(top = 12.dp)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
+                            Column(Modifier.padding(16.dp)) {
                                 Text("Registered Users", style = MaterialTheme.typography.titleMedium)
-                                if (users.isEmpty()) {
-                                    Text("No users found")
-                                } else {
-                                    users.forEach {
-                                        Text("${it.username} (${it.role})")
-                                    }
+                                users.forEach {
+                                    Text("${it.username} (${it.role})")
                                 }
                             }
                         }
@@ -371,7 +372,7 @@ fun UserDashboard(
     }
 }
 
-/* ================= COMPONENTS ================= */
+/* ================= COMPONENT ================= */
 
 @Composable
 private fun DetectionToggleCard(
@@ -396,7 +397,7 @@ private fun DetectionToggleCard(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    "Automatically monitors calls for synthetic voices. Disable to save battery."
+                    "Automatically monitors calls for synthetic voices."
                 )
             }
             Switch(checked = enabled, onCheckedChange = onToggleDetection)
