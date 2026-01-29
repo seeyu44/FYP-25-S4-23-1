@@ -17,17 +17,21 @@ object VoipCallManager {
             ?: error("User not logged in")
 
         val callId = UUID.randomUUID().toString()
+        val callerUsername = caller.displayName ?: caller.email ?: caller.uid
+
 
         FirebaseSignalingManager().createCall(
             callId = callId,
             callerUid = caller.uid,
-            calleeUid = calleeUserId
+            calleeUid = calleeUserId,
+            callerUsername = callerUsername
         )
 
         val intent = Intent(context, CallInProgressActivity::class.java).apply {
             putExtra(IncomingCallIntent.EXTRA_CALL_ID, callId)
             putExtra(IncomingCallIntent.EXTRA_IS_INCOMING, false)
             putExtra(IncomingCallIntent.EXTRA_REMOTE_USER_ID, calleeUserId)
+            //putExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME, callerUsername)
         }
         context.startActivity(intent)
     }

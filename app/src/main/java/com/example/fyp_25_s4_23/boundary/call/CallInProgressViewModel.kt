@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+
 
 private const val TAG_UI = "CALL_UI"
 private const val TAG_STORE = "CALL_STORE"
@@ -19,6 +22,9 @@ private const val TAG_WEBRTC = "CALL_WEBRTC"
 /* =========================
    UI STATE
    ========================= */
+sealed class CallUiEvent {
+    data class Vibrate(val score : Float): CallUiEvent()
+}
 sealed class CallUiState {
 
     data class Connecting(val handle: String) : CallUiState()
@@ -28,6 +34,7 @@ sealed class CallUiState {
         val isIncoming: Boolean,
         val isReadyToAnswer: Boolean
     ) : CallUiState()
+
 
     data class Active(
         val handle: String,
@@ -52,6 +59,8 @@ class CallInProgressViewModel : ViewModel() {
         MutableStateFlow<CallUiState>(CallUiState.Connecting(""))
     val state: StateFlow<CallUiState> = _state
 
+    private val _events = MutableSharedFlow<CallUiEvent>()
+    val events = _events.asSharedFlow()
     private var webRtcClient: WebRtcClient? = null
     private var isIncomingCall: Boolean = false
 
@@ -106,11 +115,19 @@ class CallInProgressViewModel : ViewModel() {
             val current = _state.value
             if (current is CallUiState.Active) {
                 Log.w(TAG_WEBRTC, "🚨 DEEPFAKE DETECTED: score=$score")
+                val alreadyAlerted = current.isDeepfake
+
                 _state.value = current.copy(
                     detectionScore = score,
                     isDeepfake = isDeepfake,
                     isDetectionActive = true
                 )
+
+                if (isDeepfake && !alreadyAlerted) {
+                    viewModelScope.launch {
+                        _events.emit(CallUiEvent.Vibrate(score))
+                    }
+                }
             }
         }
         

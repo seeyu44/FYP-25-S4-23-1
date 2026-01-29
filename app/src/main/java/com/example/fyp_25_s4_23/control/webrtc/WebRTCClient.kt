@@ -10,6 +10,8 @@ import androidx.core.content.ContextCompat
 import android.media.AudioRecord
 import android.media.AudioFormat
 import android.media.MediaRecorder
+import android.media.MediaPlayer
+import android.media.AudioManager
 import org.webrtc.*
 import org.webrtc.CandidatePairChangeEvent
 import com.example.fyp_25_s4_23.control.detection.DeepfakeDetectionService
@@ -88,6 +90,10 @@ class WebRtcClient(
     // Audio capture for deepfake detection
     private var audioRecord: android.media.AudioRecord? = null
     private var audioCaptureThread: Thread? = null
+    
+    // Demo audio playback
+    private var demoMediaPlayer: MediaPlayer? = null
+    private var isDemoMode = false
 
     fun setOnReadyToAnswerListener(listener: (Boolean) -> Unit) { onReadyToAnswer = listener }
     fun setOnAnsweredListener(listener: () -> Unit) { onAnswered = listener }
@@ -700,63 +706,185 @@ class WebRtcClient(
         Log.d("WebRTC", "Audio routing released")
     }
     
-    // --- Deepfake Detection Methods ---
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // DEEPFAKE DETECTION METHODS
+    // ═══════════════════════════════════════════════════════════════════════════════
     
     /**
-     * Start deepfake detection monitoring
+     * ═══════════════════════════════════════════════════════════════════════════════
+     * DEEPFAKE DETECTION ARCHITECTURE (PHONE 1 ↔ PHONE 2)
+     * ═══════════════════════════════════════════════════════════════════════════════
+     * 
+     * ✅ HOW IT WORKS:
+     * 
+     * PHONE 1:
+     *   1. Captures Phone 1's microphone input (what Phone 1 is saying)
+     *   2. Runs deepfake detection on Phone 1's voice
+     *   3. Sends Phone 1's detection result to Firestore
+     *   4. Listens for Phone 2's detection result from Firestore
+     *   5. Shows alert if Phone 2's voice is deepfake
+     * 
+     * PHONE 2:
+     *   1. Captures Phone 2's microphone input (what Phone 2 is saying)
+     *   2. Runs deepfake detection on Phone 2's voice
+     *   3. Sends Phone 2's detection result to Firestore
+     *   4. Listens for Phone 1's detection result from Firestore
+     *   5. Shows alert if Phone 1's voice is deepfake
+     * 
+     * 📊 DATA FLOW:
+     * 
+     *   Phone 1 Mic → Analyze → Firestore → Phone 2 UI (sees if Phone 1 is fake)
+     *   Phone 2 Mic → Analyze → Firestore → Phone 1 UI (sees if Phone 2 is fake)
+     * 
+     * Each phone monitors ITS OWN input and informs the OTHER user!
+     * ═══════════════════════════════════════════════════════════════════════════════
      */
     fun startDeepfakeDetection(detectionDao: com.example.fyp_25_s4_23.entity.data.dao.DetectionResultDao? = null) {
-        Log.d("DEEPFAKE", "🎯 startDeepfakeDetection() called for callId=$callId")
+        Log.i("DEEPFAKE", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        Log.i("DEEPFAKE", "🎯 STARTING DEEPFAKE DETECTION")
+        Log.i("DEEPFAKE", "   My User ID: $userId (will monitor MY mic)")
+        Log.i("DEEPFAKE", "   Remote User ID: $remoteUserId (will listen for THEIR results)")
+        Log.i("DEEPFAKE", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         
         if (detectionService != null) {
-            Log.w("DEEPFAKE", "⚠️ Detection already running, skipping")
+            Log.w("DEEPFAKE", "⚠️ Detection already running, skipping initialization")
             return
         }
         
         try {
-            Log.d("DEEPFAKE", "📦 Creating DeepfakeDetectionService...")
+            // ═══ STEP 1: Initialize Detection Service for MY voice ═══
+            Log.d("DEEPFAKE", "📦 Creating service to analyze MY voice ($userId)...")
             detectionService = DeepfakeDetectionService(
                 context = context,
                 callId = callId,
                 detectionDao = detectionDao
             )
-            Log.d("DEEPFAKE", "✅ DeepfakeDetectionService created")
+            Log.d("DEEPFAKE", "✅ Detection service created")
             
-            // Set up callbacks to send MY detection results to Firestore
+            // ═══ STEP 2: Send MY Results to Firestore (for REMOTE user to see) ═══
+            Log.d("DEEPFAKE", "📤 Setting up: MY results → Firestore → REMOTE user")
+            
             detectionService?.onDeepfakeDetected = { score ->
-                Log.w("DEEPFAKE", "⚠️ MY voice flagged as deepfake! Score: $score")
-                // Send MY result so the OTHER user sees it
+                Log.w("DEEPFAKE", "━━━ MY VOICE FLAGGED AS DEEPFAKE! ━━━")
+                Log.w("DEEPFAKE", "   Score: $score")
+                Log.w("DEEPFAKE", "   Sending to Firestore for remote user ($remoteUserId) to see")
                 signaling.sendDetectionResult(callId, userId, score, true)
             }
             
             detectionService?.onDetectionUpdate = { result ->
-                Log.d("DEEPFAKE", "MY detection: score=${result.score}, isDeepfake=${result.isDeepfake}")
-                // Send MY result so the OTHER user sees it
+                Log.d("DEEPFAKE", "📊 Analyzed MY voice: score=${result.score}, fake=${result.isDeepfake}")
+                Log.d("DEEPFAKE", "   → Sending to Firestore for remote user")
                 signaling.sendDetectionResult(callId, userId, result.score, result.isDeepfake)
             }
             
-            // Listen for the REMOTE user's detection results
-            Log.d("DEEPFAKE", "👂 Listening for remote user's detection results...")
+            // ═══ STEP 3: Listen for REMOTE User's Results from Firestore ═══
+            Log.d("DEEPFAKE", "👂 Setting up: Firestore → REMOTE results ($remoteUserId) → MY UI")
             signaling.listenForRemoteDetection(callId, remoteUserId) { score, isDeepfake ->
-                Log.w("DEEPFAKE", "🚨 REMOTE user detection: score=$score, isDeepfake=$isDeepfake")
-                // This triggers the UI alert for the REMOTE person
+                Log.w("DEEPFAKE", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                Log.w("DEEPFAKE", "🚨 RECEIVED: REMOTE user's ($remoteUserId) detection result!")
+                Log.w("DEEPFAKE", "   Score: $score")
+                Log.w("DEEPFAKE", "   Is Deepfake: $isDeepfake")
+                Log.w("DEEPFAKE", "   → Triggering UI alert to show user...")
+                Log.w("DEEPFAKE", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                
+                // Trigger UI to display the REMOTE user's deepfake status
                 onDetectionUpdate?.invoke(score)
                 if (isDeepfake) {
                     onDeepfakeDetected?.invoke(score, true)
                 }
             }
             
-            Log.d("DEEPFAKE", "📞 Calling startMonitoring()...")
-            // Start monitoring MY voice
+            // ═══ STEP 4: Start Capturing MY Microphone Input ═══
+            Log.d("DEEPFAKE", "🎤 Starting to monitor MY microphone ($userId)...")
             detectionService?.startMonitoring()
             
-            Log.d("DEEPFAKE", "🎤 Calling startAudioCapture()...")
-            // Start audio capture of MY microphone
+            Log.d("DEEPFAKE", "📡 Starting AudioRecord to capture MY voice...")
             startAudioCapture()
             
-            Log.i("DEEPFAKE", "✅ Deepfake detection fully started for call $callId")
+            Log.i("DEEPFAKE", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            Log.i("DEEPFAKE", "✅ DEEPFAKE DETECTION FULLY RUNNING")
+            Log.i("DEEPFAKE", "   ✓ Monitoring: MY mic ($userId)")
+            Log.i("DEEPFAKE", "   ✓ Sending: MY results → Firestore")
+            Log.i("DEEPFAKE", "   ✓ Listening: REMOTE results ($remoteUserId) → MY UI")
+            Log.i("DEEPFAKE", "   ✓ Alert: Shows if REMOTE user is using deepfake")
+            Log.i("DEEPFAKE", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            
         } catch (e: Exception) {
-            Log.e("WebRTC", "Failed to start deepfake detection", e)
+            Log.e("DEEPFAKE", "❌ FAILED TO START DETECTION", e)
+        }
+    }
+    
+    /**
+     * Play demo audio file through speaker for presentation demos
+     * Supports: WAV, MP3, MP4, M4A, FLAC (all common formats)
+     * The mic picks it up, feeding both WebRTC and detection
+     * @param filename Name of file in assets/demo_audio/ folder, or null to stop playing
+     */
+    fun playDemoAudio(filename: String?) {
+        if (filename != null) {
+            try {
+                Log.w("DEMO_AUDIO", "🎭 Starting demo audio playback: $filename")
+                
+                // Stop any existing playback
+                demoMediaPlayer?.release()
+                
+                // Load audio file from demo_audio folder
+                demoMediaPlayer = MediaPlayer()
+                val assetPath = "demo_audio/$filename"
+                
+                try {
+                    // Try direct file descriptor (works for uncompressed files)
+                    val afd = context.assets.openFd(assetPath)
+                    demoMediaPlayer?.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    afd.close()
+                    Log.d("DEMO_AUDIO", "✅ Loaded $assetPath directly")
+                } catch (e: java.io.FileNotFoundException) {
+                    // File is compressed - copy to temp file first
+                    Log.d("DEMO_AUDIO", "File is compressed, copying to temp location...")
+                    val extension = filename.substringAfterLast('.', "tmp")
+                    val tempFile = java.io.File.createTempFile("demo_audio_", ".$extension", context.cacheDir)
+                    
+                    context.assets.open(assetPath).use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    
+                    demoMediaPlayer?.setDataSource(tempFile.absolutePath)
+                    Log.d("DEMO_AUDIO", "✅ Loaded $assetPath from temp file")
+                    
+                    // Clean up temp file when done playing
+                    demoMediaPlayer?.setOnCompletionListener {
+                        tempFile.delete()
+                    }
+                }
+                
+                // Play through VOICE_CALL stream so mic picks it up
+                demoMediaPlayer?.setAudioStreamType(AudioManager.STREAM_VOICE_CALL)
+                demoMediaPlayer?.isLooping = true
+                demoMediaPlayer?.setVolume(0.8f, 0.8f)
+                
+                demoMediaPlayer?.prepare()
+                demoMediaPlayer?.start()
+                
+                isDemoMode = true
+                Log.i("DEMO_AUDIO", "✅ Demo audio playing - mic will pick it up")
+                
+            } catch (e: Exception) {
+                Log.e("DEMO_AUDIO", "Failed to play demo audio: $filename", e)
+                Log.e("DEMO_AUDIO", "Make sure file exists in: app/src/main/assets/demo_audio/")
+                Log.e("DEMO_AUDIO", "Supported formats: .wav, .mp3, .mp4, .m4a, .flac")
+            }
+        } else {
+            try {
+                Log.d("DEMO_AUDIO", "🛑 Stopping demo audio")
+                demoMediaPlayer?.stop()
+                demoMediaPlayer?.release()
+                demoMediaPlayer = null
+                isDemoMode = false
+            } catch (e: Exception) {
+                Log.e("DEMO_AUDIO", "Error stopping demo audio", e)
+            }
         }
     }
     
@@ -777,14 +905,24 @@ class WebRtcClient(
     }
     
     /**
-     * Start capturing audio for deepfake detection
+     * Start capturing audio from MY microphone
      * 
-     * MONITORS YOUR OWN MICROPHONE (what YOU say)
-     * Results are sent to Firestore so the OTHER person sees if YOU are fake.
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * 🎤 WHAT THIS DOES:
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      * 
-     * Architecture:
-     * - Caller monitors caller's mic → Callee sees if caller is deepfake
-     * - Callee monitors callee's mic → Caller sees if callee is deepfake
+     * 1. Captures audio from MY microphone (VOICE_COMMUNICATION source)
+     * 2. Feeds the audio chunks to the detection service
+     * 3. Detection service analyzes if MY voice is deepfake
+     * 4. Results are sent to Firestore for the REMOTE user to see
+     * 
+     * This monitors what I AM SAYING, NOT what I AM HEARING from the remote user.
+     * 
+     * Example:
+     *   - Phone 1 (Alice) runs this → Captures Alice's voice → Sends to Firestore
+     *   - Phone 2 (Bob) listens to Firestore → Sees if Alice is using deepfake
+     * 
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      */
     private fun startAudioCapture() {
         try {
@@ -909,6 +1047,10 @@ class WebRtcClient(
         stopDeepfakeDetection()
         cancelRingTimeout()
         releaseAudioRouting()
+        
+        // Stop demo audio if playing
+        demoMediaPlayer?.release()
+        demoMediaPlayer = null
 
         try {
             signaling.stopListening()

@@ -24,7 +24,9 @@ fun CallInProgressScreen(
     onAnswer: () -> Unit,
     onHangUp: () -> Unit,
     onMute: () -> Unit,
-    onToggleSpeaker: () -> Unit
+    onToggleSpeaker: () -> Unit,
+    onPlayDemoAudio: ((String?) -> Unit)? = null,
+    demoAudioFiles: List<String> = emptyList()
 ) {
     val currentState by state.collectAsState()
 
@@ -147,8 +149,99 @@ fun CallInProgressScreen(
                         }
                         
                         is CallUiState.Active -> {
-                            // ACTIVE CALL: 3-button layout (Speaker + End + Mute)
+                            // ACTIVE CALL: Button layout
                             val activeState = currentState as CallUiState.Active
+                            
+                            // Demo audio selector (if enabled)
+                            if (onPlayDemoAudio != null && demoAudioFiles.isNotEmpty()) {
+                                var isDemoPlaying by remember { mutableStateOf(false) }
+                                var selectedFile by remember { mutableStateOf<String?>(null) }
+                                var menuExpanded by remember { mutableStateOf(false) }
+                                
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 24.dp)
+                                ) {
+                                    // Show currently playing file
+                                    if (isDemoPlaying && selectedFile != null) {
+                                        Text(
+                                            "Playing: $selectedFile",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFFFF9500),
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
+                                    }
+                                    
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        // Select audio file button
+                                        Box {
+                                            Button(
+                                                onClick = { menuExpanded = true },
+                                                enabled = !isDemoPlaying,
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = Color(0xFF007AFF)
+                                                )
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.List,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(selectedFile ?: "Select Audio")
+                                            }
+                                            
+                                            DropdownMenu(
+                                                expanded = menuExpanded,
+                                                onDismissRequest = { menuExpanded = false }
+                                            ) {
+                                                demoAudioFiles.forEach { filename ->
+                                                    DropdownMenuItem(
+                                                        text = { Text(filename) },
+                                                        onClick = {
+                                                            selectedFile = filename
+                                                            menuExpanded = false
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Play/Stop button
+                                        if (selectedFile != null) {
+                                            Button(
+                                                onClick = {
+                                                    if (isDemoPlaying) {
+                                                        // Stop playing
+                                                        isDemoPlaying = false
+                                                        onPlayDemoAudio(null)
+                                                    } else {
+                                                        // Start playing selected file
+                                                        isDemoPlaying = true
+                                                        onPlayDemoAudio(selectedFile)
+                                                    }
+                                                },
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = if (isDemoPlaying) Color(0xFFFF3B30) else Color(0xFF34C759)
+                                                )
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isDemoPlaying) Icons.Default.Close else Icons.Default.PlayArrow,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(if (isDemoPlaying) "Stop" else "Play")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(40.dp),
                                 verticalAlignment = Alignment.CenterVertically,

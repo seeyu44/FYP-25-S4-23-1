@@ -23,12 +23,23 @@ import com.example.fyp_25_s4_23.util.mapUserRole
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import com.example.fyp_25_s4_23.control.usecases.SyncContactsUseCase
 import com.example.fyp_25_s4_23.control.call.IncomingCallListener
 import com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics
+
+import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseAuthManager
+import com.example.fyp_25_s4_23.data.remote.firebase.UserProfileRepository
+import com.example.fyp_25_s4_23.data.remote.firebase.UsernameService
+
+import com.example.fyp_25_s4_23.domain.entities.Contact
+import com.example.fyp_25_s4_23.domain.entities.ContactLabel
+import com.example.fyp_25_s4_23.util.VibratorUtil
+
 
 /* =========================
    NAVIGATION
    ========================= */
+
 
 sealed interface AppScreen {
     data object Loading : AppScreen
@@ -38,6 +49,8 @@ sealed interface AppScreen {
     data object CallHistory : AppScreen
     data object Dashboard : AppScreen
     data object Dialer : AppScreen
+    data object ContactList : AppScreen
+    data object ManagedContacts : AppScreen
 }
 
 /* =========================
@@ -60,6 +73,7 @@ data class AppUiState(
 
     val summaryMetrics: List<SummaryMetrics> = emptyList(),
 
+    val contacts: List<Contact> = emptyList(),
     val message: String? = null,
     val isBusy: Boolean = false,
     val modelTest: ModelTestResult = ModelTestResult()
@@ -101,6 +115,15 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val _state = MutableStateFlow(AppUiState())
     val state: StateFlow<AppUiState> = _state.asStateFlow()
 
+    /*--------Contacts---------*/
+    private val contactRepository = ContactRepository(db.contactDao())
+    private val firebaseContactRepository = FirebaseContactRepository()
+
+    private val contactSyncUseCase = SyncContactsUseCase(
+        firebaseRepo = firebaseContactRepository,
+        localRepo = contactRepository
+    )
+
     /* =========================
        INIT
        ========================= */
@@ -124,7 +147,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
         viewModelScope.launch {
             userRepository.ensureDefaultAdmin()
-            _state.update { it.copy(screen = AppScreen.Login) }
+            _state.update { it.copy(screen = AppScreen.Login, contacts = emptyList()) }
         }
     }
 
@@ -138,6 +161,9 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     fun navigateToSummary() = _state.update { it.copy(screen = AppScreen.Summary) }
     fun navigateToCallHistory() = _state.update { it.copy(screen = AppScreen.CallHistory) }
     fun navigateToDialer() = _state.update { it.copy(screen = AppScreen.Dialer) }
+    fun navigateToContactList() = _state.update { it.copy(screen = AppScreen.ContactList, message = null) }
+    fun navigateToManagedContacts() { _state.update { it.copy(screen = AppScreen.ManagedContacts, message = null) } }
+
 
     /* =========================
        AUTH
@@ -172,6 +198,10 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
                 user to settingsRepository.get(user.id)
             }.onSuccess { (user, settings) ->
+
+                    //Sync Contacts from stored in firebase
+                    contactSyncUseCase.execute()
+
                 _state.update {
                     it.copy(
                         currentUser = user,
@@ -374,6 +404,19 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
         viewModelScope.launch {
             settingsRepository.update(user.id, _state.value.userSettings)
+        }
+    }
+
+    fun updateContactLabel(contactId: String, newLabel: ContactLabel) {
+        _state.update { currentState ->
+            val updatedContacts = currentState.contacts.map { contact ->
+                if (contact.id == contactId) {
+                    contact.copy(label = newLabel)
+                } else {
+                    contact
+                }
+            }
+            currentState.copy(contacts = updatedContacts)
         }
     }
 

@@ -12,12 +12,14 @@ import com.example.fyp_25_s4_23.entity.data.dao.CallMetadataDao
 import com.example.fyp_25_s4_23.entity.data.dao.DetectionResultDao
 import com.example.fyp_25_s4_23.entity.data.dao.UserDao
 import com.example.fyp_25_s4_23.entity.data.dao.UserSettingsDao
+import com.example.fyp_25_s4_23.entity.data.dao.ContactDao
 import com.example.fyp_25_s4_23.entity.data.entities.AlertEventEntity
 import com.example.fyp_25_s4_23.entity.data.entities.CallEntity
 import com.example.fyp_25_s4_23.entity.data.entities.CallMetadataEntity
 import com.example.fyp_25_s4_23.entity.data.entities.DetectionResultEntity
 import com.example.fyp_25_s4_23.entity.data.entities.UserEntity
 import com.example.fyp_25_s4_23.entity.data.entities.UserSettingsEntity
+import com.example.fyp_25_s4_23.entity.data.entities.ContactEntity
 
 @Database(
     entities = [
@@ -26,9 +28,10 @@ import com.example.fyp_25_s4_23.entity.data.entities.UserSettingsEntity
         CallEntity::class,
         CallMetadataEntity::class,
         DetectionResultEntity::class,
-        AlertEventEntity::class
+        AlertEventEntity::class,
+        ContactEntity::class
     ],
-    version = 4,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -38,6 +41,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun callMetadataDao(): CallMetadataDao
     abstract fun detectionResultDao(): DetectionResultDao
     abstract fun alertEventDao(): AlertEventDao
+    abstract fun contactDao(): ContactDao
 
     companion object {
         @Volatile

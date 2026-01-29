@@ -32,6 +32,7 @@ fun DashboardScreen(
     onRefresh: () -> Unit,
     onNavigateToSummary: () -> Unit,
     onNavigateToCallHistory: () -> Unit,
+    onNavigateToContactList: () -> Unit,
     systemController: SystemController,
     userSettings: UserSettings? = null,
     onToggleDetection: ((Boolean) -> Unit)? = null,
@@ -67,6 +68,7 @@ fun DashboardScreen(
                 onRefresh = onRefresh,
                 onNavigateToSummary = onNavigateToSummary,
                 onNavigateToCallHistory = onNavigateToCallHistory,
+                onNavigateToContactList = onNavigateToContactList,
                 systemController = systemController,
                 userSettings = userSettings,
                 onToggleDetection = onToggleDetection,
@@ -79,4 +81,3 @@ fun DashboardScreen(
         }
     }
 }
-

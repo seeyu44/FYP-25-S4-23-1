@@ -1,33 +1,24 @@
+# IntelliJ / Android Studio
+.idea/
 *.iml
-.gradle
+
+# Gradle
+.gradle/
+.gradle-user/
+build/
+app/build/
+
+# Android
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+.cxx/
+.externalNativeBuild/
+captures/
+
+# macOS
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
+
+# ML / Python artifacts
 ml/training/data/
 ml/training/flac_D/
 ml/training/flac_T/
 ml/training/src/__pycache__/
-.gradle/
-.gradle-user/
-.idea/
-build/
-app/build/
-ml/training/data/
-ml/training/flac_D/
-ml/training/flac_T/
-ml/training/src/__pycache__/
-.gradle/
-.gradle-user/
-.idea/
-build/
-app/build/

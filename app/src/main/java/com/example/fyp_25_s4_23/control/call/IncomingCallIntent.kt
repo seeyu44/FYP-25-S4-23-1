@@ -11,10 +11,13 @@ object IncomingCallIntent {
     const val EXTRA_IS_INCOMING = "extra_is_incoming"
     const val EXTRA_REMOTE_USER_ID = "extra_remote_user_id"
 
+    const val EXTRA_DISPLAY_NAME = "extra_display_name"
+
     fun create(
         context: Context,
         callId: String,
         callerId: String,
+        displayName: String,
         isIncoming: Boolean
     ): Intent {
         return Intent(context, CallInProgressActivity::class.java).apply {
@@ -22,6 +25,7 @@ object IncomingCallIntent {
             putExtra(EXTRA_CALL_ID, callId)
             putExtra(EXTRA_CALLER_ID, callerId)
             putExtra(EXTRA_REMOTE_USER_ID, callerId)
+            putExtra(EXTRA_DISPLAY_NAME, displayName)
             putExtra(EXTRA_IS_INCOMING, isIncoming)
         }
     }

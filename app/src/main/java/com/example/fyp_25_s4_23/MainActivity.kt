@@ -23,17 +23,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.DisposableEffect
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fyp_25_s4_23.boundary.auth.LoginScreen
 import com.example.fyp_25_s4_23.boundary.auth.RegisterScreen
 import com.example.fyp_25_s4_23.boundary.callhistory.CallHistoryScreen
 import com.example.fyp_25_s4_23.boundary.callhistory.FirebaseCallHistoryScreen
+import com.example.fyp_25_s4_23.boundary.callhistory.ManagedContactsScreen
+import com.example.fyp_25_s4_23.boundary.callhistory.ManagedContactsViewModel
 import com.example.fyp_25_s4_23.boundary.dashboard.DashboardScreen
 import com.example.fyp_25_s4_23.boundary.dashboard.SummaryScreen
 import com.example.fyp_25_s4_23.boundary.dashboard.UserDashboard
+import com.example.fyp_25_s4_23.boundary.dashboard.ContactListScreen
 import com.example.fyp_25_s4_23.control.controllers.SystemController
 import com.example.fyp_25_s4_23.control.viewmodel.AppMainViewModel
 import com.example.fyp_25_s4_23.control.viewmodel.AppScreen
+
+import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
+import com.example.fyp_25_s4_23.entity.data.entities.ContactEntity
+import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
+
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +57,7 @@ import com.example.fyp_25_s4_23.control.call.IncomingCallListener
 import com.google.firebase.auth.FirebaseAuth
 
 
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -209,6 +221,7 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                         viewModel.loadFirebaseCallHistory()
                         viewModel.navigateToCallHistory()
                     },
+                    onNavigateToContactList = { viewModel.navigateToManagedContacts() },
                     onToggleDetection = detectionToggleHandler,
                     systemController = systemController,
                     modelRunner = modelRunner,
@@ -227,6 +240,39 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                 viewModel.navigateToLogin()
             } else {
                 com.example.fyp_25_s4_23.boundary.call.DialerScreen(
+                    onBack = viewModel::navigateToDashboard
+                )
+            }
+        }
+
+        AppScreen.ContactList -> {
+            val user = uiState.currentUser
+            if (user == null) {
+                viewModel.navigateToLogin()
+            } else {
+                ContactListScreen(viewModel = viewModel)
+            }
+        }
+
+        AppScreen.ManagedContacts -> {
+            val user = uiState.currentUser
+            if (user == null) {
+                viewModel.navigateToLogin()
+            } else {
+                val database = AppDatabase.getInstance(context)
+                val repository = ContactRepository(database.contactDao())
+
+                val managedViewModel: ManagedContactsViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return ManagedContactsViewModel(repository) as T
+                        }
+                    }
+                )
+
+                ManagedContactsScreen(
+                    viewModel = managedViewModel,
                     onBack = viewModel::navigateToDashboard
                 )
             }
