@@ -9,7 +9,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -376,7 +376,7 @@ fun ContactItemRow(
                 }
                 IconButton(onClick = onBlock) {
                     Icon(
-                        imageVector = Icons.Default.Block,
+                        imageVector = Icons.Default.Cancel,
                         contentDescription = "Block",
                         tint = Color(0xFFFF9800)
                     )
