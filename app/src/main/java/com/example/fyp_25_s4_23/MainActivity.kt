@@ -28,7 +28,6 @@ import com.example.fyp_25_s4_23.boundary.auth.LoginScreen
 import com.example.fyp_25_s4_23.boundary.auth.RegisterScreen
 import com.example.fyp_25_s4_23.boundary.callhistory.CallHistoryScreen
 import com.example.fyp_25_s4_23.boundary.callhistory.FirebaseCallHistoryScreen
-import com.example.fyp_25_s4_23.boundary.callhistory.FirebaseCallHistoryScreen
 import com.example.fyp_25_s4_23.boundary.dashboard.DashboardScreen
 import com.example.fyp_25_s4_23.boundary.dashboard.SummaryScreen
 import com.example.fyp_25_s4_23.boundary.dashboard.UserDashboard
