@@ -64,6 +64,7 @@ class CallInProgressViewModel : ViewModel() {
     private var webRtcClient: WebRtcClient? = null
     private var isIncomingCall: Boolean = false
     private var resolvedDisplayName: String = ""
+    private var activeCallListenerStarted = false
 
     fun setCallDirection(isIncoming: Boolean) {
         isIncomingCall = isIncoming
@@ -81,6 +82,12 @@ class CallInProgressViewModel : ViewModel() {
             is CallUiState.Ringing -> current.copy(handle = displayName)
             is CallUiState.Active -> current.copy(handle = displayName)
             is CallUiState.Disconnected -> current.copy(handle = displayName)
+        }
+        
+        // Start listening to ActiveCallStore after display name is set
+        if (!activeCallListenerStarted) {
+            startActiveCallListener()
+            activeCallListenerStarted = true
         }
     }
 
@@ -161,7 +168,7 @@ class CallInProgressViewModel : ViewModel() {
     /* =========================
        TELECOM BRIDGE
        ========================= */
-    init {
+    private fun startActiveCallListener() {
         viewModelScope.launch {
             ActiveCallStore.state.collectLatest { snapshot ->
                 if (snapshot == null) {
@@ -174,8 +181,7 @@ class CallInProgressViewModel : ViewModel() {
 
                 when (snapshot.state) {
                     Call.STATE_RINGING ->
-                        // Use resolved display name if available, otherwise use handle from snapshot
-                        setRinging(resolvedDisplayName.ifBlank { snapshot.handle }, preserveReady = true)
+                        setRinging(resolvedDisplayName, preserveReady = true)
 
                     Call.STATE_ACTIVE ->
                         setActive()
