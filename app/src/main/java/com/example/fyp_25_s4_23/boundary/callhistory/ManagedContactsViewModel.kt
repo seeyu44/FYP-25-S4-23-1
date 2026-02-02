@@ -196,14 +196,24 @@ class ManagedContactsViewModel(
     fun callContact(phoneNumber: String, onComplete: (username: String?) -> Unit) {
         viewModelScope.launch {
             try {
-                val cleanPhone = phoneNumber.trim()
-                if (!isValidPhoneNumber(cleanPhone)) {
+                // If it's a VOIP_USER (username-based contact), can't call by phone
+                if (phoneNumber == "VOIP_USER") {
+                    _uiMessage.value = "Cannot call username-based contact by phone"
+                    onComplete(null)
+                    return@launch
+                }
+
+                // Phone number is already formatted as +6587654321
+                val formattedPhone = if (phoneNumber.startsWith("+65")) {
+                    phoneNumber
+                } else if (phoneNumber.length == 8) {
+                    "+65$phoneNumber"
+                } else {
                     _uiMessage.value = "Invalid phone number format"
                     onComplete(null)
                     return@launch
                 }
 
-                val formattedPhone = "+65$cleanPhone"
                 val lookupResult = try {
                     phoneLookupService.getUserByPhoneNumber(formattedPhone)
                 } catch (e: Exception) {
