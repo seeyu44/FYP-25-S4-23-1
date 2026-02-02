@@ -8,8 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,7 +55,6 @@ fun UserDashboard(
     firebaseCalls: List<FirebaseCallRecord> = emptyList()
 ) {
     val ctx = LocalContext.current
-    var menuExpanded by remember { mutableStateOf(false) }
     var showReviewDialog by remember { mutableStateOf(false) }
 
     /* ================= TREND STATE ================= */
@@ -100,73 +97,27 @@ fun UserDashboard(
                 title = {
                     Column {
                         Text(
-                            text = "Welcome, ${user.displayName}",
-                            style = MaterialTheme.typography.titleMedium
+                            text = "DEEPFAKE GUARD",
+                            style = MaterialTheme.typography.titleLarge
                         )
                         Text(
-                            text = "Role: ${user.role}",
-                            style = MaterialTheme.typography.bodySmall
+                            text = "Welcome Back, ${user.displayName}",
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
-                },
-                actions = {
-                    Box {
-                        IconButton(onClick = { menuExpanded = true }) {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "Menu"
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Refresh") },
-                                onClick = {
-                                    menuExpanded = false
-                                    onRefresh()
-                                },
-                                enabled = !isBusy
-                            )
-
-                            if (user.role == UserRole.REGISTERED) {
-                                DropdownMenuItem(
-                                    text = { Text("View Daily / Weekly Summary") },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onNavigateToSummary?.invoke()
-                                    }
-                                )
-                            }
-
-                            if (onSubmitReview != null && user.role == UserRole.REGISTERED) {
-                                DropdownMenuItem(
-                                    text = { Text("Leave a Review") },
-                                    onClick = {
-                                        menuExpanded = false
-                                        showReviewDialog = true
-                                    }
-                                )
-                            }
-
-                            DropdownMenuItem(
-                                text = { Text("Manage Contacts") },
-                                onClick = {
-                                    menuExpanded = false
-                                    onNavigateToContactList?.invoke()
-                                }
-                            )
-
-                            DropdownMenuItem(
-                                text = { Text("Logout") },
-                                onClick = {
-                                    menuExpanded = false
-                                    onLogout()
-                                }
-                            )
-                        }
+                }
+            )
+        },
+        bottomBar = {
+            BottomNavigationBar(
+                currentRoute = "home",
+                onNavigate = { route ->
+                    when (route) {
+                        "home" -> { /* Already on home */ }
+                        "call_history" -> onNavigateToCallHistory?.invoke()
+                        "dialer" -> onNavigateToDialer?.invoke()
+                        "contacts" -> onNavigateToContactList?.invoke()
+                        "logout" -> onLogout()
                     }
                 }
             )
@@ -258,13 +209,39 @@ fun UserDashboard(
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(top = 12.dp)
+                contentPadding = PaddingValues(top = 12.dp, bottom = 12.dp)
             ) {
 
-                if (onNavigateToDialer != null) {
-                    item { DialerCard(onOpenDialer = onNavigateToDialer) }
+                // Account Analysis Section
+                if (user.role == UserRole.REGISTERED && onNavigateToSummary != null) {
+                    item {
+                        AccountAnalysisCard(
+                            firebaseCalls = firebaseCalls,
+                            onClick = onNavigateToSummary
+                        )
+                    }
                 }
 
+                // Recent Call History Section
+                if (user.role == UserRole.REGISTERED && onNavigateToCallHistory != null) {
+                    item {
+                        RecentCallHistoryCard(
+                            firebaseCalls = firebaseCalls,
+                            onViewFullHistory = onNavigateToCallHistory
+                        )
+                    }
+                }
+
+                // Leave a Review Section
+                if (onSubmitReview != null && user.role == UserRole.REGISTERED) {
+                    item {
+                        LeaveReviewCard(
+                            onReviewClick = { showReviewDialog = true }
+                        )
+                    }
+                }
+
+                // Detection Toggle Card
                 if (userSettings != null && onToggleDetection != null) {
                     item {
                         DetectionToggleCard(
@@ -274,107 +251,46 @@ fun UserDashboard(
                     }
                 }
 
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp)
-                    ) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text(
-                                text = "VoIP Calls (Test)",
-                                style = MaterialTheme.typography.titleMedium
-                            )
+                // VoIP Test Calls (for testing)
+                if (onNavigateToDialer != null && users.any { it.id != user.id }) {
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp)
+                        ) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "VoIP Calls (Test)",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
 
-                            users
-                                .filter { it.id != user.id }
-                                .forEach { otherUser ->
-                                    Button(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = 8.dp),
-                                        onClick = {
-                                            otherUser.firebaseUid?.let { uid ->
-                                                VoipCallManager.startOutgoingVoipCall(
-                                                    context = ctx,
-                                                    calleeUserId = uid,
-                                                    calleeDisplayName = otherUser.username
-                                                )
-                                            }
-                                        }
-                                    ) {
-                                        Text("Call ${otherUser.username}")
-                                    }
-                                }
-                        }
-                    }
-                }
-
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp)
-                    ) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text("Recent Calls", style = MaterialTheme.typography.titleMedium)
-
-                            if (firebaseCalls.isEmpty()) {
-                                Text("No call history yet.")
-                            } else {
-                                firebaseCalls.take(3).forEach { record ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = if (record.isOutgoing) Icons.AutoMirrored.Filled.ArrowForward else Icons.Default.Phone,
-                                            contentDescription = if (record.isOutgoing) "Outgoing" else "Incoming",
-                                            tint = if (record.isOutgoing) Color.Blue else Color.Green,
+                                users
+                                    .filter { it.id != user.id }
+                                    .forEach { otherUser ->
+                                        Button(
                                             modifier = Modifier
-                                                .size(20.dp)
-                                                .padding(end = 8.dp)
-                                        )
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                record.getContactName(),
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                            Text(
-                                                record.getCreatedAtFormatted(),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                        if (record.isCompleted()) {
-                                            Text(
-                                                record.getDurationString(),
-                                                style = MaterialTheme.typography.bodySmall
-                                            )
+                                                .fillMaxWidth()
+                                                .padding(top = 8.dp),
+                                            onClick = {
+                                                otherUser.firebaseUid?.let { uid ->
+                                                    VoipCallManager.startOutgoingVoipCall(
+                                                        context = ctx,
+                                                        calleeUserId = uid,
+                                                        calleeDisplayName = otherUser.username
+                                                    )
+                                                }
+                                            }
+                                        ) {
+                                            Text("Call ${otherUser.username}")
                                         }
                                     }
-                                    Divider()
-                                }
-                            }
-
-                            if (user.role == UserRole.REGISTERED &&
-                                onNavigateToCallHistory != null
-                            ) {
-                                Button(
-                                    onClick = onNavigateToCallHistory,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 8.dp)
-                                ) {
-                                    Text("View Full Call History")
-                                }
                             }
                         }
                     }
                 }
 
+                // Model Test (for debugging)
                 modelRunner?.let { runner ->
                     if (onRunModelTest != null) {
                         item {
@@ -397,6 +313,7 @@ fun UserDashboard(
                     }
                 }
 
+                // Admin panel
                 if (user.role == UserRole.ADMIN) {
                     item {
                         Card(
