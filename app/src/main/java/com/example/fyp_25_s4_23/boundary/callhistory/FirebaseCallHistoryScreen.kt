@@ -88,88 +88,102 @@ fun FirebaseCallHistoryScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
-
-        // Loading state
-        if (isLoading) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                CircularProgressIndicator()
-                Text(
-                    text = "Loading call history...",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 16.dp)
-                )
-            }
-            return
-        }
-
-        // Error state
-        if (errorMessage != null) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFEBEE)
-                )
-            ) {
-                Text(
-                    text = errorMessage,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFFC62828),
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-        }
-
-        // Empty state
-        if (calls.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Phone,
-                    contentDescription = "No calls",
+            // Loading state
+            if (isLoading) {
+                Column(
                     modifier = Modifier
-                        .padding(bottom = 16.dp)
-                        .align(Alignment.CenterHorizontally),
-                    tint = Color.Gray
-                )
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        text = "Loading call history...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
+            } else if (calls.isEmpty()) {
+                // Error message if present
+                if (errorMessage != null) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFFFEBEE)
+                        )
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFFC62828),
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+                
+                // Empty state
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Phone,
+                        contentDescription = "No calls",
+                        modifier = Modifier
+                            .padding(bottom = 16.dp)
+                            .align(Alignment.CenterHorizontally),
+                        tint = Color.Gray
+                    )
+                    Text(
+                        text = "No call history",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "Your calls will appear here",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            } else {
+                // Error message if present
+                if (errorMessage != null) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFFFEBEE)
+                        )
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFFC62828),
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+
+                // Call count summary
                 Text(
-                    text = "No call history",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "Your calls will appear here",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "${calls.size} call${if (calls.size != 1) "s" else ""}",
+                    style = MaterialTheme.typography.labelMedium,
                     color = Color.Gray,
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
-            }
-            return
-        }
 
-        // Call count summary
-        Text(
-            text = "${calls.size} call${if (calls.size != 1) "s" else ""}",
-            style = MaterialTheme.typography.labelMedium,
-            color = Color.Gray,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        // Call list
-        LazyColumn(modifier = Modifier.fillMaxWidth()) {
-            items(calls) { call ->
-                FirebaseCallHistoryCard(call = call)
+                // Call list
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(calls) { call ->
+                        FirebaseCallHistoryCard(call = call)
+                    }
+                }
             }
-        }
         }
     }
 }
