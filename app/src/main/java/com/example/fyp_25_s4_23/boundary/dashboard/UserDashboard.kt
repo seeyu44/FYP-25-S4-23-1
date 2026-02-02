@@ -29,7 +29,7 @@ import com.example.fyp_25_s4_23.boundary.call.VoipCallManager
 import com.example.fyp_25_s4_23.control.utils.getMemoryUsageGb
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.PhoneMissed
+import androidx.compose.material.icons.filled.CallReceived
 
 import androidx.compose.runtime.mutableStateListOf
 
@@ -330,7 +330,7 @@ fun UserDashboard(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            imageVector = if (record.isOutgoing) Icons.Default.Phone else Icons.Default.PhoneMissed,
+                                            imageVector = if (record.isOutgoing) Icons.Default.Phone else Icons.Default.CallReceived,
                                             contentDescription = if (record.isOutgoing) "Outgoing" else "Incoming",
                                             tint = if (record.isOutgoing) Color.Blue else Color.Green,
                                             modifier = Modifier
