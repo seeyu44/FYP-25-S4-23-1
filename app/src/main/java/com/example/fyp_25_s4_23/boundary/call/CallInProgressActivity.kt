@@ -20,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import com.example.fyp_25_s4_23.util.VibratorUtil
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
+import com.example.fyp_25_s4_23.util.DisplayNameResolver
 import kotlinx.coroutines.launch
 private const val TAG_SIG = "CALL_SIG"
 private const val TAG_WEBRTC = "WEBRTC_FLOW"
@@ -53,11 +54,15 @@ class CallInProgressActivity : ComponentActivity() {
         lifecycleScope.launch {
             val resolvedName = if (isIncoming) {
                 // For incoming calls: use passed display name or resolve from contact database
-                intent.getStringExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME)
-                    ?: resolveDisplayName(contactRepository, remoteUserId)
+                val incomingDisplayName = intent.getStringExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME)
+                if (incomingDisplayName != null) {
+                    incomingDisplayName
+                } else {
+                    DisplayNameResolver.resolveDisplayName(contactRepository, remoteUserId)
+                }
             } else {
                 // For outgoing calls: resolve from contact database
-                resolveDisplayName(contactRepository, remoteUserId)
+                DisplayNameResolver.resolveDisplayName(contactRepository, remoteUserId)
             }
             
             displayName = resolvedName
@@ -199,31 +204,6 @@ class CallInProgressActivity : ComponentActivity() {
         signaling?.stopListening()
         IncomingCallListener.start(applicationContext)
         Log.d(TAG_SIG, "Call activity destroyed")
-    }
-    
-    private suspend fun resolveDisplayName(contactRepository: ContactRepository, remoteUserId: String): String {
-        // Try to find contact by username (Firebase UID)
-        val contactByUsername = contactRepository.getContactByUsername(remoteUserId)
-        if (contactByUsername != null && !contactByUsername.displayName.isNullOrBlank()) {
-            return contactByUsername.displayName
-        }
-        
-        // Try to find contact by phone number
-        val contactByPhone = contactRepository.getContactByPhoneNumber(remoteUserId)
-        if (contactByPhone != null && !contactByPhone.displayName.isNullOrBlank()) {
-            return contactByPhone.displayName
-        }
-        
-        // If contact has a phone number, use that
-        if (contactByUsername?.phoneNumber?.isNotBlank() == true) {
-            return contactByUsername.phoneNumber
-        }
-        if (contactByPhone?.phoneNumber?.isNotBlank() == true) {
-            return contactByPhone.phoneNumber
-        }
-        
-        // Last resort: return the remoteUserId (likely Firebase UID or phone number)
-        return remoteUserId
     }
     
     private fun loadDemoAudioFiles(): List<String> {

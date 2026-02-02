@@ -104,7 +104,6 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val pendingUsernameStore = PendingUsernameStore(application)
     private val tokenStore = FCMTokenStore(application)
     private val reviewRepository = ReviewRepository()
-    private val callHistoryRepository = CallHistoryRepository()
 
     /* ---------- Detection ---------- */
     private val modelRunner = ModelRunner(application)
@@ -118,6 +117,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
     /*--------Contacts---------*/
     private val contactRepository = ContactRepository(db.contactDao())
+    private val callHistoryRepository = CallHistoryRepository(contactRepository)
     private val firebaseContactRepository = FirebaseContactRepository()
     private val phoneLookupService = PhoneLookupService()
 

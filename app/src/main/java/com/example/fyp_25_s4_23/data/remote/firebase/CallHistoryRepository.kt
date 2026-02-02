@@ -6,11 +6,13 @@ import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.OtherUser
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
+import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
+import com.example.fyp_25_s4_23.util.DisplayNameResolver
 
 /**
  * Repository for fetching call history from Firebase Cloud Functions
  */
-class CallHistoryRepository {
+class CallHistoryRepository(private val contactRepository: ContactRepository? = null) {
     private val functions = FirebaseFunctions.getInstance()
 
     /**
@@ -35,8 +37,15 @@ class CallHistoryRepository {
                 val calls = callsData.mapNotNull { callData ->
                     parseFirebaseCallRecord(callData)
                 }
+                
+                // Enrich with local contact information if repository is available
+                val enrichedCalls = if (contactRepository != null) {
+                    calls.map { call -> enrichCallWithLocalContact(call) }
+                } else {
+                    calls
+                }
 
-                CallHistoryResponse(calls = calls, hasMore = hasMore)
+                CallHistoryResponse(calls = enrichedCalls, hasMore = hasMore)
             } else {
                 CallHistoryResponse()
             }
@@ -77,6 +86,45 @@ class CallHistoryRepository {
         }
     }
 
+    /**
+     * Enrich a Firebase call record with local contact information
+     */
+    private suspend fun enrichCallWithLocalContact(call: FirebaseCallRecord): FirebaseCallRecord {
+        if (contactRepository == null) return call
+        
+        try {
+            val userId = call.otherUser.userId
+            val fallbackName = call.otherUser.displayName
+            val fallbackPhone = call.otherUser.phoneNumber
+            
+            // Resolve display name from local contacts
+            val resolvedDisplayName = DisplayNameResolver.resolveDisplayName(
+                contactRepository = contactRepository,
+                userId = userId,
+                fallbackName = fallbackName,
+                fallbackPhone = fallbackPhone
+            )
+            
+            // Resolve phone number from local contacts
+            val resolvedPhone = DisplayNameResolver.resolvePhoneNumber(
+                contactRepository = contactRepository,
+                userId = userId,
+                fallbackPhone = fallbackPhone
+            )
+            
+            // Update the otherUser with resolved information
+            val enrichedOtherUser = call.otherUser.copy(
+                displayName = resolvedDisplayName,
+                phoneNumber = resolvedPhone ?: call.otherUser.phoneNumber
+            )
+            
+            return call.copy(otherUser = enrichedOtherUser)
+        } catch (e: Exception) {
+            Log.e("CallHistoryRepository", "Error enriching call with local contact", e)
+            return call
+        }
+    }
+    
     /**
      * Parse Firebase response data into FirebaseCallRecord object
      */
