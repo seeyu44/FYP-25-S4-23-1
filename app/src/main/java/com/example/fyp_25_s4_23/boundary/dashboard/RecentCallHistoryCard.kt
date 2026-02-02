@@ -58,8 +58,12 @@ fun RecentCallHistoryCard(
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
             } else {
-                firebaseCalls.take(4).forEach { record ->
-                    CallHistoryItem(record = record)
+                val displayCalls = firebaseCalls.take(4)
+                displayCalls.forEachIndexed { index, record ->
+                    CallHistoryItem(
+                        record = record,
+                        isLast = index == displayCalls.size - 1
+                    )
                 }
             }
 
@@ -84,7 +88,10 @@ fun RecentCallHistoryCard(
 }
 
 @Composable
-private fun CallHistoryItem(record: FirebaseCallRecord) {
+private fun CallHistoryItem(
+    record: FirebaseCallRecord,
+    isLast: Boolean = false
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -131,7 +138,7 @@ private fun CallHistoryItem(record: FirebaseCallRecord) {
         }
     }
     
-    if (record != firebaseCalls.take(4).lastOrNull()) {
+    if (!isLast) {
         HorizontalDivider(
             modifier = Modifier.padding(vertical = 4.dp),
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)

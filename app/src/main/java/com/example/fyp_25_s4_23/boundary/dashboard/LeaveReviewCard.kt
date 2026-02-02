@@ -3,7 +3,7 @@ package com.example.fyp_25_s4_23.boundary.dashboard
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,7 +47,7 @@ fun LeaveReviewCard(
             ) {
                 repeat(5) { index ->
                     Icon(
-                        imageVector = Icons.Outlined.StarOutline,
+                        imageVector = Icons.Outlined.Star,
                         contentDescription = "Star ${index + 1}",
                         modifier = Modifier
                             .size(40.dp)

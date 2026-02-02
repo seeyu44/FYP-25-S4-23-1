@@ -25,11 +25,10 @@ fun AccountAnalysisCard(
     // Calculate average call time in minutes (only for completed calls)
     val completedCalls = firebaseCalls.filter { it.isCompleted() }
     val avgCallTime = if (completedCalls.isNotEmpty()) {
-        val totalMinutes = completedCalls.sumOf { 
-            val duration = it.getDurationInSeconds()
-            (duration / 60.0)
+        val totalMinutes = completedCalls.sumOf { call ->
+            (call.duration / 60.0)
         }
-        (totalMinutes / completedCalls.size).roundToInt()
+        (totalMinutes / completedCalls.size.toDouble()).roundToInt()
     } else {
         0
     }
