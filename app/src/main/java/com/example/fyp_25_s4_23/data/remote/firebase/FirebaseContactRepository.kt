@@ -42,6 +42,17 @@ class FirebaseContactRepository {
         contactsRef().document(contactId).delete().await()
     }
 
+    suspend fun deleteContactByUsername(username: String) {
+        val snapshot = contactsRef()
+            .whereEqualTo("username", username)
+            .get()
+            .await()
+
+        snapshot.documents.forEach { doc ->
+            contactsRef().document(doc.id).delete().await()
+        }
+    }
+
     suspend fun fetchContacts(): List<Contact> {
         return contactsRef()
             .get()

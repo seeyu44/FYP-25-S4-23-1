@@ -119,7 +119,34 @@ class ManagedContactsViewModel(
 
     fun deleteContact(contact: Contact) {
         viewModelScope.launch {
-            repository.deleteContact(contact)
+            var firebaseFailed = false
+
+            try {
+                val username = if (contact.phoneNumber == "VOIP_USER") {
+                    contact.displayName
+                } else {
+                    val normalizedPhone = if (contact.phoneNumber.startsWith("+65")) {
+                        contact.phoneNumber
+                    } else {
+                        "+65${contact.phoneNumber}"
+                    }
+
+                    phoneLookupService.getUserByPhoneNumber(normalizedPhone).username
+                }
+
+                if (!username.isNullOrBlank()) {
+                    firebaseRepo.deleteContactByUsername(username)
+                }
+            } catch (e: Exception) {
+                firebaseFailed = true
+            } finally {
+                repository.deleteContact(contact)
+                _uiMessage.value = if (firebaseFailed) {
+                    "Contact deleted locally; sync pending"
+                } else {
+                    "Contact deleted"
+                }
+            }
         }
     }
 

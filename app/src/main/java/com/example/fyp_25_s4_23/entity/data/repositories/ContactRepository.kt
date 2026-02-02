@@ -16,6 +16,10 @@ class ContactRepository(
             entities.map { it.toDomain() }
         }
 
+    suspend fun getAllContactsOnce(): List<Contact> {
+        return contactDao.getAllContactsOnce().map { it.toDomain() }
+    }
+
     suspend fun insertContact(contact: Contact) {
         contactDao.insertContact(contact.toEntity())
     }
