@@ -7,7 +7,6 @@ import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
 import com.example.fyp_25_s4_23.domain.entities.Contact
 import com.example.fyp_25_s4_23.domain.entities.ContactLabel
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
-import com.example.fyp_25_s4_23.data.remote.firebase.UsernameService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +18,6 @@ class ManagedContactsViewModel(
     private val repository: ContactRepository
 ) : ViewModel() {
 
-    private val usernameService = UsernameService()
     private val phoneLookupService = PhoneLookupService()
 
     private val _uiMessage = MutableStateFlow<String?>(null)
@@ -33,48 +31,7 @@ class ManagedContactsViewModel(
             initialValue = emptyList()
         )
 
-    fun addContactByUsername(
-        username: String,
-        label: ContactLabel,
-        onSuccess: () -> Unit
-    ) {
-        val cleanUsername = username.trim().lowercase()
-      val currentUsername = com.google.firebase.auth.FirebaseAuth.getInstance()
-          .currentUser
-          ?.displayName
-          ?.lowercase()
 
-        viewModelScope.launch {
-            try {
-                val exists = !usernameService.checkUsername(cleanUsername)
-                if (!exists) {
-                    _uiMessage.value = "User not found"
-                    return@launch
-                }
-
-                val newContact = Contact(
-                    id = java.util.UUID.randomUUID().toString(),
-                    displayName = cleanUsername,
-                    phoneNumber = "VOIP_USER",
-                    label = label
-                )
-
-                val alreadyExists = repository.existsByUsername(cleanUsername)
-                if (alreadyExists) {
-                    _uiMessage.value = "Contact already exists"
-                    return@launch
-                }
-
-                firebaseRepo.addContact(cleanUsername, label)
-                repository.insertContact(newContact)
-                _uiMessage.value = "Contact added"
-                onSuccess()
-
-            } catch (e: Exception) {
-                _uiMessage.value = "Failed to add contact"
-            }
-        }
-    }
 
     fun addContactByPhoneNumber(
         phoneNumber: String,
@@ -108,6 +65,13 @@ class ManagedContactsViewModel(
                     return@launch
                 }
 
+                // Check if username already exists (avoid duplicate from Firebase sync)
+                val alreadyExists = repository.existsByUsername(lookupResult.username)
+                if (alreadyExists) {
+                    _uiMessage.value = "Contact already exists with this user"
+                    return@launch
+                }
+
                 // Create the contact
                 val newContact = Contact(
                     id = java.util.UUID.randomUUID().toString(),
@@ -116,11 +80,11 @@ class ManagedContactsViewModel(
                     label = label
                 )
 
+                // Add to Firebase first (uses username)
+                firebaseRepo.addContact(lookupResult.username, label)
+                
                 // Add to local database
                 repository.insertContact(newContact)
-
-                // Add to Firebase
-                firebaseRepo.addContact(lookupResult.username, label)
 
                 _uiMessage.value = "Contact added successfully"
                 onSuccess()
@@ -138,19 +102,7 @@ class ManagedContactsViewModel(
                phoneNumber.all { it.isDigit() }
     }
 
-    suspend fun verifyUsername(username: String): Boolean {
-        // This MUST return:
-        // true  → user EXISTS in Firebase
-        // false → user does NOT exist
-        return try {
-            // usernameService.checkUsername() returns:
-            // true  = available (NOT TAKEN)
-            // false = already taken (EXISTS)
-            !usernameService.checkUsername(username)
-        } catch (e: Exception) {
-            false
-        }
-    }
+
 
     suspend fun verifyPhoneNumber(phoneNumber: String): Boolean {
         return try {

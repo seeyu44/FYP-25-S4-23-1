@@ -116,16 +116,8 @@ fun ManagedContactsScreen(
         if (showAddDialog) {
             AddContactDialog(
                 onDismiss = { showAddDialog = false },
-                onVerifyUsername = { username ->
-                    viewModel.verifyUsername(username)
-                },
                 onVerifyPhoneNumber = { phoneNumber ->
                     viewModel.verifyPhoneNumber(phoneNumber)
-                },
-                onAddByUsername = { targetUsername, label ->
-                    viewModel.addContactByUsername(targetUsername, label) {
-                        showAddDialog = false
-                    }
                 },
                 onAddByPhoneNumber = { phoneNumber, contactName, label ->
                     viewModel.addContactByPhoneNumber(phoneNumber, contactName, label) {
@@ -140,180 +132,98 @@ fun ManagedContactsScreen(
 @Composable
 fun AddContactDialog(
     onDismiss: () -> Unit,
-    onVerifyUsername: suspend (String) -> Boolean,
     onVerifyPhoneNumber: suspend (String) -> Boolean,
-    onAddByUsername: (String, ContactLabel) -> Unit,
     onAddByPhoneNumber: (String, String, ContactLabel) -> Unit
 ) {
-    var usePhoneNumber by remember { mutableStateOf(false) }
-    var username by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
     var contactName by remember { mutableStateOf("") }
     var isChecking by remember { mutableStateOf(false) }
     var isValidUser by remember { mutableStateOf<Boolean?>(null) }
-    var selectedLabel by remember { mutableStateOf(ContactLabel.BLACK) }
-
-    LaunchedEffect(username) {
-        if (!usePhoneNumber) {
-            val clean = username.trim().lowercase()
-
-            if (clean.length < 3) {
-                isValidUser = null
-                return@LaunchedEffect
-            }
-
-            isChecking = true
-            delay(400)
-
-            // cancel stale check
-            if (clean != username.trim().lowercase()) {
-                isChecking = false
-                return@LaunchedEffect
-            }
-
-            isValidUser = onVerifyUsername(clean)
-            isChecking = false
-        }
-    }
+    var selectedLabel by remember { mutableStateOf(ContactLabel.WHITE) }
 
     LaunchedEffect(phoneNumber) {
-        if (usePhoneNumber) {
-            val clean = phoneNumber.trim()
+        val clean = phoneNumber.trim()
 
-            if (clean.length < 8) {
-                isValidUser = null
-                return@LaunchedEffect
-            }
-
-            isChecking = true
-            delay(400)
-
-            if (clean != phoneNumber.trim()) {
-                isChecking = false
-                return@LaunchedEffect
-            }
-
-            isValidUser = onVerifyPhoneNumber(clean)
-            isChecking = false
+        if (clean.length < 8) {
+            isValidUser = null
+            return@LaunchedEffect
         }
+
+        isChecking = true
+        delay(400)
+
+        if (clean != phoneNumber.trim()) {
+            isChecking = false
+            return@LaunchedEffect
+        }
+
+        isValidUser = onVerifyPhoneNumber(clean)
+        isChecking = false
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (usePhoneNumber) "Add Contact by Phone" else "Add Contact by Username") },
+        title = { Text("Add Contact") },
         text = {
             Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Add by:")
-                    RadioButton(
-                        selected = !usePhoneNumber,
-                        onClick = { usePhoneNumber = false }
-                    )
-                    Text("Username")
-                    RadioButton(
-                        selected = usePhoneNumber,
-                        onClick = { usePhoneNumber = true }
-                    )
-                    Text("Phone")
-                }
-
+                Text(
+                    text = "Enter the phone number and a name for this contact.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
                 Spacer(modifier = Modifier.height(12.dp))
-
-                if (usePhoneNumber) {
-                    Text(
-                        text = "Enter the phone number and contact name.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = phoneNumber,
-                        onValueChange = { phoneNumber = it },
-                        label = { Text("Phone Number") },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("e.g. 87654321 or 91234567") },
-                        singleLine = true
-                    )
-                    when {
-                        isChecking -> {
-                            Text("Checking phone number…", color = Color.Gray)
-                        }
-                        isValidUser == true -> {
-                            Text("Phone number found ✅", color = Color(0xFF4CAF50))
-                        }
-                        isValidUser == false -> {
-                            Text("Phone number not found ❌", color = Color.Red)
-                        }
+                OutlinedTextField(
+                    value = phoneNumber,
+                    onValueChange = { phoneNumber = it },
+                    label = { Text("Phone Number") },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("e.g. 87654321 or 91234567") },
+                    singleLine = true
+                )
+                when {
+                    isChecking -> {
+                        Text("Checking phone number…", color = Color.Gray)
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = contactName,
-                        onValueChange = { contactName = it },
-                        label = { Text("Contact Name") },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("e.g. John") },
-                        singleLine = true
-                    )
-                } else {
-                    Text(
-                        text = "Enter the username of the person you want to add. We will verify their account in Firebase.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
-                        label = { Text("Target Username") },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("e.g. user_id_123") },
-                        singleLine = true
-                    )
-                    when {
-                        isChecking -> {
-                            Text("Checking username…", color = Color.Gray)
-                        }
-                        isValidUser == true -> {
-                            Text("User found ✅", color = Color(0xFF4CAF50))
-                        }
-                        isValidUser == false -> {
-                            Text("User not found ❌", color = Color.Red)
-                        }
+                    isValidUser == true -> {
+                        Text("Phone number found ✅", color = Color(0xFF4CAF50))
+                    }
+                    isValidUser == false -> {
+                        Text("Phone number not found ❌", color = Color.Red)
                     }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = contactName,
+                    onValueChange = { contactName = it },
+                    label = { Text("Contact Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("e.g. John Tan") },
+                    singleLine = true
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("Label Type:", style = MaterialTheme.typography.labelLarge)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(
-                        selected = selectedLabel == ContactLabel.BLACK,
-                        onClick = { selectedLabel = ContactLabel.BLACK }
-                    )
-                    Text("Blacklist")
-                    Spacer(modifier = Modifier.width(16.dp))
-                    RadioButton(
                         selected = selectedLabel == ContactLabel.WHITE,
                         onClick = { selectedLabel = ContactLabel.WHITE }
                     )
-                    Text("Whitelist")
+                    Text("Contact")
+                    Spacer(modifier = Modifier.width(16.dp))
+                    RadioButton(
+                        selected = selectedLabel == ContactLabel.BLACK,
+                        onClick = { selectedLabel = ContactLabel.BLACK }
+                    )
+                    Text("Blocked")
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (usePhoneNumber) {
-                        onAddByPhoneNumber(phoneNumber, contactName, selectedLabel)
-                    } else {
-                        onAddByUsername(username, selectedLabel)
-                    }
+                    onAddByPhoneNumber(phoneNumber, contactName, selectedLabel)
                 },
-                enabled = (isValidUser == true && !isChecking) && 
-                         (if (usePhoneNumber) contactName.isNotBlank() else true)
+                enabled = (isValidUser == true && !isChecking && contactName.isNotBlank())
             ) {
                 Text(if (isChecking) "Checking…" else "Add Contact")
             }
