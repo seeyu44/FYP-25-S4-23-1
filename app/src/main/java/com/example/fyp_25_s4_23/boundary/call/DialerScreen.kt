@@ -15,6 +15,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
+import com.example.fyp_25_s4_23.domain.entities.ContactLabel
+import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
+import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,6 +28,9 @@ fun DialerScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val phoneLookupService = remember { PhoneLookupService() }
+    val contactRepository = remember {
+        ContactRepository(AppDatabase.getInstance(context).contactDao())
+    }
     
     var phoneNumber by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
@@ -187,6 +193,14 @@ fun DialerScreen(
                                 
                                 val normalized = "+65$phoneNumber"
                                 Log.d("DialerScreen", "Calling phone number: $normalized")
+
+                                val existingContact = contactRepository
+                                    .getContactByPhoneNumber(normalized)
+                                if (existingContact?.label == ContactLabel.BLACK) {
+                                    isLoading = false
+                                    errorMessage = "This number is blocked"
+                                    return@launch
+                                }
                                 
                                 // Look up user by phone number
                                 val result = phoneLookupService.getUserByPhoneNumber(normalized)

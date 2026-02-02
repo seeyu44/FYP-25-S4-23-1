@@ -282,11 +282,14 @@ fun ContactItemRow(
                 )
             }
             Row(horizontalArrangement = Arrangement.End) {
-                IconButton(onClick = onCall) {
+                IconButton(
+                    onClick = onCall,
+                    enabled = !isBlocked
+                ) {
                     Icon(
                         imageVector = Icons.Default.Phone,
                         contentDescription = "Call",
-                        tint = Color(0xFF2196F3)
+                        tint = if (isBlocked) Color.Gray else Color(0xFF2196F3)
                     )
                 }
                 if (isBlocked) {
