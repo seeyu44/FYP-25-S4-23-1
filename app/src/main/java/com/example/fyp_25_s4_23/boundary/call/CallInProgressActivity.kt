@@ -22,6 +22,7 @@ import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import com.example.fyp_25_s4_23.util.DisplayNameResolver
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 private const val TAG_SIG = "CALL_SIG"
 private const val TAG_WEBRTC = "WEBRTC_FLOW"
 private lateinit var displayName : String
@@ -44,15 +45,12 @@ class CallInProgressActivity : ComponentActivity() {
         val isIncoming =
             intent.getBooleanExtra(IncomingCallIntent.EXTRA_IS_INCOMING, false)
 
-        // Initialize with remoteUserId as default
-        displayName = remoteUserId
-
-        // Resolve contact name asynchronously
+        // Resolve contact name synchronously to ensure it's available before any state transitions
         val database = AppDatabase.getInstance(this)
         val contactRepository = ContactRepository(database.contactDao())
         
-        lifecycleScope.launch {
-            val resolvedName = if (isIncoming) {
+        displayName = runBlocking {
+            if (isIncoming) {
                 // For incoming calls: use passed display name or resolve from contact database
                 val incomingDisplayName = intent.getStringExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME)
                 if (incomingDisplayName != null) {
@@ -64,14 +62,12 @@ class CallInProgressActivity : ComponentActivity() {
                 // For outgoing calls: resolve from contact database
                 DisplayNameResolver.resolveDisplayName(contactRepository, remoteUserId)
             }
-            
-            displayName = resolvedName
-            viewModel.setDisplayName(resolvedName)
         }
 
-        Log.d(TAG_SIG, "Call started → id=$callId incoming=$isIncoming")
+        Log.d(TAG_SIG, "Call started → id=$callId incoming=$isIncoming resolved name=$displayName")
 
         viewModel.setCallDirection(isIncoming)
+        viewModel.setDisplayName(displayName)
 
         val localUserId =
             FirebaseAuthManager.currentUser()?.uid ?: return finish()

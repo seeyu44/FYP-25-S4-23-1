@@ -174,7 +174,8 @@ class CallInProgressViewModel : ViewModel() {
 
                 when (snapshot.state) {
                     Call.STATE_RINGING ->
-                        setRinging(snapshot.handle, preserveReady = true)
+                        // Use resolved display name if available, otherwise use handle from snapshot
+                        setRinging(resolvedDisplayName.ifBlank { snapshot.handle }, preserveReady = true)
 
                     Call.STATE_ACTIVE ->
                         setActive()
