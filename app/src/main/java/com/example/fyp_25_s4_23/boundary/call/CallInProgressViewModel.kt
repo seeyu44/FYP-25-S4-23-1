@@ -63,10 +63,25 @@ class CallInProgressViewModel : ViewModel() {
     val events = _events.asSharedFlow()
     private var webRtcClient: WebRtcClient? = null
     private var isIncomingCall: Boolean = false
+    private var resolvedDisplayName: String = ""
 
     fun setCallDirection(isIncoming: Boolean) {
         isIncomingCall = isIncoming
         Log.d(TAG_UI, "Call direction set → incoming=$isIncoming")
+    }
+    
+    fun setDisplayName(displayName: String) {
+        resolvedDisplayName = displayName
+        Log.d(TAG_UI, "Display name set → $displayName")
+        
+        // Update current state with resolved name
+        val current = _state.value
+        _state.value = when (current) {
+            is CallUiState.Connecting -> current.copy(handle = displayName)
+            is CallUiState.Ringing -> current.copy(handle = displayName)
+            is CallUiState.Active -> current.copy(handle = displayName)
+            is CallUiState.Disconnected -> current.copy(handle = displayName)
+        }
     }
 
     /* =========================
@@ -221,9 +236,12 @@ class CallInProgressViewModel : ViewModel() {
 
         val ready =
             preserveReady && (_state.value as? CallUiState.Ringing)?.isReadyToAnswer == true
+        
+        // Use resolved display name if available, otherwise use the provided handle
+        val displayHandle = resolvedDisplayName.ifBlank { handle }
 
         _state.value = CallUiState.Ringing(
-            handle = handle,
+            handle = displayHandle,
             isIncoming = isIncomingCall,
             isReadyToAnswer = ready
         )
@@ -238,11 +256,14 @@ class CallInProgressViewModel : ViewModel() {
             is CallUiState.Active -> s.handle
             is CallUiState.Disconnected -> s.handle
         }
+        
+        // Use resolved display name if available, otherwise use the current handle
+        val displayHandle = resolvedDisplayName.ifBlank { handle }
 
         Log.d(TAG_UI, "Transition → Active")
 
         _state.value = CallUiState.Active(
-            handle = handle,
+            handle = displayHandle,
             isMuted = false,
             isSpeakerOn = false,
             localAudioState = WebRtcClient.AudioState.SILENT,
@@ -261,9 +282,12 @@ class CallInProgressViewModel : ViewModel() {
             is CallUiState.Connecting -> s.handle
             is CallUiState.Disconnected -> s.handle
         }
+        
+        // Use resolved display name if available, otherwise use the current handle
+        val displayHandle = resolvedDisplayName.ifBlank { handle }
 
         Log.d(TAG_UI, "Transition → Disconnected (reason=$reason)")
-        _state.value = CallUiState.Disconnected(handle, reason)
+        _state.value = CallUiState.Disconnected(displayHandle, reason)
     }
 
     fun setDisconnectedWithReason(reason: String?) {
