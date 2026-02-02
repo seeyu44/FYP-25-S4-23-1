@@ -294,8 +294,7 @@ fun UserDashboard(
                                                 VoipCallManager.startOutgoingVoipCall(
                                                     context = ctx,
                                                     calleeUserId = uid,
-                                                    calleeDisplayName = otherUser.username,
-                                                    calleePhoneNumber = otherUser.phoneNumber
+                                                    calleeDisplayName = otherUser.username
                                                 )
                                             }
                                         }

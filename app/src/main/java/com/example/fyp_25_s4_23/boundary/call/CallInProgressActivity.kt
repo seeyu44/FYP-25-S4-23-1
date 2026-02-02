@@ -45,7 +45,8 @@ class CallInProgressActivity : ComponentActivity() {
         val isIncoming =
             intent.getBooleanExtra(IncomingCallIntent.EXTRA_IS_INCOMING, false)
 
-        // Resolve contact name synchronously to ensure it's available before any state transitions\n        val database = AppDatabase.getInstance(this)
+        // Resolve contact name synchronously to ensure it's available before any state transitions
+        val database = AppDatabase.getInstance(this)
         val contactRepository = ContactRepository(database.contactDao())
         
         // Check if phone number was passed (for outgoing calls from saved contacts)
