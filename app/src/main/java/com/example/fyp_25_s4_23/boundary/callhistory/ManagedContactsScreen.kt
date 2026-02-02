@@ -7,9 +7,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,12 +42,12 @@ fun ManagedContactsScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("All", "Trusted", "Blocked")
+    val tabs = listOf("Contacts", "Blocked")
 
     val filteredList = when (selectedTab) {
-        1 -> contactList.filter { it.label == ContactLabel.WHITE }
-        2 -> contactList.filter { it.label == ContactLabel.BLACK }
-        else -> contactList
+        0 -> contactList.filter { it.label == ContactLabel.WHITE }
+        1 -> contactList.filter { it.label == ContactLabel.BLACK }
+        else -> contactList.filter { it.label == ContactLabel.WHITE }
     }
 
     Scaffold(
@@ -96,6 +97,7 @@ fun ManagedContactsScreen(
                 items(filteredList) { contact ->
                     ContactItemRow(
                         contact = contact,
+                        isBlocked = selectedTab == 1,
                         onCall = {
                             viewModel.callContact(contact.phoneNumber) { username ->
                                 if (username != null) {
@@ -104,6 +106,7 @@ fun ManagedContactsScreen(
                             }
                         },
                         onBlock = { viewModel.blockContact(contact) },
+                        onUnblock = { viewModel.unblockContact(contact) },
                         onDelete = { viewModel.deleteContact(contact) }
                     )
                 }
@@ -326,8 +329,10 @@ fun AddContactDialog(
 @Composable
 fun ContactItemRow(
     contact: Contact,
+    isBlocked: Boolean,
     onCall: () -> Unit,
     onBlock: () -> Unit,
+    onUnblock: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -374,12 +379,22 @@ fun ContactItemRow(
                         tint = Color(0xFF2196F3)
                     )
                 }
-                IconButton(onClick = onBlock) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Block",
-                        tint = Color(0xFFFF9800)
-                    )
+                if (isBlocked) {
+                    IconButton(onClick = onUnblock) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Unblock",
+                            tint = Color(0xFF4CAF50)
+                        )
+                    }
+                } else {
+                    IconButton(onClick = onBlock) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Block",
+                            tint = Color(0xFFFF9800)
+                        )
+                    }
                 }
                 IconButton(onClick = onDelete) {
                     Icon(

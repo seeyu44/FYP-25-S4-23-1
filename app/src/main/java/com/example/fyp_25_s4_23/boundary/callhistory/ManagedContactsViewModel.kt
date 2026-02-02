@@ -174,11 +174,21 @@ class ManagedContactsViewModel(
     fun blockContact(contact: Contact) {
         viewModelScope.launch {
             try {
-                val blacklistedContact = contact.copy(label = ContactLabel.BLACK)
                 repository.updateContactLabel(contact.id, ContactLabel.BLACK.toString())
                 _uiMessage.value = "Contact has been blocked"
             } catch (e: Exception) {
                 _uiMessage.value = "Failed to block contact"
+            }
+        }
+    }
+
+    fun unblockContact(contact: Contact) {
+        viewModelScope.launch {
+            try {
+                repository.updateContactLabel(contact.id, ContactLabel.WHITE.toString())
+                _uiMessage.value = "Contact has been unblocked"
+            } catch (e: Exception) {
+                _uiMessage.value = "Failed to unblock contact"
             }
         }
     }
