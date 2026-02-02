@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
 import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
+import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 import com.example.fyp_25_s4_23.control.controllers.SystemController
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
@@ -41,7 +42,8 @@ fun DashboardScreen(
     modelTestResult: ModelTestResult = ModelTestResult(),
     onSubmitReview: ((Int, String, Boolean) -> Unit)? = null,
     onCreateAdmin: ((String, String, String, String) -> Unit)? = null,
-    onNavigateToDialer: (() -> Unit)? = null
+    onNavigateToDialer: (() -> Unit)? = null,
+    firebaseCalls: List<FirebaseCallRecord> = emptyList()
 ) {
     when (user.role) {
         UserRole.ADMIN -> {
@@ -76,7 +78,8 @@ fun DashboardScreen(
                 onRunModelTest = onRunModelTest,
                 modelTestResult = modelTestResult,
                 onSubmitReview = onSubmitReview,
-                onNavigateToDialer = onNavigateToDialer
+                onNavigateToDialer = onNavigateToDialer,
+                firebaseCalls = firebaseCalls
             )
         }
     }

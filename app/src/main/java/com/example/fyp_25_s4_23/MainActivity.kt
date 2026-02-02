@@ -229,7 +229,8 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                     modelTestResult = uiState.modelTest,
                     onSubmitReview = viewModel::submitReview,
                     onCreateAdmin = viewModel::createAdminUser,
-                    onNavigateToDialer = viewModel::navigateToDialer
+                    onNavigateToDialer = viewModel::navigateToDialer,
+                    firebaseCalls = uiState.firebaseCalls
                 )
             }
         }

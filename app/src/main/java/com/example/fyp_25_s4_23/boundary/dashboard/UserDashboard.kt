@@ -27,6 +27,9 @@ import com.example.fyp_25_s4_23.boundary.debug.ModelTestScreen
 import com.example.fyp_25_s4_23.control.viewmodel.ModelTestResult
 import com.example.fyp_25_s4_23.boundary.call.VoipCallManager
 import com.example.fyp_25_s4_23.control.utils.getMemoryUsageGb
+import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PhoneMissed
 
 import androidx.compose.runtime.mutableStateListOf
 
@@ -50,7 +53,8 @@ fun UserDashboard(
     onRunModelTest: ((String) -> Unit)? = null,
     modelTestResult: ModelTestResult = ModelTestResult(),
     onSubmitReview: ((Int, String, Boolean) -> Unit)? = null,
-    onNavigateToDialer: (() -> Unit)? = null
+    onNavigateToDialer: (() -> Unit)? = null,
+    firebaseCalls: List<FirebaseCallRecord> = emptyList()
 ) {
     val ctx = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
@@ -315,20 +319,41 @@ fun UserDashboard(
                         Column(Modifier.padding(16.dp)) {
                             Text("Recent Calls", style = MaterialTheme.typography.titleMedium)
 
-                            if (callRecords.isEmpty()) {
-                                Text("No call data yet.")
+                            if (firebaseCalls.isEmpty()) {
+                                Text("No call history yet.")
                             } else {
-                                callRecords.take(5).forEach { record ->
-                                    Column(Modifier.padding(vertical = 6.dp)) {
-                                        Text(
-                                            "${record.metadata.displayName ?: "Unknown"} " +
-                                                    "(${record.metadata.phoneNumber})"
+                                firebaseCalls.take(3).forEach { record ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = if (record.isOutgoing) Icons.Default.Phone else Icons.Default.PhoneMissed,
+                                            contentDescription = if (record.isOutgoing) "Outgoing" else "Incoming",
+                                            tint = if (record.isOutgoing) Color.Blue else Color.Green,
+                                            modifier = Modifier
+                                                .size(20.dp)
+                                                .padding(end = 8.dp)
                                         )
-                                        Text(
-                                            "Probability: ${
-                                                (record.detections.lastOrNull()?.probability ?: 0f) * 100f
-                                            }%"
-                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                record.getContactName(),
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                            Text(
+                                                record.getCreatedAtFormatted(),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        if (record.isCompleted()) {
+                                            Text(
+                                                record.getDurationString(),
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
                                     }
                                     Divider()
                                 }
@@ -337,8 +362,13 @@ fun UserDashboard(
                             if (user.role == UserRole.REGISTERED &&
                                 onNavigateToCallHistory != null
                             ) {
-                                Button(onClick = onNavigateToCallHistory) {
-                                    Text("View Call History")
+                                Button(
+                                    onClick = onNavigateToCallHistory,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp)
+                                ) {
+                                    Text("View Full Call History")
                                 }
                             }
                         }

@@ -1,6 +1,8 @@
 package com.example.fyp_25_s4_23.entity.domain.entities
 
 import com.google.firebase.Timestamp
+import java.text.SimpleDateFormat
+import java.util.*
 
 /**
  * Represents user information enriched from Firebase
@@ -28,6 +30,12 @@ data class FirebaseCallRecord(
     val otherUser: OtherUser = OtherUser()
 ) {
     /**
+     * Check if this call is outgoing (current user is caller)
+     */
+    val isOutgoing: Boolean
+        get() = isCaller
+
+    /**
      * Get display name for the call contact
      */
     fun getContactName(): String = otherUser.displayName
@@ -36,6 +44,32 @@ data class FirebaseCallRecord(
      * Get the timestamp in milliseconds
      */
     fun getCreatedAtMillis(): Long = createdAt?.toDate()?.time ?: 0
+
+    /**
+     * Format created timestamp for display
+     */
+    fun getCreatedAtFormatted(): String {
+        val mills = getCreatedAtMillis()
+        if (mills == 0L) return "Unknown"
+        
+        val date = Date(mills)
+        val now = System.currentTimeMillis()
+        val diffMs = now - mills
+        val diffMins = diffMs / (1000 * 60)
+        val diffHours = diffMs / (1000 * 60 * 60)
+        val diffDays = diffMs / (1000 * 60 * 60 * 24)
+        
+        return when {
+            diffMins < 1 -> "Just now"
+            diffMins < 60 -> "$diffMins min ago"
+            diffHours < 24 -> "$diffHours hour${if (diffHours > 1) "s" else ""} ago"
+            diffDays < 7 -> "$diffDays day${if (diffDays > 1) "s" else ""} ago"
+            else -> {
+                val format = SimpleDateFormat("MMM dd", Locale.getDefault())
+                format.format(date)
+            }
+        }
+    }
 
     /**
      * Check if call is completed
