@@ -18,12 +18,16 @@ import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
 import com.example.fyp_25_s4_23.domain.entities.ContactLabel
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
+import com.example.fyp_25_s4_23.boundary.dashboard.BottomNavigationBar
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DialerScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToCallHistory: (() -> Unit)? = null,
+    onNavigateToContacts: (() -> Unit)? = null,
+    onLogout: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -44,10 +48,19 @@ fun DialerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Secure Dialer") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                title = { Text("Secure Dialer") }
+            )
+        },
+        bottomBar = {
+            BottomNavigationBar(
+                currentRoute = "dialer",
+                onNavigate = { route ->
+                    when (route) {
+                        "home" -> onBack()
+                        "call_history" -> onNavigateToCallHistory?.invoke()
+                        "dialer" -> { /* Already here */ }
+                        "contacts" -> onNavigateToContacts?.invoke()
+                        "logout" -> onLogout?.invoke()
                     }
                 }
             )

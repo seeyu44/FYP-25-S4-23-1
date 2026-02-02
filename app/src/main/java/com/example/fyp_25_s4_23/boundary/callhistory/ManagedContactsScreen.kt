@@ -21,13 +21,17 @@ import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.domain.entities.Contact
 import com.example.fyp_25_s4_23.domain.entities.ContactLabel
 import com.example.fyp_25_s4_23.boundary.call.VoipCallManager
+import com.example.fyp_25_s4_23.boundary.dashboard.BottomNavigationBar
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManagedContactsScreen(
     viewModel: ManagedContactsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToCallHistory: (() -> Unit)? = null,
+    onNavigateToDialer: (() -> Unit)? = null,
+    onLogout: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val contactList by viewModel.contacts.collectAsState()
@@ -54,12 +58,7 @@ fun ManagedContactsScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("Managed Contacts") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                        }
-                    }
+                    title = { Text("Managed Contacts") }
                 )
                 TabRow(selectedTabIndex = selectedTab) {
                     tabs.forEachIndexed { index, title ->
@@ -71,6 +70,20 @@ fun ManagedContactsScreen(
                     }
                 }
             }
+        },
+        bottomBar = {
+            BottomNavigationBar(
+                currentRoute = "contacts",
+                onNavigate = { route ->
+                    when (route) {
+                        "home" -> onBack()
+                        "call_history" -> onNavigateToCallHistory?.invoke()
+                        "dialer" -> onNavigateToDialer?.invoke()
+                        "contacts" -> { /* Already here */ }
+                        "logout" -> onLogout?.invoke()
+                    }
+                }
+            )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {

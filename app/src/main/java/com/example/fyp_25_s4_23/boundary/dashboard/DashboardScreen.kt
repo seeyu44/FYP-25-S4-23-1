@@ -16,8 +16,6 @@ import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 import com.example.fyp_25_s4_23.control.controllers.SystemController
-import com.example.fyp_25_s4_23.entity.ml.ModelRunner
-import com.example.fyp_25_s4_23.control.viewmodel.ModelTestResult
 
 /**
  * Main dashboard router that displays the appropriate dashboard based on user role.
@@ -36,10 +34,6 @@ fun DashboardScreen(
     onNavigateToContactList: () -> Unit,
     systemController: SystemController,
     userSettings: UserSettings? = null,
-    onToggleDetection: ((Boolean) -> Unit)? = null,
-    modelRunner: ModelRunner? = null,
-    onRunModelTest: (String) -> Unit,
-    modelTestResult: ModelTestResult = ModelTestResult(),
     onSubmitReview: ((Int, String, Boolean) -> Unit)? = null,
     onCreateAdmin: ((String, String, String, String) -> Unit)? = null,
     onNavigateToDialer: (() -> Unit)? = null,
@@ -73,10 +67,6 @@ fun DashboardScreen(
                 onNavigateToContactList = onNavigateToContactList,
                 systemController = systemController,
                 userSettings = userSettings,
-                onToggleDetection = onToggleDetection,
-                modelRunner = modelRunner,
-                onRunModelTest = onRunModelTest,
-                modelTestResult = modelTestResult,
                 onSubmitReview = onSubmitReview,
                 onNavigateToDialer = onNavigateToDialer,
                 firebaseCalls = firebaseCalls

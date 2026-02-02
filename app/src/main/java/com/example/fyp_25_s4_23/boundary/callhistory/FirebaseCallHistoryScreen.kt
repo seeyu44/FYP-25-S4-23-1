@@ -15,15 +15,19 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
+import com.example.fyp_25_s4_23.boundary.dashboard.BottomNavigationBar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -32,40 +36,58 @@ import java.util.Locale
  * Displays call history fetched from Firebase Cloud Functions
  * Shows calls where the user is either caller or callee
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FirebaseCallHistoryScreen(
     calls: List<FirebaseCallRecord>,
     isLoading: Boolean = false,
     errorMessage: String? = null,
     onRefresh: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToDialer: (() -> Unit)? = null,
+    onNavigateToContacts: (() -> Unit)? = null,
+    onLogout: (() -> Unit)? = null
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Call History",
-                style = MaterialTheme.typography.headlineSmall
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Call History",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                },
+                actions = {
+                    Button(
+                        onClick = onRefresh,
+                        enabled = !isLoading
+                    ) {
+                        Text("Refresh")
+                    }
+                }
             )
-            Row {
-                Button(
-                    onClick = onRefresh,
-                    modifier = Modifier.padding(end = 8.dp),
-                    enabled = !isLoading
-                ) {
-                    Text("Refresh")
+        },
+        bottomBar = {
+            BottomNavigationBar(
+                currentRoute = "call_history",
+                onNavigate = { route ->
+                    when (route) {
+                        "home" -> onBack()
+                        "call_history" -> { /* Already here */ }
+                        "dialer" -> onNavigateToDialer?.invoke()
+                        "contacts" -> onNavigateToContacts?.invoke()
+                        "logout" -> onLogout?.invoke()
+                    }
                 }
-                Button(onClick = onBack) {
-                    Text("Back")
-                }
-            }
+            )
         }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
 
         // Loading state
         if (isLoading) {
@@ -147,6 +169,7 @@ fun FirebaseCallHistoryScreen(
             items(calls) { call ->
                 FirebaseCallHistoryCard(call = call)
             }
+        }
         }
     }
 }

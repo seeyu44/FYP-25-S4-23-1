@@ -20,9 +20,6 @@ import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
 import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 import com.example.fyp_25_s4_23.control.controllers.SystemController
-import com.example.fyp_25_s4_23.entity.ml.ModelRunner
-import com.example.fyp_25_s4_23.boundary.debug.ModelTestScreen
-import com.example.fyp_25_s4_23.control.viewmodel.ModelTestResult
 import com.example.fyp_25_s4_23.boundary.call.VoipCallManager
 import com.example.fyp_25_s4_23.control.utils.getMemoryUsageGb
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
@@ -42,14 +39,10 @@ fun UserDashboard(
     userSettings: UserSettings? = null,
     onLogout: () -> Unit = {},
     onRefresh: () -> Unit = {},
-    onToggleDetection: ((Boolean) -> Unit)? = null,
-    modelRunner: ModelRunner? = null,
     systemController: SystemController = SystemController(),
     onNavigateToSummary: (() -> Unit)? = null,
     onNavigateToCallHistory: (() -> Unit)? = null,
     onNavigateToContactList: (() -> Unit)? = null,
-    onRunModelTest: ((String) -> Unit)? = null,
-    modelTestResult: ModelTestResult = ModelTestResult(),
     onSubmitReview: ((Int, String, Boolean) -> Unit)? = null,
     onNavigateToDialer: (() -> Unit)? = null,
     firebaseCalls: List<FirebaseCallRecord> = emptyList()
@@ -241,16 +234,6 @@ fun UserDashboard(
                     }
                 }
 
-                // Detection Toggle Card
-                if (userSettings != null && onToggleDetection != null) {
-                    item {
-                        DetectionToggleCard(
-                            enabled = userSettings.realTimeDetectionEnabled,
-                            onToggleDetection = onToggleDetection
-                        )
-                    }
-                }
-
                 // VoIP Test Calls (for testing)
                 if (onNavigateToDialer != null && users.any { it.id != user.id }) {
                     item {
@@ -290,29 +273,6 @@ fun UserDashboard(
                     }
                 }
 
-                // Model Test (for debugging)
-                modelRunner?.let { runner ->
-                    if (onRunModelTest != null) {
-                        item {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 16.dp)
-                            ) {
-                                Column(Modifier.padding(12.dp)) {
-                                    Text("Model Test", style = MaterialTheme.typography.titleMedium)
-                                    ModelTestScreen(
-                                        modelRunner = runner,
-                                        detectionEnabled = userSettings?.realTimeDetectionEnabled ?: true,
-                                        onRunModelTest = onRunModelTest,
-                                        modelTestResult = modelTestResult
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
                 // Admin panel
                 if (user.role == UserRole.ADMIN) {
                     item {
@@ -342,39 +302,6 @@ fun UserDashboard(
                     showReviewDialog = false
                 }
             )
-        }
-    }
-}
-
-/* ================= COMPONENT ================= */
-
-@Composable
-private fun DetectionToggleCard(
-    enabled: Boolean,
-    onToggleDetection: (Boolean) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "Real-time Deepfake Detection",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    "Automatically monitors calls for synthetic voices."
-                )
-            }
-            Switch(checked = enabled, onCheckedChange = onToggleDetection)
         }
     }
 }

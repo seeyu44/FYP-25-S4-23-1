@@ -195,7 +195,10 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                     isLoading = uiState.isBusy,
                     errorMessage = uiState.message,
                     onRefresh = { viewModel.loadFirebaseCallHistory() },
-                    onBack = viewModel::navigateToDashboard
+                    onBack = viewModel::navigateToDashboard,
+                    onNavigateToDialer = viewModel::navigateToDialer,
+                    onNavigateToContacts = { viewModel.navigateToManagedContacts() },
+                    onLogout = viewModel::logout
                 )
             }
         }
@@ -222,11 +225,7 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                         viewModel.navigateToCallHistory()
                     },
                     onNavigateToContactList = { viewModel.navigateToManagedContacts() },
-                    onToggleDetection = detectionToggleHandler,
                     systemController = systemController,
-                    modelRunner = modelRunner,
-                    onRunModelTest = viewModel::runModelTest,
-                    modelTestResult = uiState.modelTest,
                     onSubmitReview = viewModel::submitReview,
                     onCreateAdmin = viewModel::createAdminUser,
                     onNavigateToDialer = viewModel::navigateToDialer,
@@ -241,7 +240,13 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                 viewModel.navigateToLogin()
             } else {
                 com.example.fyp_25_s4_23.boundary.call.DialerScreen(
-                    onBack = viewModel::navigateToDashboard
+                    onBack = viewModel::navigateToDashboard,
+                    onNavigateToCallHistory = {
+                        viewModel.loadFirebaseCallHistory()
+                        viewModel.navigateToCallHistory()
+                    },
+                    onNavigateToContacts = { viewModel.navigateToManagedContacts() },
+                    onLogout = viewModel::logout
                 )
             }
         }
@@ -274,7 +279,13 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
 
                 ManagedContactsScreen(
                     viewModel = managedViewModel,
-                    onBack = viewModel::navigateToDashboard
+                    onBack = viewModel::navigateToDashboard,
+                    onNavigateToCallHistory = {
+                        viewModel.loadFirebaseCallHistory()
+                        viewModel.navigateToCallHistory()
+                    },
+                    onNavigateToDialer = viewModel::navigateToDialer,
+                    onLogout = viewModel::logout
                 )
             }
         }
