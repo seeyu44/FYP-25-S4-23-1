@@ -11,7 +11,9 @@ object VoipCallManager {
 
     fun startOutgoingVoipCall(
         context: Context,
-        calleeUserId: String
+        calleeUserId: String,
+        calleeDisplayName: String? = null,
+        calleePhoneNumber: String? = null
     ) {
         val caller = FirebaseAuthManager.currentUser()
             ?: error("User not logged in")
@@ -31,7 +33,12 @@ object VoipCallManager {
             putExtra(IncomingCallIntent.EXTRA_CALL_ID, callId)
             putExtra(IncomingCallIntent.EXTRA_IS_INCOMING, false)
             putExtra(IncomingCallIntent.EXTRA_REMOTE_USER_ID, calleeUserId)
-            //putExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME, callerUsername)
+            if (calleeDisplayName != null) {
+                putExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME, calleeDisplayName)
+            }
+            if (calleePhoneNumber != null) {
+                putExtra("extra_phone_number", calleePhoneNumber)
+            }
         }
         context.startActivity(intent)
     }

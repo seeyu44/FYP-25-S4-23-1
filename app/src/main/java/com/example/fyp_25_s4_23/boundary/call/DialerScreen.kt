@@ -208,10 +208,12 @@ fun DialerScreen(
                                 Log.d("DialerScreen", "Found user: ${result.username} (${result.uid})")
                                 isLoading = false
                                 
-                                // Initiate call with the resolved UID
+                                // Initiate call with the resolved UID and available info
                                 VoipCallManager.startOutgoingVoipCall(
                                     context = context,
-                                    calleeUserId = result.uid
+                                    calleeUserId = result.uid,
+                                    calleeDisplayName = result.username,
+                                    calleePhoneNumber = normalized
                                 )
                                 
                                 // Go back to dashboard after initiating call

@@ -101,7 +101,12 @@ fun ManagedContactsScreen(
                         onCall = {
                             viewModel.callContact(contact.phoneNumber) { username ->
                                 if (username != null) {
-                                    VoipCallManager.startOutgoingVoipCall(context, username)
+                                    VoipCallManager.startOutgoingVoipCall(
+                                        context, 
+                                        username,
+                                        calleeDisplayName = contact.displayName,
+                                        calleePhoneNumber = contact.phoneNumber
+                                    )
                                 }
                             }
                         },
