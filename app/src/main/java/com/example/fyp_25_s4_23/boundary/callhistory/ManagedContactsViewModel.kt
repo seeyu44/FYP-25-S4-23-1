@@ -247,13 +247,6 @@ class ManagedContactsViewModel(
             }
         }
     }
-                    "Contact has been unblocked"
-                }
-            } catch (e: Exception) {
-                _uiMessage.value = "Failed to unblock contact"
-            }
-        }
-    }
 
     fun callContact(phoneNumber: String, onComplete: (username: String?) -> Unit) {
         viewModelScope.launch {
