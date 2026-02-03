@@ -180,6 +180,16 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                     onRequestSummary = { start, end, daily ->
                         viewModel.aggregateSummary(start, end, daily)
                     },
+                    onNavigate = { route ->
+                        when (route) {
+                            "home" -> viewModel.navigateToDashboard()
+                            "summary" -> { /* Already on summary */ }
+                            "call_history" -> viewModel.navigateToCallHistory()
+                            "dialer" -> viewModel.navigateToDialer()
+                            "contacts" -> viewModel.navigateToManagedContacts()
+                            "logout" -> viewModel.logout()
+                        }
+                    },
                     onBack = viewModel::navigateToDashboard
                 )
             }

@@ -24,6 +24,7 @@ fun SummaryScreen(
     metrics: List<SummaryMetrics>,
     isLoading: Boolean,
     onRequestSummary: (startMillis: Long, endMillis: Long, daily: Boolean) -> Unit,
+    onNavigate: (String) -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -80,9 +81,6 @@ fun SummaryScreen(
                 text = "Summary for ${user.displayName}",
                 style = MaterialTheme.typography.titleLarge
             )
-            Button(onClick = onBack) {
-                Text("Back")
-            }
         }
 
         /* =========================
@@ -211,6 +209,10 @@ fun SummaryScreen(
                 .padding(top = 12.dp)
         ) {
             items(metrics) { item ->
+                Cweight(1f)
+                .padding(top = 12.dp)
+        ) {
+            items(metrics) { item ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -236,9 +238,23 @@ fun SummaryScreen(
                 }
             }
         }
-    }
-}
 
+        /* =========================
+           BOTTOM NAVIGATION
+           ========================= */
+        BottomNavigationBar(
+            currentRoute = "summary",
+            onNavigate = { route ->
+                when (route) {
+                    "home" -> onNavigate("home")
+                    "summary" -> { /* Already on summary */ }
+                    "call_history" -> onNavigate("call_history")
+                    "dialer" -> onNavigate("dialer")
+                    "contacts" -> onNavigate("contacts")
+                    "logout" -> onNavigate("logout")
+                }
+            }
+        )
 /* =========================
    DATE PICKER
    ========================= */
