@@ -40,15 +40,12 @@ class CallInProgressActivity : ComponentActivity() {
         val isIncoming =
             intent.getBooleanExtra(IncomingCallIntent.EXTRA_IS_INCOMING, false)
 
-        displayName =
-            if (isIncoming) {
-                // Callee sees caller name
-                intent.getStringExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME)
-                    ?: remoteUserId
-            } else {
-                // Caller sees callee name
-                remoteUserId   // TEMP (later replace with callee display name)
-            }
+        // Initialize display name with intent extra, fallback to userId
+        displayName = intent.getStringExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME)
+            ?.takeIf { it.isNotBlank() }
+            ?: remoteUserId
+
+        viewModel.setRemoteDisplayName(displayName)
 
 
         Log.d(TAG_SIG, "Call started → id=$callId incoming=$isIncoming")
@@ -60,6 +57,10 @@ class CallInProgressActivity : ComponentActivity() {
 
         signaling = FirebaseSignalingManager()
         ActiveCallStore.setWebRtcActive(callId, remoteUserId)
+
+        // Initialize database DAO for detection results
+        val database = com.example.fyp_25_s4_23.entity.data.db.AppDatabase.getInstance(this)
+        val detectionDao = database.detectionResultDao()
 
         webRtcClient = WebRtcClient(
             context = this,
@@ -124,6 +125,13 @@ class CallInProgressActivity : ComponentActivity() {
         val client = webRtcClient ?: return
 
         viewModel.attachWebRtcClient(client)
+
+        // Wire answer callback (for incoming calls)
+        viewModel.onStartCallRequested = {
+            Log.d(TAG_SIG, "User accepted call → answering...")
+            client.answerIncomingCall()
+            viewModel.setActive()
+        }
 
         client.onEngineEnded = {
             Log.w("ICE_STATE", "Engine ended → finishing activity")

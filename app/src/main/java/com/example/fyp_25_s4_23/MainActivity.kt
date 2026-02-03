@@ -240,7 +240,8 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                 viewModel.navigateToLogin()
             } else {
                 com.example.fyp_25_s4_23.boundary.call.DialerScreen(
-                    onBack = viewModel::navigateToDashboard
+                    onBack = viewModel::navigateToDashboard,
+                    callerDisplayName = user.displayName.ifBlank { user.username }
                 )
             }
         }

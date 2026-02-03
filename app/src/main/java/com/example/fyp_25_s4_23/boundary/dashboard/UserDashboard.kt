@@ -293,7 +293,9 @@ fun UserDashboard(
                                             otherUser.firebaseUid?.let { uid ->
                                                 VoipCallManager.startOutgoingVoipCall(
                                                     context = ctx,
-                                                    calleeUserId = uid
+                                                    calleeUserId = uid,
+                                                    calleeDisplayName = otherUser.username,
+                                                    callerDisplayName = user.displayName.ifBlank { user.username }
                                                 )
                                             }
                                         }

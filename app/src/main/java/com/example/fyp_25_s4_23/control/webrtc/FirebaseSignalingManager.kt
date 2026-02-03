@@ -20,7 +20,13 @@ class FirebaseSignalingManager {
     /* =========================
        CREATE CALL
        ========================= */
-    fun createCall(callId: String, callerUid: String, calleeUid: String, callerUsername: String) {
+    fun createCall(
+        callId: String,
+        callerUid: String,
+        calleeUid: String,
+        callerUsername: String,
+        calleeUsername: String? = null
+    ) {
         firestore.collection("calls")
             .document(callId)
             .set(
@@ -28,6 +34,7 @@ class FirebaseSignalingManager {
                     "caller_user_id" to callerUid,
                     "callee_user_id" to calleeUid,
                     "caller_username" to callerUsername,
+                    "callee_username" to calleeUsername,
                     "status" to "ringing",
                     "offer_sdp" to null,
                     "answer_sdp" to null,

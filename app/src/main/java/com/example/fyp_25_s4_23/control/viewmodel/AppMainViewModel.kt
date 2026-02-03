@@ -438,15 +438,8 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
             }.getOrNull()
 
             val probability = result?.score ?: 0f
-            val isDeepfake = probability >= _state.value.userSettings.detectionThreshold
-
-            if (isDeepfake) {
-                saveDetectionAlert(
-                    java.util.UUID.randomUUID().toString(),
-                    probability
-                )
-                AlertHandlerHolder.handler?.displayCriticalAlert(probability)
-            }
+            // Bundled audio testing is just for model validation - don't trigger alerts
+            // The UI already shows the result in ModelTestScreen
 
             _state.update {
                 it.copy(

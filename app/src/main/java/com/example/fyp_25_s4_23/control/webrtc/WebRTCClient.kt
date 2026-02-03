@@ -10,11 +10,13 @@ import androidx.core.content.ContextCompat
 import android.media.AudioRecord
 import android.media.AudioFormat
 import android.media.MediaRecorder
-import android.media.MediaPlayer
 import android.media.AudioManager
 import org.webrtc.*
 import org.webrtc.CandidatePairChangeEvent
 import com.example.fyp_25_s4_23.control.detection.DeepfakeDetectionService
+import org.webrtc.audio.JavaAudioDeviceModule
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class WebRtcClient(
     private val context: Context,
@@ -29,6 +31,7 @@ class WebRtcClient(
     private lateinit var peerConnection: PeerConnection
     private lateinit var audioSource: AudioSource
     private lateinit var audioTrack: org.webrtc.AudioTrack
+    private var audioDeviceModule: JavaAudioDeviceModule? = null
 
     private var iceListeningStarted = false
 
@@ -39,8 +42,10 @@ class WebRtcClient(
     var onRemoteAudioStateChanged: ((Boolean) -> Unit)? = null
     var onSpeakerStateChanged: ((Boolean) -> Unit)? = null
     
-    // Deepfake detection
+    // Deepfake detection (receiver-side only)
     private var detectionService: DeepfakeDetectionService? = null
+    private var incomingAudioSink: AudioTrackSink? = null
+    private var remoteAudioTrack: org.webrtc.AudioTrack? = null
     var onDeepfakeDetected: ((Float, Boolean) -> Unit)? = null
     var onDetectionUpdate: ((Float) -> Unit)? = null
 
@@ -48,10 +53,6 @@ class WebRtcClient(
     private var localEnabled: Boolean = true
     private var speakerEnabled: Boolean = false
 
-    // Monitoring / smoothing state
-    private var monitoringHandler: Handler? = null
-    private var monitoringRunnable: Runnable? = null
-    private var monitorPollMs: Long = 300
     private var alpha: Double = 0.25
     private var smoothedLocalLevel: Double = 0.0
     private var smoothedRemoteLevel: Double = 0.0
@@ -68,7 +69,10 @@ class WebRtcClient(
     private var currentLocalState: AudioState = AudioState.SILENT
     private var currentRemoteActive: Boolean = false
 
-    // State guards for offer/answer ordering
+    // Audio monitoring loop state
+    private var monitoringHandler: Handler? = null
+    private var monitoringRunnable: Runnable? = null
+    private var monitorPollMs: Long = 300
     private val pendingIceCandidates = mutableListOf<IceCandidate>()
     private var remoteOfferApplied: Boolean = false
     private var remoteAnswerApplied: Boolean = false
@@ -87,12 +91,12 @@ class WebRtcClient(
     private var ringTimeoutRunnable: Runnable? = null
     private val ringTimeoutMs: Long = 60_000  // Increased to 60s for cross-network calls
     
-    // Audio capture for deepfake detection
+    // Audio capture (legacy, not used for digital detection)
     private var audioRecord: android.media.AudioRecord? = null
     private var audioCaptureThread: Thread? = null
     
-    // Demo audio playback
-    private var demoMediaPlayer: MediaPlayer? = null
+    // Demo audio playback (MediaPlayer approach - mic picks it up naturally)
+    private var demoMediaPlayer: android.media.MediaPlayer? = null
     private var isDemoMode = false
 
     fun setOnReadyToAnswerListener(listener: (Boolean) -> Unit) { onReadyToAnswer = listener }
@@ -105,7 +109,16 @@ class WebRtcClient(
                 .createInitializationOptions()
         )
 
-        factory = PeerConnectionFactory.builder().createPeerConnectionFactory()
+        audioDeviceModule = JavaAudioDeviceModule.builder(context)
+            .createAudioDeviceModule()
+
+        factory = PeerConnectionFactory.builder()
+            .setAudioDeviceModule(audioDeviceModule)
+            .createPeerConnectionFactory()
+        
+        // ✅ Verification: Confirm JavaAudioDeviceModule is registered
+        Log.w("AUDIO_PIPELINE_VERIFY", "✅ Factory initialized with audioDeviceModule: ${audioDeviceModule != null}")
+        Log.w("AUDIO_PIPELINE_VERIFY", "✅ Audio device module class: ${audioDeviceModule?.javaClass?.simpleName}")
     }
 
     private fun flushPendingIce() {
@@ -134,13 +147,98 @@ class WebRtcClient(
 
 
     fun createAudioTrack() {
+        // When audioDeviceModule is set on factory, createAudioSource will use it as the capture source.
+        // This ensures a SINGLE pipeline: Mic → audioDeviceModule → setSamplesReadyCallback → encoding
         audioSource = factory.createAudioSource(MediaConstraints())
+        Log.w("AUDIO_PIPELINE", "✅ AudioSource created — will use audioDeviceModule for capture")
+        
         audioTrack = factory.createAudioTrack("AUDIO", audioSource)
+        Log.w("AUDIO_PIPELINE", "✅ AudioTrack linked to AudioSource (unified pipeline)")
+        
         try {
             audioTrack.setEnabled(true)
+            Log.w("AUDIO_PIPELINE", "✅ AudioTrack enabled — ready for transmission")
         } catch (e: Exception) {
             Log.w("WebRTC", "Failed to set audioTrack enabled by default", e)
         }
+    }
+
+    /**
+     * INCOMING interception: attach sink to remote AudioTrack
+     */
+    private fun attachIncomingDetectionSink(track: org.webrtc.AudioTrack?) {
+        if (track == null) return
+        if (incomingAudioSink != null) return
+
+        incomingAudioSink = object : AudioTrackSink {
+            override fun onData(
+                data: ByteBuffer,
+                bitsPerSample: Int,
+                sampleRate: Int,
+                numberOfChannels: Int,
+                numberOfFrames: Int,
+                absoluteCaptureTimestampMs: Long
+            ) {
+                if (bitsPerSample != 16) return
+                val shortCount = numberOfFrames * numberOfChannels
+                if (shortCount <= 0) return
+
+                val shorts = ShortArray(shortCount)
+                data.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts)
+
+                // Downmix to mono if needed
+                val mono = if (numberOfChannels == 1) {
+                    shorts
+                } else {
+                    val frames = numberOfFrames
+                    val out = ShortArray(frames)
+                    var idx = 0
+                    for (i in 0 until frames) {
+                        var sum = 0
+                        for (ch in 0 until numberOfChannels) {
+                            sum += shorts[idx++].toInt()
+                        }
+                        out[i] = (sum / numberOfChannels).toShort()
+                    }
+                    out
+                }
+
+                // Resample to 16k if needed (simple decimation)
+                val resampled = when {
+                    sampleRate == 16000 -> mono
+                    sampleRate % 16000 == 0 -> {
+                        val ratio = sampleRate / 16000
+                        val outSize = mono.size / ratio
+                        val out = ShortArray(outSize)
+                        var j = 0
+                        var i = 0
+                        while (i < mono.size && j < outSize) {
+                            out[j++] = mono[i]
+                            i += ratio
+                        }
+                        out
+                    }
+                    else -> {
+                        Log.w("DEEPFAKE_AUDIO", "Unsupported sampleRate=$sampleRate for incoming detection")
+                        return
+                    }
+                }
+
+                detectionService?.feedAudioChunk(resampled)
+            }
+        }
+
+        track.addSink(incomingAudioSink)
+        Log.d("DEEPFAKE_AUDIO", "✅ Incoming audio sink attached for detection")
+    }
+
+    private fun detachIncomingDetectionSink() {
+        val track = remoteAudioTrack
+        val sink = incomingAudioSink
+        if (track != null && sink != null) {
+            track.removeSink(sink)
+        }
+        incomingAudioSink = null
     }
 
     //Toggle local audio send for WebRTC calls (used by mute/unmute UI when not on Telecom)
@@ -438,6 +536,8 @@ class WebRtcClient(
                     if (track is AudioTrack) {
                         track.setEnabled(true)
                         Log.d("WebRTC", "Remote audio track received")
+                        remoteAudioTrack = track
+                        attachIncomingDetectionSink(track)
                         if (!currentRemoteActive) {
                             currentRemoteActive = true
                             onRemoteAudioStateChanged?.invoke(true)
@@ -464,6 +564,11 @@ class WebRtcClient(
                                 cancelRingTimeout()
                                 setupAudioRouting()
                                 startAudioMonitoring()
+                                
+                                // Start deepfake detection when call connects
+                                val database = com.example.fyp_25_s4_23.entity.data.db.AppDatabase.getInstance(context)
+                                startDeepfakeDetection(database.detectionResultDao())
+                                
                                 onAnswered?.invoke()
 
                                 if (isCaller) {
@@ -517,8 +622,8 @@ class WebRtcClient(
             startRingTimeout()
         }
 
-
-        //startAudioMonitoring()
+        // Start audio monitoring for local/remote audio state
+        startAudioMonitoring()
 
         if (isCaller) createOffer()
     }
@@ -742,8 +847,7 @@ class WebRtcClient(
     fun startDeepfakeDetection(detectionDao: com.example.fyp_25_s4_23.entity.data.dao.DetectionResultDao? = null) {
         Log.i("DEEPFAKE", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         Log.i("DEEPFAKE", "🎯 STARTING DEEPFAKE DETECTION")
-        Log.i("DEEPFAKE", "   My User ID: $userId (will monitor MY mic)")
-        Log.i("DEEPFAKE", "   Remote User ID: $remoteUserId (will listen for THEIR results)")
+        Log.i("DEEPFAKE", "   Mode: Receiver-side (incoming audio only)")
         Log.i("DEEPFAKE", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         
         if (detectionService != null) {
@@ -752,8 +856,8 @@ class WebRtcClient(
         }
         
         try {
-            // ═══ STEP 1: Initialize Detection Service for MY voice ═══
-            Log.d("DEEPFAKE", "📦 Creating service to analyze MY voice ($userId)...")
+            // ═══ STEP 1: Initialize Detection Service for INCOMING audio ═══
+            Log.d("DEEPFAKE", "📦 Creating service to analyze INCOMING audio...")
             detectionService = DeepfakeDetectionService(
                 context = context,
                 callId = callId,
@@ -761,52 +865,28 @@ class WebRtcClient(
             )
             Log.d("DEEPFAKE", "✅ Detection service created")
             
-            // ═══ STEP 2: Send MY Results to Firestore (for REMOTE user to see) ═══
-            Log.d("DEEPFAKE", "📤 Setting up: MY results → Firestore → REMOTE user")
-            
+            // ═══ STEP 2: Receiver-side UI updates only ═══
             detectionService?.onDeepfakeDetected = { score ->
-                Log.w("DEEPFAKE", "━━━ MY VOICE FLAGGED AS DEEPFAKE! ━━━")
+                Log.w("DEEPFAKE", "━━━ INCOMING AUDIO FLAGGED AS DEEPFAKE! ━━━")
                 Log.w("DEEPFAKE", "   Score: $score")
-                Log.w("DEEPFAKE", "   Sending to Firestore for remote user ($remoteUserId) to see")
-                signaling.sendDetectionResult(callId, userId, score, true)
+                onDeepfakeDetected?.invoke(score, true)
             }
-            
             detectionService?.onDetectionUpdate = { result ->
-                Log.d("DEEPFAKE", "📊 Analyzed MY voice: score=${result.score}, fake=${result.isDeepfake}")
-                Log.d("DEEPFAKE", "   → Sending to Firestore for remote user")
-                signaling.sendDetectionResult(callId, userId, result.score, result.isDeepfake)
-            }
-            
-            // ═══ STEP 3: Listen for REMOTE User's Results from Firestore ═══
-            Log.d("DEEPFAKE", "👂 Setting up: Firestore → REMOTE results ($remoteUserId) → MY UI")
-            signaling.listenForRemoteDetection(callId, remoteUserId) { score, isDeepfake ->
-                Log.w("DEEPFAKE", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                Log.w("DEEPFAKE", "🚨 RECEIVED: REMOTE user's ($remoteUserId) detection result!")
-                Log.w("DEEPFAKE", "   Score: $score")
-                Log.w("DEEPFAKE", "   Is Deepfake: $isDeepfake")
-                Log.w("DEEPFAKE", "   → Triggering UI alert to show user...")
-                Log.w("DEEPFAKE", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                
-                // Trigger UI to display the REMOTE user's deepfake status
-                onDetectionUpdate?.invoke(score)
-                if (isDeepfake) {
-                    onDeepfakeDetected?.invoke(score, true)
+                Log.d("DEEPFAKE", "📊 Incoming audio analyzed: score=${result.score}, fake=${result.isDeepfake}")
+                onDetectionUpdate?.invoke(result.score)
+                if (result.isDeepfake) {
+                    onDeepfakeDetected?.invoke(result.score, true)
                 }
             }
-            
-            // ═══ STEP 4: Start Capturing MY Microphone Input ═══
-            Log.d("DEEPFAKE", "🎤 Starting to monitor MY microphone ($userId)...")
+
+            // ═══ STEP 3: Start Monitoring INCOMING audio ═══
             detectionService?.startMonitoring()
-            
-            Log.d("DEEPFAKE", "📡 Starting AudioRecord to capture MY voice...")
-            startAudioCapture()
+            attachIncomingDetectionSink(remoteAudioTrack)
             
             Log.i("DEEPFAKE", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             Log.i("DEEPFAKE", "✅ DEEPFAKE DETECTION FULLY RUNNING")
-            Log.i("DEEPFAKE", "   ✓ Monitoring: MY mic ($userId)")
-            Log.i("DEEPFAKE", "   ✓ Sending: MY results → Firestore")
-            Log.i("DEEPFAKE", "   ✓ Listening: REMOTE results ($remoteUserId) → MY UI")
-            Log.i("DEEPFAKE", "   ✓ Alert: Shows if REMOTE user is using deepfake")
+            Log.i("DEEPFAKE", "   ✓ Monitoring: INCOMING audio track")
+            Log.i("DEEPFAKE", "   ✓ UI updates: Receiver-side only")
             Log.i("DEEPFAKE", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             
         } catch (e: Exception) {
@@ -815,9 +895,8 @@ class WebRtcClient(
     }
     
     /**
-     * Play demo audio file through speaker for presentation demos
-     * Supports: WAV, MP3, MP4, M4A, FLAC (all common formats)
-     * The mic picks it up, feeding both WebRTC and detection
+     * Play demo audio through speaker - microphone will pick it up and transmit it
+     * This is the SIMPLE approach that actually works with WebRTC
      * @param filename Name of file in assets/demo_audio/ folder, or null to stop playing
      */
     fun playDemoAudio(filename: String?) {
@@ -829,7 +908,7 @@ class WebRtcClient(
                 demoMediaPlayer?.release()
                 
                 // Load audio file from demo_audio folder
-                demoMediaPlayer = MediaPlayer()
+                demoMediaPlayer = android.media.MediaPlayer()
                 val assetPath = "demo_audio/$filename"
                 
                 try {
@@ -859,16 +938,29 @@ class WebRtcClient(
                     }
                 }
                 
-                // Play through VOICE_CALL stream so mic picks it up
-                demoMediaPlayer?.setAudioStreamType(AudioManager.STREAM_VOICE_CALL)
+                // ═══ CRITICAL FIX: Force speaker phone ON during demo audio playback ═══
+                // This ensures speaker plays (not earpiece) and audio reaches mic
+                val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                val wasInSpeakerMode = audioManager.isSpeakerphoneOn
+                audioManager.isSpeakerphoneOn = true
+                Log.d("DEMO_AUDIO", "📢 Forced speaker mode ON (was=$wasInSpeakerMode)")
+                
+                // Set system volume to maximum for VOICE_CALL stream
+                val maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_VOICE_CALL)
+                audioManager.setStreamVolume(android.media.AudioManager.STREAM_VOICE_CALL, maxVolume, 0)
+                Log.d("DEMO_AUDIO", "🔊 Set VOICE_CALL stream to max volume: $maxVolume")
+                
+                // Play through VOICE_CALL stream at MAXIMUM volume
+                demoMediaPlayer?.setAudioStreamType(android.media.AudioManager.STREAM_VOICE_CALL)
                 demoMediaPlayer?.isLooping = true
-                demoMediaPlayer?.setVolume(0.8f, 0.8f)
+                demoMediaPlayer?.setVolume(1.0f, 1.0f)  // ← CHANGED from 0.8f to 1.0f (MAX)
                 
                 demoMediaPlayer?.prepare()
                 demoMediaPlayer?.start()
                 
                 isDemoMode = true
-                Log.i("DEMO_AUDIO", "✅ Demo audio playing - mic will pick it up")
+                
+                Log.i("DEMO_AUDIO", "✅ Demo audio playing at MAX VOLUME through speaker - mic should capture it")
                 
             } catch (e: Exception) {
                 Log.e("DEMO_AUDIO", "Failed to play demo audio: $filename", e)
@@ -882,6 +974,8 @@ class WebRtcClient(
                 demoMediaPlayer?.release()
                 demoMediaPlayer = null
                 isDemoMode = false
+                
+                Log.i("DEMO_AUDIO", "✅ Demo audio stopped")
             } catch (e: Exception) {
                 Log.e("DEMO_AUDIO", "Error stopping demo audio", e)
             }
@@ -893,7 +987,7 @@ class WebRtcClient(
      */
     fun stopDeepfakeDetection() {
         try {
-            stopAudioCapture()
+            detachIncomingDetectionSink()
             detectionService?.stopMonitoring()
             detectionService?.cleanup()
             detectionService = null
@@ -1051,11 +1145,14 @@ class WebRtcClient(
         // Stop demo audio if playing
         demoMediaPlayer?.release()
         demoMediaPlayer = null
+        isDemoMode = false
 
         try {
             signaling.stopListening()
             peerConnection.close()
             audioSource.dispose()
+            audioDeviceModule?.release()
+            audioDeviceModule = null
         } catch (e: Exception) {
             Log.e("CALL_END", "Error during engineEnd cleanup", e)
         }
@@ -1068,6 +1165,10 @@ class WebRtcClient(
         Log.i("CALL_ENGINE", "User requested hang up")
         signaling.updateCallStatus(callId, "ended")
         engineEnd("USER_HANGUP")
+    }
+
+    fun close() {
+        requestHangUp()
     }
 
     fun onRemoteEnded() {

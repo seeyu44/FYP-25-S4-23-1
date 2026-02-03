@@ -1,23 +1,18 @@
 package com.example.fyp_25_s4_23.boundary.call
 
-import android.telecom.Call
-import android.telecom.VideoProfile
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.fyp_25_s4_23.control.call.ActiveCallStore
 import com.example.fyp_25_s4_23.control.webrtc.WebRtcClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 
 private const val TAG_UI = "CALL_UI"
-private const val TAG_STORE = "CALL_STORE"
-private const val TAG_WEBRTC = "CALL_WEBRTC"
+private const val TAG_CALL = "CALL_ENGINE"
 
 /* =========================
    UI STATE
@@ -25,6 +20,8 @@ private const val TAG_WEBRTC = "CALL_WEBRTC"
 sealed class CallUiEvent {
     data class Vibrate(val score : Float): CallUiEvent()
 }
+
+enum class CallAudioState { MUTED, SILENT, ACTIVE }
 sealed class CallUiState {
 
     data class Connecting(val handle: String) : CallUiState()
@@ -38,13 +35,18 @@ sealed class CallUiState {
 
     data class Active(
         val handle: String,
+        val isIncoming: Boolean,
         val isMuted: Boolean,
         val isSpeakerOn: Boolean,
-        val localAudioState: WebRtcClient.AudioState,
+        val localAudioState: CallAudioState,
         val remoteAudioActive: Boolean,
         val detectionScore: Float? = null,
         val isDeepfake: Boolean = false,
-        val isDetectionActive: Boolean = false
+        val isDetectionActive: Boolean = false,
+        val detectionThreshold: Float = 0.7f,
+        val remoteConnected: Boolean = false,
+        val inboundAudioLevel: Float = 0f,
+        val outboundAudioLevel: Float = 0f
     ) : CallUiState()
 
     data class Disconnected(val handle: String) : CallUiState()
@@ -63,66 +65,63 @@ class CallInProgressViewModel : ViewModel() {
     val events = _events.asSharedFlow()
     private var webRtcClient: WebRtcClient? = null
     private var isIncomingCall: Boolean = false
+    var onStartCallRequested: (() -> Unit)? = null
+    var onCallEnded: (() -> Unit)? = null
 
     fun setCallDirection(isIncoming: Boolean) {
         isIncomingCall = isIncoming
         Log.d(TAG_UI, "Call direction set → incoming=$isIncoming")
     }
 
+    fun setRemoteDisplayName(displayName: String) {
+        Log.d(TAG_UI, "setRemoteDisplayName=$displayName")
+        val current = _state.value
+        when (current) {
+            is CallUiState.Ringing -> _state.value = current.copy(handle = displayName)
+            is CallUiState.Connecting -> _state.value = current.copy(handle = displayName)
+            is CallUiState.Active -> _state.value = current.copy(handle = displayName)
+            else -> {} // Do nothing for disconnected
+        }
+    }
+
     /* =========================
-       WEBRTC ATTACH
+       WEBRTC CLIENT ATTACHMENT
        ========================= */
     fun attachWebRtcClient(client: WebRtcClient?) {
         webRtcClient = client
-        Log.d(TAG_WEBRTC, "attachWebRtcClient(client=${client != null})")
+        Log.d(TAG_CALL, "attachWebRtcClient(client=${client != null})")
 
-        client?.setOnReadyToAnswerListener { ready ->
-            val current = _state.value
-            if (current is CallUiState.Ringing) {
-                Log.d(TAG_WEBRTC, "ReadyToAnswer → $ready")
-                _state.value = current.copy(isReadyToAnswer = ready)
-            }
-        }
-
-        client?.setOnAnsweredListener {
-            Log.d(TAG_WEBRTC, "onAnswered → setActive()")
-            setActive()
-        }
-
-        client?.onLocalAudioStateChanged = { audio ->
+        client?.onLocalAudioStateChanged = { audioState ->
+            Log.d(TAG_CALL, "Local audio state changed → $audioState")
             val current = _state.value
             if (current is CallUiState.Active) {
-                _state.value = current.copy(localAudioState = audio)
+                val mapped = when (audioState) {
+                    WebRtcClient.AudioState.MUTED -> CallAudioState.MUTED
+                    WebRtcClient.AudioState.SILENT -> CallAudioState.SILENT
+                    WebRtcClient.AudioState.ACTIVE -> CallAudioState.ACTIVE
+                }
+                _state.value = current.copy(localAudioState = mapped)
             }
         }
 
         client?.onRemoteAudioStateChanged = { active ->
+            Log.d(TAG_CALL, "Remote audio active → $active")
             val current = _state.value
             if (current is CallUiState.Active) {
                 _state.value = current.copy(remoteAudioActive = active)
             }
         }
 
-        client?.onSpeakerStateChanged = { enabled ->
-            val current = _state.value
-            if (current is CallUiState.Active) {
-                _state.value = current.copy(isSpeakerOn = enabled)
-            }
-        }
-        
-        // Deepfake detection callbacks
         client?.onDeepfakeDetected = { score, isDeepfake ->
+            Log.d(TAG_CALL, "Deepfake detection → score=$score isDeepfake=$isDeepfake")
             val current = _state.value
             if (current is CallUiState.Active) {
-                Log.w(TAG_WEBRTC, "🚨 DEEPFAKE DETECTED: score=$score")
                 val alreadyAlerted = current.isDeepfake
-
                 _state.value = current.copy(
                     detectionScore = score,
                     isDeepfake = isDeepfake,
                     isDetectionActive = true
                 )
-
                 if (isDeepfake && !alreadyAlerted) {
                     viewModelScope.launch {
                         _events.emit(CallUiEvent.Vibrate(score))
@@ -130,43 +129,21 @@ class CallInProgressViewModel : ViewModel() {
                 }
             }
         }
-        
+
         client?.onDetectionUpdate = { score ->
+            Log.d(TAG_CALL, "Detection update → score=$score")
             val current = _state.value
             if (current is CallUiState.Active) {
+                // ✅ CRITICAL FIX: Update isDeepfake based on CURRENT score
+                // This ensures UI updates live when score drops below threshold
+                val detectionThreshold = 0.7f
+                val isCurrentlyDeepfake = score >= detectionThreshold
                 _state.value = current.copy(
                     detectionScore = score,
-                    isDeepfake = score >= 0.7f,
+                    isDeepfake = isCurrentlyDeepfake,
                     isDetectionActive = true
                 )
-            }
-        }
-    }
-
-    /* =========================
-       TELECOM BRIDGE
-       ========================= */
-    init {
-        viewModelScope.launch {
-            ActiveCallStore.state.collectLatest { snapshot ->
-                if (snapshot == null) {
-                    if (webRtcClient != null) return@collectLatest
-                    setDisconnected()
-                    return@collectLatest
-                }
-
-                Log.d(TAG_STORE, "Telecom state=${snapshot.state}")
-
-                when (snapshot.state) {
-                    Call.STATE_RINGING ->
-                        setRinging(snapshot.handle, preserveReady = true)
-
-                    Call.STATE_ACTIVE ->
-                        setActive()
-
-                    Call.STATE_DISCONNECTED ->
-                        setDisconnected()
-                }
+                Log.d(TAG_CALL, "🔄 UI updated: score=$score, isDeepfake=$isCurrentlyDeepfake")
             }
         }
     }
@@ -176,20 +153,12 @@ class CallInProgressViewModel : ViewModel() {
        ========================= */
     fun answer() {
         Log.d(TAG_UI, "Answer pressed")
-
-        ActiveCallStore.state.value?.call
-            ?.answer(VideoProfile.STATE_AUDIO_ONLY)
-            ?.also { return }
-
-        if (webRtcClient?.answerIncomingCall() == true) {
-            setActive()
-        }
+        onStartCallRequested?.invoke()
     }
 
     fun hangUp() {
         Log.d(TAG_UI, "HangUp pressed")
-        ActiveCallStore.state.value?.call?.disconnect()
-        webRtcClient?.requestHangUp()
+        webRtcClient?.close()
         setDisconnected()
     }
 
@@ -216,11 +185,15 @@ class CallInProgressViewModel : ViewModel() {
        ========================= */
 
     /** MUST BE PUBLIC */
-    fun setRinging(handle: String, preserveReady: Boolean = false) {
+    fun setRinging(handle: String, preserveReady: Boolean = false, readyToAnswer: Boolean = true) {
         Log.d(TAG_UI, "setRinging(handle=$handle incoming=$isIncomingCall)")
 
         val ready =
-            preserveReady && (_state.value as? CallUiState.Ringing)?.isReadyToAnswer == true
+            if (preserveReady) {
+                (_state.value as? CallUiState.Ringing)?.isReadyToAnswer ?: readyToAnswer
+            } else {
+                readyToAnswer
+            }
 
         _state.value = CallUiState.Ringing(
             handle = handle,
@@ -243,15 +216,20 @@ class CallInProgressViewModel : ViewModel() {
 
         _state.value = CallUiState.Active(
             handle = handle,
+            isIncoming = isIncomingCall,
             isMuted = false,
             isSpeakerOn = false,
-            localAudioState = WebRtcClient.AudioState.SILENT,
-            remoteAudioActive = false
+            localAudioState = CallAudioState.SILENT,
+            remoteAudioActive = false,
+            isDetectionActive = false,
+            remoteConnected = false,
+            inboundAudioLevel = 0f,
+            outboundAudioLevel = 0f
         )
-        
-        // Start deepfake detection when call becomes active
-        webRtcClient?.startDeepfakeDetection()
-        Log.d(TAG_UI, "Deepfake detection started")
+    }
+
+    fun startOutgoingCall() {
+        onStartCallRequested?.invoke()
     }
 
     fun setDisconnected() {
@@ -265,4 +243,5 @@ class CallInProgressViewModel : ViewModel() {
         Log.d(TAG_UI, "Transition → Disconnected")
         _state.value = CallUiState.Disconnected(handle)
     }
+
 }

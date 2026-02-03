@@ -15,7 +15,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.fyp_25_s4_23.control.webrtc.WebRtcClient
 import kotlinx.coroutines.flow.StateFlow
 
 @Composable
@@ -73,9 +72,9 @@ fun CallInProgressScreen(
                         is CallUiState.Active -> {
                             val s = currentState as CallUiState.Active
                             when (s.localAudioState) {
-                                WebRtcClient.AudioState.MUTED -> "Muted"
-                                WebRtcClient.AudioState.SILENT -> "Connected"
-                                WebRtcClient.AudioState.ACTIVE -> "Speaking"
+                                CallAudioState.MUTED -> "Muted"
+                                CallAudioState.SILENT -> "Connected"
+                                CallAudioState.ACTIVE -> "Speaking"
                             }
                         }
                         is CallUiState.Disconnected -> "Call Ended"

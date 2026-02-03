@@ -20,7 +20,8 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DialerScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    callerDisplayName: String?
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -197,7 +198,9 @@ fun DialerScreen(
                                 // Initiate call with the resolved UID
                                 VoipCallManager.startOutgoingVoipCall(
                                     context = context,
-                                    calleeUserId = result.uid
+                                    calleeUserId = result.uid,
+                                    calleeDisplayName = result.username,
+                                    callerDisplayName = callerDisplayName
                                 )
                                 
                                 // Go back to dashboard after initiating call

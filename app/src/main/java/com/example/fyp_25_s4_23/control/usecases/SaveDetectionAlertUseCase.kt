@@ -24,6 +24,13 @@ class SaveDetectionAlertUseCase(
             actionsTaken = actions,
             acknowledged = false
         )
-        alertRepository.upsert(alert)
+        
+        try {
+            alertRepository.upsert(alert)
+        } catch (e: Exception) {
+            // Silently catch DB errors (e.g., foreign key constraint if callId doesn't exist)
+            // This happens when testing model with bundled audio (no active call)
+            android.util.Log.w("SaveDetectionAlert", "Failed to save alert (callId may not exist): ${e.message}")
+        }
     }
 }

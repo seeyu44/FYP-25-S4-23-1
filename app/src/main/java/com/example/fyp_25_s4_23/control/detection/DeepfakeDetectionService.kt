@@ -36,11 +36,14 @@ class DeepfakeDetectionService(
     private val bufferSizeSeconds = 3 // Match training data clip size
     private val sampleRate = 16000 // Match AudioRecord capture rate (16kHz)
     private val targetSamples = sampleRate * bufferSizeSeconds // 48,000 samples = 3 seconds
+    private val maxBufferedSamples = targetSamples * 2
+    private var queuedSamples = 0
     
     // Background processing
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var processingJob: Job? = null
     private var isRunning = false
+    private var isPaused = false  // NEW: Pause detection during demo audio playback
     
     // Callbacks
     var onDeepfakeDetected: ((Float) -> Unit)? = null
@@ -142,10 +145,12 @@ class DeepfakeDetectionService(
         }
         
         audioBufferQueue.offer(floatData)
+        queuedSamples += floatData.size
         
-        // Limit buffer size to prevent memory issues (need 15 chunks minimum for 48k samples)
-        while (audioBufferQueue.size > 20) {
-            audioBufferQueue.poll()
+        // Limit buffer size to prevent memory issues
+        while (queuedSamples > maxBufferedSamples) {
+            val removed = audioBufferQueue.poll() ?: break
+            queuedSamples -= removed.size
         }
     }
     
@@ -168,7 +173,7 @@ class DeepfakeDetectionService(
     private suspend fun processAudioBuffer() {
         // Calculate how many samples we have in the queue WITHOUT draining it
         val queueSize = audioBufferQueue.size
-        val estimatedSamples = queueSize * 3200  // Each chunk is 3200 samples
+        val estimatedSamples = queuedSamples
         
         if (estimatedSamples < targetSamples) {
             // Not enough data yet - DON'T DRAIN THE QUEUE
@@ -177,19 +182,25 @@ class DeepfakeDetectionService(
         }
         
         // We have enough! Now drain the required chunks
-        Log.d("DEEPFAKE_DETECT", "✅ Queue has enough samples! Draining ${queueSize} chunks for inference...")
+        Log.d("DEEPFAKE_DETECT", "✅ Queue has enough samples! Draining chunks for inference...")
         
-        val samples = mutableListOf<Float>()
-        val chunksNeeded = (targetSamples + 3199) / 3200  // Round up: 48000/3200 = 15 chunks
-        
-        repeat(chunksNeeded.coerceAtMost(audioBufferQueue.size)) {
-            audioBufferQueue.poll()?.let { chunk ->
-                samples.addAll(chunk.toList())
+        val samples = ArrayList<Float>(targetSamples)
+        var drainedChunks = 0
+        while (samples.size < targetSamples) {
+            val chunk = audioBufferQueue.poll() ?: break
+            queuedSamples -= chunk.size
+            drainedChunks++
+            for (value in chunk) {
+                if (samples.size >= targetSamples) break
+                samples.add(value)
             }
         }
+        if (samples.size < targetSamples) {
+            Log.d("DEEPFAKE_DETECT", "⚠️ Drained $drainedChunks chunks but only ${samples.size}/$targetSamples samples collected")
+            return
+        }
         
-        // Take exactly targetSamples (in case we got slightly more)
-        val audioSegment = samples.take(targetSamples).toFloatArray()
+        val audioSegment = samples.toFloatArray()
         
         Log.d("DEEPFAKE_DETECT", "🔬 Running inference on ${audioSegment.size} samples...")
         
@@ -204,7 +215,29 @@ class DeepfakeDetectionService(
      */
     private suspend fun runInference(audioSegment: FloatArray) {
         try {
+            // Skip inference if detection is paused (e.g., during demo audio playback)
+            if (isPaused) {
+                Log.d("DEEPFAKE_DETECT", "⏸️ Detection paused - skipping inference")
+                return
+            }
+            
             Log.d("DEEPFAKE_DETECT", "🔄 Preprocessing audio to mel spectrogram...")
+            
+            // ✅ VALIDATION: Check input audio characteristics
+            val rms = kotlin.math.sqrt(audioSegment.map { it * it }.average())
+            val maxSample = audioSegment.maxOrNull() ?: 0f
+            val minSample = audioSegment.minOrNull() ?: 0f
+            val nonZeroCount = audioSegment.count { it != 0f }
+            Log.d("DEEPFAKE_DETECT", "📊 Input audio: RMS=${"%.6f".format(rms)}, Max=${"%.6f".format(maxSample)}, Min=${"%.6f".format(minSample)}, NonZeroSamples=$nonZeroCount/${audioSegment.size}")
+            
+            // ✅ SILENCE DETECTION: Skip inference on silent frames to prevent false positives
+            val rmsThreshold = 0.01f  // Increased from 0.001 to catch more silent frames
+            val minNonZeroSamples = 1000  // Increased from 100 to require more active samples
+            if (rms < rmsThreshold && nonZeroCount < minNonZeroSamples) {
+                Log.d("DEEPFAKE_DETECT", "⏭️ Skipping silent frame (RMS=${"%.6f".format(rms)}, nonZero=$nonZeroCount)")
+                return
+            }
+            
             // Preprocess audio to mel spectrogram
             val mel = modelRunner.preprocess(audioSegment)
             
@@ -218,7 +251,19 @@ class DeepfakeDetectionService(
             val isDeepfake = score >= detectionThreshold
             val timestamp = System.currentTimeMillis()
             
-            Log.i("DEEPFAKE_DETECT", "📊 Detection result: score=${"%.3f".format(score)}, isDeepfake=$isDeepfake (threshold=$detectionThreshold)")
+            // ⚠️ Log with audio context for debugging false positives
+            val rmsContext = when {
+                rms > 0.15f -> "HIGH"
+                rms > 0.05f -> "NORMAL"
+                rms > 0.01f -> "QUIET"
+                else -> "VERY_QUIET"
+            }
+            
+            if (isDeepfake) {
+                Log.w("DEEPFAKE_DETECT", "🚨 DEEPFAKE: score=${"%.3f".format(score)} (RMS=${"%.6f".format(rms)}/$rmsContext), threshold=$detectionThreshold")
+            } else {
+                Log.i("DEEPFAKE_DETECT", "✅ Normal: score=${"%.3f".format(score)} (RMS=${"%.6f".format(rms)}/$rmsContext), threshold=$detectionThreshold")
+            }
             
             // Update state
             val currentState = _detectionState.value
@@ -237,17 +282,24 @@ class DeepfakeDetectionService(
             
             Log.d(TAG, "Detection result: score=$score, isDeepfake=$isDeepfake, count=$newDetectionCount")
             
-            // Save to database
+            // Save to database (async)
             detectionDao?.let { dao ->
-                val entity = DetectionResultEntity(
-                    id = "${callId}_${timestamp}",  // Unique ID: callId + timestamp
-                    callId = callId,
-                    probability = score,
-                    isDeepfake = isDeepfake,
-                    timestampSeconds = timestamp / 1000,
-                    modelVersion = "melcnn-0.0.1"
-                )
-                dao.insert(entity)
+                scope.launch {
+                    try {
+                        val entity = DetectionResultEntity(
+                            id = "${callId}_${timestamp}",  // Unique ID: callId + timestamp
+                            callId = callId,
+                            probability = score,
+                            isDeepfake = isDeepfake,
+                            timestampSeconds = timestamp / 1000,
+                            modelVersion = "melcnn-0.0.1"
+                        )
+                        dao.insert(entity)
+                        Log.d(TAG, "✅ Detection saved to database")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to save detection to database", e)
+                    }
+                }
             }
             
             // Trigger callbacks
@@ -289,6 +341,22 @@ class DeepfakeDetectionService(
         val averageScore: Float,
         val deepfakeRate: Float
     )
+    
+    /**
+     * Pause detection (e.g., during demo audio playback)
+     */
+    fun pauseDetection() {
+        isPaused = true
+        Log.d(TAG, "⏸️ Detection paused (e.g., for demo audio playback)")
+    }
+    
+    /**
+     * Resume detection after pausing
+     */
+    fun resumeDetection() {
+        isPaused = false
+        Log.d(TAG, "▶️ Detection resumed")
+    }
     
     /**
      * Cleanup resources
