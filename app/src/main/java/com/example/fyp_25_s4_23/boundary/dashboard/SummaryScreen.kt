@@ -50,7 +50,7 @@ fun SummaryScreen(
             .toEpochMilli() - 1
 
         val newStartMillis = today
-            .minusDays(6)
+            .minusDays(7)
             .atStartOfDay(zone)
             .toInstant()
             .toEpochMilli()
@@ -116,7 +116,7 @@ fun SummaryScreen(
                         .atStartOfDay(zone)
                         .toInstant()
                         .toEpochMilli() - 1
-                    startMillis = today.minusDays(6)
+                    startMillis = today.minusDays(7)
                         .atStartOfDay(zone)
                         .toInstant()
                         .toEpochMilli()
@@ -137,7 +137,7 @@ fun SummaryScreen(
                         .atStartOfDay(zone)
                         .toInstant()
                         .toEpochMilli() - 1
-                    startMillis = today.minusDays(29)
+                    startMillis = today.minusDays(30)
                         .atStartOfDay(zone)
                         .toInstant()
                         .toEpochMilli()
