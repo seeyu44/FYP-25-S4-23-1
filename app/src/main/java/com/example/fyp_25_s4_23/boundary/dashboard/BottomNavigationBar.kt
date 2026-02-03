@@ -15,7 +15,7 @@ sealed class BottomNavItem(
     val label: String
 ) {
     object Home : BottomNavItem("home", Icons.Default.Home, "Home")
-    object Summary : BottomNavItem("summary", Icons.Default.TrendingUp, "Summary")
+    object Summary : BottomNavItem("summary", Icons.Default.Info, "Summary")
     object CallHistory : BottomNavItem("call_history", Icons.Default.Call, "Call History")
     object Dialer : BottomNavItem("dialer", Icons.Default.Phone, "Call Dialer")
     object Contacts : BottomNavItem("contacts", Icons.Default.Person, "Contacts")
