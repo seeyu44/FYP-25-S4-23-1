@@ -152,9 +152,36 @@ class ManagedContactsViewModel(
 
     fun blockContact(contact: Contact) {
         viewModelScope.launch {
+            var firebaseFailed = false
             try {
+                // Update local database
                 repository.updateContactLabel(contact.id, ContactLabel.BLACK.toString())
-                _uiMessage.value = "Contact has been blocked"
+                
+                // Update Firebase
+                try {
+                    val username = if (contact.phoneNumber == "VOIP_USER") {
+                        contact.displayName
+                    } else {
+                        val normalizedPhone = if (contact.phoneNumber.startsWith("+65")) {
+                            contact.phoneNumber
+                        } else {
+                            "+65${contact.phoneNumber}"
+                        }
+                        phoneLookupService.getUserByPhoneNumber(normalizedPhone).username
+                    }
+                    
+                    if (!username.isNullOrBlank()) {
+                        firebaseRepo.updateContactLabel(username, ContactLabel.BLACK)
+                    }
+                } catch (e: Exception) {
+                    firebaseFailed = true
+                }
+                
+                _uiMessage.value = if (firebaseFailed) {
+                    "Contact blocked locally; sync pending"
+                } else {
+                    "Contact has been blocked"
+                }
             } catch (e: Exception) {
                 _uiMessage.value = "Failed to block contact"
             }
@@ -163,9 +190,36 @@ class ManagedContactsViewModel(
 
     fun unblockContact(contact: Contact) {
         viewModelScope.launch {
+            var firebaseFailed = false
             try {
+                // Update local database
                 repository.updateContactLabel(contact.id, ContactLabel.WHITE.toString())
-                _uiMessage.value = "Contact has been unblocked"
+                
+                // Update Firebase
+                try {
+                    val username = if (contact.phoneNumber == "VOIP_USER") {
+                        contact.displayName
+                    } else {
+                        val normalizedPhone = if (contact.phoneNumber.startsWith("+65")) {
+                            contact.phoneNumber
+                        } else {
+                            "+65${contact.phoneNumber}"
+                        }
+                        phoneLookupService.getUserByPhoneNumber(normalizedPhone).username
+                    }
+                    
+                    if (!username.isNullOrBlank()) {
+                        firebaseRepo.updateContactLabel(username, ContactLabel.WHITE)
+                    }
+                } catch (e: Exception) {
+                    firebaseFailed = true
+                }
+                
+                _uiMessage.value = if (firebaseFailed) {
+                    "Contact unblocked locally; sync pending"
+                } else {
+                    "Contact has been unblocked"
+                }
             } catch (e: Exception) {
                 _uiMessage.value = "Failed to unblock contact"
             }

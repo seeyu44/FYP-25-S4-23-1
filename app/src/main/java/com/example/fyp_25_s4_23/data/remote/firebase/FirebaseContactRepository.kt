@@ -53,6 +53,19 @@ class FirebaseContactRepository {
         }
     }
 
+    suspend fun updateContactLabel(username: String, label: ContactLabel) {
+        val snapshot = contactsRef()
+            .whereEqualTo("username", username)
+            .get()
+            .await()
+
+        snapshot.documents.forEach { doc ->
+            contactsRef().document(doc.id)
+                .update("label", label.name)
+                .await()
+        }
+    }
+
     suspend fun fetchContacts(): List<Contact> {
         return contactsRef()
             .get()
