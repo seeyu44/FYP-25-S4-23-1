@@ -103,18 +103,8 @@ object IncomingCallListener {
                                     )
 
                                     // Do NOT show notification
-                                    // Optional: mark call as ended
-                                    FirebaseFirestore.getInstance()
-                                        .collection("calls")
-                                        .document(callId)
-                                        .update(
-                                            mapOf(
-                                                "status" to "ended",
-                                                "ended_reason" to "blocked_contact",
-                                                "ended_by" to "callee"
-                                            )
-                                        )
-
+                                    // Do NOT end the call - let it ring on caller's side
+                                    // This way the blocked caller won't know they're blocked
                                     return@launch
                                 }
 
