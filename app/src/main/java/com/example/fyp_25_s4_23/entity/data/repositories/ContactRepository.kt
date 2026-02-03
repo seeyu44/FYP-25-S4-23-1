@@ -51,7 +51,9 @@ class ContactRepository(
     }
 
     suspend fun updateContactLabel(id: String, label: String) {
-        contactDao.updateLabel(id, label)
+        id.toIntOrNull()?.let { intId ->
+            contactDao.updateLabel(intId, label)
+        }
     }
 
     suspend fun clearAll(){

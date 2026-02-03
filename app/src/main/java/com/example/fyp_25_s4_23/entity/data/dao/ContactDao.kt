@@ -43,7 +43,7 @@ interface ContactDao {
     suspend fun existsByPhoneNumber(phoneNumber: String): Boolean
 
     @Query("UPDATE contacts SET label = :label WHERE id = :id")
-    suspend fun updateLabel(id: String, label: String)
+    suspend fun updateLabel(id: Int, label: String)
 
     @Query("DELETE FROM contacts")
     suspend fun clearAll()
