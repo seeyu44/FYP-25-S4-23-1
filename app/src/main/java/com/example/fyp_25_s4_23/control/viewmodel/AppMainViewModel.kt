@@ -17,8 +17,7 @@ import com.example.fyp_25_s4_23.data.remote.firebase.*
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.*
 import com.example.fyp_25_s4_23.entity.domain.entities.*
-import com.example.fyp_25_s4_23.data.db.AppDatabase as DataAppDatabase
-import com.example.fyp_25_s4_23.data.repositories.CallRepository as DataCallRepository
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.*
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.*
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.util.mapUserRole
@@ -90,14 +89,12 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
     /* ---------- Local DB ---------- */
     private val db = AppDatabase.getInstance(application)
-    private val dataDb = DataAppDatabase.getInstance(application)
     private val userRepository = UserRepository(db.userDao())
     private val callRepository = CallRepository(
         db.callDao(),
         db.callMetadataDao(),
         db.detectionResultDao()
     )
-    private val dataCallRepository = DataCallRepository(dataDb.callRecordDao())
     private val alertRepository = AlertRepository(db.alertEventDao())
     private val settingsRepository = SettingsRepository(db.userSettingsDao())
 
@@ -487,10 +484,15 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
             val threshold = _state.value.userSettings.detectionThreshold
 
+            Log.i("SummaryDebug", "Querying summary: start=$startMillis, end=$endMillis, daily=$daily, threshold=$threshold")
+            Log.i("SummaryDebug", "Query in seconds: start=${startMillis/1000}, end=${endMillis/1000}")
+
             val rows = if (daily)
-                dataCallRepository.dailyAggregates(startMillis, endMillis, threshold)
+                callRepository.dailyAggregates(startMillis, endMillis, threshold)
             else
-                dataCallRepository.weeklyAggregates(startMillis, endMillis, threshold)
+                callRepository.weeklyAggregates(startMillis, endMillis, threshold)
+
+            Log.i("SummaryDebug", "Query returned ${rows.size} rows")
 
             val metrics = rows.map {
                 SummaryMetrics(
