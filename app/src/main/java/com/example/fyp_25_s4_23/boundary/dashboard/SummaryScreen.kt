@@ -10,9 +10,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlin.math.roundToInt
 
 /* =========================
    SUMMARY SCREEN
@@ -21,9 +23,8 @@ import java.time.ZoneId
 @Composable
 fun SummaryScreen(
     user: UserAccount,
-    metrics: List<SummaryMetrics>,
+    firebaseCalls: List<FirebaseCallRecord>,
     isLoading: Boolean,
-    onRequestSummary: (startMillis: Long, endMillis: Long, daily: Boolean) -> Unit,
     onNavigate: (String) -> Unit,
     onBack: () -> Unit
 ) {
@@ -34,8 +35,40 @@ fun SummaryScreen(
     var startMillis by remember { mutableStateOf(0L) }
     var endMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var localError by remember { mutableStateOf<String?>(null) }
-    var isPeriodWeekly by remember { mutableStateOf(true) }
-    var hasInitialLoad by remember { mutableStateOf(false) }
+
+    // Filter for incoming calls only (where user is callee, not caller)
+    val incomingCalls = firebaseCalls.filter { !it.isCaller }
+
+    // Helper function to generate summary metrics from calls in a date range
+    fun generateMetrics(callsInRange: List<FirebaseCallRecord>): List<SummaryMetrics> {
+        if (callsInRange.isEmpty()) return emptyList()
+
+        // Group calls by day
+        val callsByDay = callsInRange.groupBy { call ->
+            LocalDate.ofEpochDay(call.startTimeMillis / (24 * 60 * 60 * 1000))
+                .toString()
+        }
+
+        return callsByDay.map { (date, callsForDay) ->
+            val completedCalls = callsForDay.filter { it.isCompleted() }
+            val missedCalls = callsForDay.filter { !it.isCompleted() }
+
+            SummaryMetrics(
+                label = date,
+                totalCalls = callsForDay.size,
+                answered = completedCalls.size,
+                missed = missedCalls.size,
+                suspicious = callsForDay.count { it.probability > 0.5 },
+                blocked = 0, // Firebase data doesn't have blocked status
+                warned = callsForDay.count { it.probability > 0.5 && it.probability <= 0.8 },
+                avgConfidence = if (callsForDay.isNotEmpty()) {
+                    callsForDay.map { it.probability }.average()
+                } else {
+                    -1.0
+                }
+            )
+        }.sortedByDescending { it.label }
+    }
 
     /* =========================
        INITIAL DATE RANGE AND LOAD
@@ -57,10 +90,6 @@ fun SummaryScreen(
 
         endMillis = newEndMillis
         startMillis = newStartMillis
-        
-        // Trigger initial data load
-        onRequestSummary(newStartMillis, newEndMillis, false)
-        hasInitialLoad = true
     }
 
     Scaffold(
@@ -121,9 +150,7 @@ fun SummaryScreen(
                         .toInstant()
                         .toEpochMilli()
                     rangeLabel = "Last 7 days"
-                    isPeriodWeekly = true
                     localError = null
-                    onRequestSummary(startMillis, endMillis, false)
                 },
                 modifier = Modifier.weight(1f)
             ) {
@@ -142,9 +169,7 @@ fun SummaryScreen(
                         .toInstant()
                         .toEpochMilli()
                     rangeLabel = "Last 30 days"
-                    isPeriodWeekly = false
                     localError = null
-                    onRequestSummary(startMillis, endMillis, true)
                 },
                 modifier = Modifier.weight(1f)
             ) {
@@ -164,7 +189,6 @@ fun SummaryScreen(
                         endMillis = end
                         rangeLabel = "Custom"
                         localError = null
-                        onRequestSummary(startMillis, endMillis, !isPeriodWeekly)
                     }
                 }
             },
@@ -185,23 +209,18 @@ fun SummaryScreen(
         }
 
         /* =========================
-           LOADING STATE
+           SUMMARY DATA
            ========================= */
-        if (isLoading) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                CircularProgressIndicator()
-            }
+        // Filter calls for the selected date range
+        val callsInRange = incomingCalls.filter { call ->
+            call.startTimeMillis in startMillis..endMillis
         }
+        val metrics = generateMetrics(callsInRange)
 
         /* =========================
-           SUMMARY LIST
+           EMPTY STATE
            ========================= */
-        if (metrics.isEmpty() && !isLoading) {
+        if (metrics.isEmpty()) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
