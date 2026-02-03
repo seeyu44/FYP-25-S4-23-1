@@ -49,7 +49,7 @@ interface CallDao {
             FROM detection_results 
             GROUP BY call_id
         ) dr ON c.id = dr.call_id
-        WHERE cm.start_time_seconds BETWEEN :startSeconds AND :endSeconds
+        WHERE cm.start_time_seconds BETWEEN :startSeconds AND :endSeconds AND c.direction = 'INCOMING'
         GROUP BY period
         ORDER BY period DESC
     """)
@@ -71,7 +71,7 @@ interface CallDao {
             FROM detection_results 
             GROUP BY call_id
         ) dr ON c.id = dr.call_id
-        WHERE cm.start_time_seconds BETWEEN :startSeconds AND :endSeconds
+        WHERE cm.start_time_seconds BETWEEN :startSeconds AND :endSeconds AND c.direction = 'INCOMING'
         GROUP BY period
         ORDER BY period DESC
     """)
