@@ -213,11 +213,13 @@ fun SummaryScreen(
            SUMMARY DATA
            ========================= */
         // Filter calls for the selected date range
-        val callsInRange = incomingCalls.filter { call ->
-            val callTimeMillis = call.getCreatedAtMillis()
-            callTimeMillis in startMillis..endMillis
+        val metrics = remember(startMillis, endMillis, incomingCalls) {
+            val callsInRange = incomingCalls.filter { call ->
+                val callTimeMillis = call.getCreatedAtMillis()
+                callTimeMillis in startMillis..endMillis
+            }
+            generateMetrics(callsInRange)
         }
-        val metrics = generateMetrics(callsInRange)
 
         /* =========================
            EMPTY STATE
