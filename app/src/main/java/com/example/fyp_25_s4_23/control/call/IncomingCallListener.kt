@@ -88,7 +88,12 @@ object IncomingCallListener {
                             )
                             
                             // Check if contact is blocked
-                            val contact = contactRepository.getContactByUsername(callerId)
+                            // Try to find contact by phone number first, then by username
+                            val contact = if (!callerPhone.isNullOrBlank()) {
+                                contactRepository.getContactByPhoneNumber(callerPhone)
+                            } else {
+                                null
+                            } ?: contactRepository.getContactByUsername(callerUsername)
 
                             when (contact?.label) {
                                 ContactLabel.BLACK -> {
