@@ -45,27 +45,28 @@ fun SummaryScreen(
 
         // Group calls by day
         val callsByDay = callsInRange.groupBy { call ->
-            LocalDate.ofEpochDay(call.startTimeMillis / (24 * 60 * 60 * 1000))
+            val date = call.createdAt?.toDate() ?: java.util.Date()
+            val cal = java.util.Calendar.getInstance()
+            cal.time = date
+            LocalDate.of(cal.get(java.util.Calendar.YEAR), 
+                        cal.get(java.util.Calendar.MONTH) + 1,
+                        cal.get(java.util.Calendar.DAY_OF_MONTH))
                 .toString()
         }
 
         return callsByDay.map { (date, callsForDay) ->
-            val completedCalls = callsForDay.filter { it.isCompleted() }
-            val missedCalls = callsForDay.filter { !it.isCompleted() }
+            val completedCalls = callsForDay.filter { it.status == "completed" }
+            val missedCalls = callsForDay.filter { it.status in listOf("missed", "declined") }
 
             SummaryMetrics(
                 label = date,
                 totalCalls = callsForDay.size,
                 answered = completedCalls.size,
                 missed = missedCalls.size,
-                suspicious = callsForDay.count { it.probability > 0.5 },
-                blocked = 0, // Firebase data doesn't have blocked status
-                warned = callsForDay.count { it.probability > 0.5 && it.probability <= 0.8 },
-                avgConfidence = if (callsForDay.isNotEmpty()) {
-                    callsForDay.map { it.probability }.average()
-                } else {
-                    -1.0
-                }
+                suspicious = 0, // Firebase data doesn't have probability/detection data
+                blocked = 0,
+                warned = 0,
+                avgConfidence = -1.0 // Not available from Firebase
             )
         }.sortedByDescending { it.label }
     }
@@ -213,7 +214,8 @@ fun SummaryScreen(
            ========================= */
         // Filter calls for the selected date range
         val callsInRange = incomingCalls.filter { call ->
-            call.startTimeMillis in startMillis..endMillis
+            val callTimeMillis = call.getCreatedAtMillis()
+            callTimeMillis in startMillis..endMillis
         }
         val metrics = generateMetrics(callsInRange)
 
