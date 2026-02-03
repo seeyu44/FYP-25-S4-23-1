@@ -13,6 +13,8 @@ import kotlinx.coroutines.launch
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import com.example.fyp_25_s4_23.domain.entities.ContactLabel
+import com.example.fyp_25_s4_23.util.DisplayNameResolver
+import kotlinx.coroutines.tasks.await
 
 
 object IncomingCallListener {
@@ -76,15 +78,36 @@ object IncomingCallListener {
                         handledCalls.add(callId)
 
                         scope.launch {
-                            // Map callerId → username if needed
-                            // (if callerId IS username, rename variable accordingly)
-                            val contact = contactRepository.getContactByUsername(callerUsername)
+                            // Try to get the caller's phone number from Firebase users collection
+                            val callerPhoneNumber = try {
+                                val userDoc = FirebaseFirestore.getInstance()
+                                    .collection("users")
+                                    .document(callerId)
+                                    .get()
+                                    .await()
+                                userDoc.getString("phoneNumber")
+                            } catch (e: Exception) {
+                                Log.d("INCOMING_CALL", "Could not fetch caller phone number: ${e.message}")
+                                null
+                            }
+                            
+                            // Resolve display name using the DisplayNameResolver utility
+                            // Priority: saved contact name > phone number > callerUsername (email)
+                            val resolvedDisplayName = DisplayNameResolver.resolveDisplayName(
+                                contactRepository = contactRepository,
+                                userId = callerId, // Use callerId (Firebase UID) to look up contact
+                                fallbackName = callerUsername, // Use callerUsername (email) as last resort
+                                fallbackPhone = callerPhoneNumber
+                            )
+                            
+                            // Check if contact is blocked
+                            val contact = contactRepository.getContactByUsername(callerId)
 
                             when (contact?.label) {
                                 ContactLabel.BLACK -> {
                                     Log.w(
                                         "INCOMING_CALL",
-                                        "Blocked incoming call from BLACKLISTED user=$callerUsername callId=$callId"
+                                        "Blocked incoming call from BLACKLISTED user=$callerId callId=$callId"
                                     )
 
                                     // Do NOT show notification
@@ -109,7 +132,7 @@ object IncomingCallListener {
                                         context = context.applicationContext,
                                         callId = callId,
                                         callerId = callerId,
-                                        displayName = contact?.displayName ?: callerUsername
+                                        displayName = resolvedDisplayName
                                     )
                                 }
                             }
