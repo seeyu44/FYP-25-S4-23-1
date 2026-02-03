@@ -865,14 +865,18 @@ class WebRtcClient(
             )
             Log.d("DEEPFAKE", "✅ Detection service created")
             
-            // ═══ STEP 2: Receiver-side UI updates only ═══
+            // ═══ STEP 2: Receiver-side detection + Firebase sync ═══
             detectionService?.onDeepfakeDetected = { score ->
                 Log.w("DEEPFAKE", "━━━ INCOMING AUDIO FLAGGED AS DEEPFAKE! ━━━")
                 Log.w("DEEPFAKE", "   Score: $score")
+                Log.w("DEEPFAKE", "   Sending to Firestore for remote user ($remoteUserId) to see")
+                signaling.sendDetectionResult(callId, userId, score, true)
                 onDeepfakeDetected?.invoke(score, true)
             }
             detectionService?.onDetectionUpdate = { result ->
                 Log.d("DEEPFAKE", "📊 Incoming audio analyzed: score=${result.score}, fake=${result.isDeepfake}")
+                Log.d("DEEPFAKE", "   → Sending to Firestore for remote user")
+                signaling.sendDetectionResult(callId, userId, result.score, result.isDeepfake)
                 onDetectionUpdate?.invoke(result.score)
                 if (result.isDeepfake) {
                     onDeepfakeDetected?.invoke(result.score, true)

@@ -232,20 +232,32 @@ class FirebaseSignalingManager {
     
     /**
      * Send detection result to Firestore so the OTHER user can see it
+     * Stores HIGHEST score throughout the call for conservative alerting
      */
     fun sendDetectionResult(callId: String, userId: String, score: Float, isDeepfake: Boolean) {
-        firestore.collection("calls")
-            .document(callId)
-            .update(
-                mapOf(
-                    "${userId}_detection_score" to score,
-                    "${userId}_is_deepfake" to isDeepfake,
-                    "${userId}_detection_timestamp" to System.currentTimeMillis()
+        val callRef = firestore.collection("calls").document(callId)
+        
+        // First, read current highest score
+        callRef.get().addOnSuccessListener { snapshot ->
+            if (snapshot != null && snapshot.exists()) {
+                val currentHighest = snapshot.getDouble("${userId}_highest_detection_score")?.toFloat() ?: 0f
+                val highestScore = maxOf(score, currentHighest)
+                
+                // Update highest score and related fields
+                callRef.update(
+                    mapOf(
+                        "${userId}_detection_score" to score,  // Latest for real-time display
+                        "${userId}_highest_detection_score" to highestScore,  // Peak score
+                        "${userId}_is_deepfake" to isDeepfake,
+                        "${userId}_detection_timestamp" to System.currentTimeMillis(),
+                        "${userId}_highest_detection_timestamp" to if (highestScore > currentHighest ?: 0f) System.currentTimeMillis() else snapshot.getLong("${userId}_highest_detection_timestamp") ?: System.currentTimeMillis()
+                    )
                 )
-            )
-            .addOnFailureListener { e ->
-                Log.e("DEEPFAKE_SYNC", "Failed to send detection result", e)
+                Log.d("DEEPFAKE_SYNC", "Detection: score=$score, highest=$highestScore")
             }
+        }.addOnFailureListener { e ->
+            Log.e("DEEPFAKE_SYNC", "Failed to send detection result", e)
+        }
     }
     
     /**

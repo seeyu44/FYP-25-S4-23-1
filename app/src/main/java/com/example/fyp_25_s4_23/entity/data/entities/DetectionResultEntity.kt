@@ -13,14 +13,15 @@ import androidx.room.PrimaryKey
             entity = CallEntity::class,
             parentColumns = ["id"],
             childColumns = ["call_id"],
-            onDelete = ForeignKey.CASCADE
+            onDelete = ForeignKey.CASCADE,
+            deferred = true  // Deferred foreign key constraints
         )
     ],
     indices = [Index(value = ["call_id"]), Index(value = ["timestamp_seconds"])]
 )
 data class DetectionResultEntity(
     @PrimaryKey val id: String,
-    @ColumnInfo(name = "call_id") val callId: String,
+    @ColumnInfo(name = "call_id") val callId: String?,  // Nullable to allow detection without call record
     @ColumnInfo(name = "probability") val probability: Float,
     @ColumnInfo(name = "is_deepfake") val isDeepfake: Boolean,
     @ColumnInfo(name = "timestamp_seconds") val timestampSeconds: Long,

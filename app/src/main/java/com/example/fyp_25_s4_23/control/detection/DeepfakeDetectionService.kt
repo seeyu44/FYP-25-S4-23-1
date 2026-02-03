@@ -284,20 +284,21 @@ class DeepfakeDetectionService(
             
             // Save to database (async)
             detectionDao?.let { dao ->
-                scope.launch {
+                scope.launch(Dispatchers.IO) {
                     try {
-                        val entity = DetectionResultEntity(
-                            id = "${callId}_${timestamp}",  // Unique ID: callId + timestamp
+                        // Use raw SQL insert to avoid Room's transaction wrapping
+                        dao.insertRaw(
+                            id = "${callId}_${timestamp}",
                             callId = callId,
                             probability = score,
                             isDeepfake = isDeepfake,
-                            timestampSeconds = timestamp / 1000,
-                            modelVersion = "melcnn-0.0.1"
+                            timestamp = timestamp / 1000,
+                            modelVersion = "melcnn-0.0.1",
+                            confidenceLevel = "MEDIUM"
                         )
-                        dao.insert(entity)
                         Log.d(TAG, "✅ Detection saved to database")
                     } catch (e: Exception) {
-                        Log.e(TAG, "Failed to save detection to database", e)
+                        Log.e(TAG, "Failed to save detection to database (Ask Gemini)", e)
                     }
                 }
             }
