@@ -2,6 +2,7 @@ package com.example.fyp_25_s4_23.boundary.dashboard
 
 import android.app.DatePickerDialog
 import android.content.Context
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -141,6 +142,7 @@ fun SummaryScreen(
         ) {
             Button(
                 onClick = {
+                    Log.i("SummaryScreen", "Last 7 days button clicked")
                     val today = LocalDate.now(zone)
                     endMillis = today.plusDays(1)
                         .atStartOfDay(zone)
@@ -150,6 +152,7 @@ fun SummaryScreen(
                         .atStartOfDay(zone)
                         .toInstant()
                         .toEpochMilli()
+                    Log.i("SummaryScreen", "Updated: startMillis=$startMillis, endMillis=$endMillis")
                     rangeLabel = "Last 7 days"
                     localError = null
                 },
@@ -160,6 +163,7 @@ fun SummaryScreen(
 
             Button(
                 onClick = {
+                    Log.i("SummaryScreen", "Last 30 days button clicked")
                     val today = LocalDate.now(zone)
                     endMillis = today.plusDays(1)
                         .atStartOfDay(zone)
@@ -169,6 +173,7 @@ fun SummaryScreen(
                         .atStartOfDay(zone)
                         .toInstant()
                         .toEpochMilli()
+                    Log.i("SummaryScreen", "Updated: startMillis=$startMillis, endMillis=$endMillis")
                     rangeLabel = "Last 30 days"
                     localError = null
                 },
@@ -214,10 +219,12 @@ fun SummaryScreen(
            ========================= */
         // Filter calls for the selected date range
         val metrics = remember(startMillis, endMillis, incomingCalls) {
+            Log.i("SummaryScreen", "Recalculating metrics: startMillis=$startMillis, endMillis=$endMillis, incomingCalls=${incomingCalls.size}")
             val callsInRange = incomingCalls.filter { call ->
                 val callTimeMillis = call.getCreatedAtMillis()
                 callTimeMillis in startMillis..endMillis
             }
+            Log.i("SummaryScreen", "Calls in range: ${callsInRange.size}")
             generateMetrics(callsInRange)
         }
 
