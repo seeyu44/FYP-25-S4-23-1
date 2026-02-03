@@ -30,11 +30,11 @@ fun SummaryScreen(
     val context = LocalContext.current
     val zone = ZoneId.systemDefault()
 
-    var periodDaily by remember { mutableStateOf(true) }
     var rangeLabel by remember { mutableStateOf("Last 7 days") }
     var startMillis by remember { mutableStateOf(0L) }
     var endMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var localError by remember { mutableStateOf<String?>(null) }
+    var isPeriodWeekly by remember { mutableStateOf(true) }
 
     /* =========================
        INITIAL DATE RANGE
@@ -58,9 +58,9 @@ fun SummaryScreen(
     /* =========================
        REQUEST DATA WHEN INPUTS CHANGE
        ========================= */
-    LaunchedEffect(startMillis, endMillis, periodDaily) {
+    LaunchedEffect(startMillis, endMillis, isPeriodWeekly) {
         if (startMillis <= endMillis) {
-            onRequestSummary(startMillis, endMillis, periodDaily)
+            onRequestSummary(startMillis, endMillis, !isPeriodWeekly)
         }
     }
 
@@ -102,94 +102,72 @@ fun SummaryScreen(
         }
 
         /* =========================
-           PERIOD TOGGLE
-           ========================= */
-        Row(modifier = Modifier.padding(top = 12.dp)) {
-            RadioButton(
-                selected = periodDaily,
-                onClick = { periodDaily = true }
-            )
-            Text("Daily", modifier = Modifier.padding(end = 12.dp))
-
-            RadioButton(
-                selected = !periodDaily,
-                onClick = { periodDaily = false }
-            )
-            Text("Weekly")
-        }
-
-        /* =========================
            DATE RANGE BUTTONS
            ========================= */
-        Row(modifier = Modifier.padding(top = 12.dp)) {
-
-            Button(onClick = {
-                val today = LocalDate.now(zone)
-                endMillis = today.plusDays(1)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli() - 1
-                startMillis = today.minusDays(6)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli()
-                rangeLabel = "Last 7 days"
-                localError = null
-            }) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = {
+                    val today = LocalDate.now(zone)
+                    endMillis = today.plusDays(1)
+                        .atStartOfDay(zone)
+                        .toInstant()
+                        .toEpochMilli() - 1
+                    startMillis = today.minusDays(6)
+                        .atStartOfDay(zone)
+                        .toInstant()
+                        .toEpochMilli()
+                    rangeLabel = "Last 7 days"
+                    isPeriodWeekly = true
+                    localError = null
+                },
+                modifier = Modifier.weight(1f)
+            ) {
                 Text("Last 7 days")
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Button(onClick = {
-                val today = LocalDate.now(zone)
-                endMillis = today.plusDays(1)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli() - 1
-                startMillis = today.minusDays(29)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli()
-                rangeLabel = "Last 30 days"
-                localError = null
-            }) {
+            Button(
+                onClick = {
+                    val today = LocalDate.now(zone)
+                    endMillis = today.plusDays(1)
+                        .atStartOfDay(zone)
+                        .toInstant()
+                        .toEpochMilli() - 1
+                    startMillis = today.minusDays(29)
+                        .atStartOfDay(zone)
+                        .toInstant()
+                        .toEpochMilli()
+                    rangeLabel = "Last 30 days"
+                    isPeriodWeekly = false
+                    localError = null
+                },
+                modifier = Modifier.weight(1f)
+            ) {
                 Text("Last 30 days")
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Button(onClick = {
-                val today = LocalDate.now(zone)
-                endMillis = today.plusDays(1)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli() - 1
-                startMillis = today.withDayOfMonth(1)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli()
-                rangeLabel = "This month"
-                localError = null
-            }) {
-                Text("This month")
             }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Button(onClick = {
-            showCustomDatePicker(context) { start, end ->
-                if (start > end) {
-                    localError = "Invalid date range"
-                } else {
-                    startMillis = start
-                    endMillis = end
-                    rangeLabel = "Custom"
-                    localError = null
+        Button(
+            onClick = {
+                showCustomDatePicker(context) { start, end ->
+                    if (start > end) {
+                        localError = "Invalid date range"
+                    } else {
+                        startMillis = start
+                        endMillis = end
+                        rangeLabel = "Custom"
+                        localError = null
+                    }
                 }
-            }
-        }) {
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text("Custom Range")
         }
 
@@ -230,28 +208,183 @@ fun SummaryScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    colors = CardDefaults.cardColors()
+                        .padding(bottom = 12.dp),
+                    colors = CardDefaults.cardColors(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = "${item.label} — $rangeLabel",
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(bottom = 12.dp)
                         )
-                        Text("Total calls: ${item.totalCalls}")
-                        Text("Answered: ${item.answered}   Missed: ${item.missed}")
-                        Text("Suspicious: ${item.suspicious}   Blocked: ${item.blocked}   Warned: ${item.warned}")
 
-                        val avg =
-                            if (item.avgConfidence >= 0)
-                                "${(item.avgConfidence * 100).toInt()}%"
-                            else "N/A"
+                        // Key Metrics Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            // Total Calls
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp),
+                                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "${item.totalCalls}",
+                                    style = MaterialTheme.typography.headlineSmall
+                                )
+                                Text(
+                                    text = "Total Calls",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
 
-                        Text("Average confidence: $avg")
+                            // Average Call Time
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 8.dp),
+                                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "Avg Time",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "—",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+
+                            // Average Detection Rate
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 8.dp),
+                                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                            ) {
+                                val detectionRate =
+                                    if (item.avgConfidence >= 0)
+                                        "${(item.avgConfidence * 100).toInt()}%"
+                                    else "N/A"
+                                Text(
+                                    text = detectionRate,
+                                    style = MaterialTheme.typography.headlineSmall
+                                )
+                                Text(
+                                    text = "Detection Rate",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Divider
+                        Divider(modifier = Modifier.padding(vertical = 12.dp))
+
+                        // Call Status Breakdown
+                        Text(
+                            text = "Call Status",
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("✓ Answered: ${item.answered}")
+                            Text("✗ Missed: ${item.missed}")
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Detection Breakdown
+                        Text(
+                            text = "Detection Results",
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("⚠️ Suspicious: ${item.suspicious}")
+                            Text("🚫 Blocked: ${item.blocked}")
+                            Text("⚡ Warned: ${item.warned}")
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Simple Bar Graph for Daily Distribution
+                        if (metrics.size > 1) {
+                            Text(
+                                text = "Daily Distribution",
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
+                            )
+                            SimpleCallsBarGraph(metrics = metrics)
+                        }
                     }
                 }
             }
         }
+        }
+    }
+}
+
+/* =========================
+   SIMPLE BAR GRAPH COMPOSABLE
+   ========================= */
+
+@Composable
+private fun SimpleCallsBarGraph(metrics: List<SummaryMetrics>) {
+    val maxCalls = metrics.maxOfOrNull { it.totalCalls }?.toFloat() ?: 1f
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+    ) {
+        metrics.take(7).forEach { metric ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = metric.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.width(50.dp)
+                )
+
+                val barWidth = (metric.totalCalls.toFloat() / maxCalls) * 200f
+                Surface(
+                    modifier = Modifier
+                        .width(barWidth.dp)
+                        .height(20.dp),
+                    color = when {
+                        metric.suspicious > 0 -> MaterialTheme.colorScheme.error
+                        metric.warned > 0 -> MaterialTheme.colorScheme.tertiary
+                        else -> MaterialTheme.colorScheme.primary
+                    },
+                    shape = MaterialTheme.shapes.small
+                ) {}
+
+                Text(
+                    text = "${metric.totalCalls}",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.width(30.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                )
+            }
         }
     }
 }
