@@ -32,6 +32,16 @@ interface CallDao {
     @Query("SELECT * FROM calls ORDER BY created_seconds DESC")
     suspend fun getAllCompleteCallRecords(): List<CompleteCallRecord>
 
+    // Debug queries
+    @Query("SELECT COUNT(*) FROM call_metadata")
+    suspend fun getTotalCallMetadataCount(): Int
+
+    @Query("SELECT COUNT(*) FROM call_metadata WHERE direction = 'INCOMING'")
+    suspend fun getIncomingCallCount(): Int
+
+    @Query("SELECT MIN(start_time_seconds) as minTime, MAX(start_time_seconds) as maxTime FROM call_metadata")
+    suspend fun getCallDateRange(): DateRange?
+
     // Aggregation queries using the new normalized schema
     @Query("""
         SELECT 
@@ -77,3 +87,8 @@ interface CallDao {
     """)
     suspend fun weeklyAggregates(startSeconds: Long, endSeconds: Long, threshold: Double): List<AggregateResult>
 }
+
+data class DateRange(
+    val minTime: Long?,
+    val maxTime: Long?
+)
