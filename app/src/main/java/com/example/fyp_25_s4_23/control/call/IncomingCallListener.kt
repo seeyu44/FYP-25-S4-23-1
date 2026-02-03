@@ -10,6 +10,7 @@ import com.google.firebase.firestore.DocumentChange
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import com.example.fyp_25_s4_23.domain.entities.ContactLabel
@@ -87,19 +88,30 @@ object IncomingCallListener {
                                 fallbackPhone = callerPhone // Use phone from call document
                             )
                             
-                            // Check if contact is blocked
-                            // Try to find contact by phone number first, then by username
-                            val contact = if (!callerPhone.isNullOrBlank()) {
-                                contactRepository.getContactByPhoneNumber(callerPhone)
-                            } else {
-                                null
-                            } ?: contactRepository.getContactByUsername(callerUsername)
+                            // Check if contact is blocked by checking Firebase contacts collection
+                            val isBlocked = try {
+                                val contactsSnapshot = db
+                                    .collection("users")
+                                    .document(uid)
+                                    .collection("contacts")
+                                    .whereEqualTo("username", callerUsername)
+                                    .get()
+                                    .await()
+                                
+                                // Check if any contact has label = "BLACK"
+                                contactsSnapshot.documents.any { doc ->
+                                    doc.getString("label") == "BLACK"
+                                }
+                            } catch (e: Exception) {
+                                Log.e("INCOMING_CALL", "Error checking Firebase contacts", e)
+                                false // Default to not blocked if error
+                            }
 
-                            when (contact?.label) {
-                                ContactLabel.BLACK -> {
+                            when {
+                                isBlocked -> {
                                     Log.w(
                                         "INCOMING_CALL",
-                                        "Blocked incoming call from BLACKLISTED user=$callerId callId=$callId"
+                                        "Blocked incoming call from BLACKLISTED user=$callerId (username=$callerUsername) callId=$callId"
                                     )
 
                                     // Do NOT show notification
@@ -109,7 +121,7 @@ object IncomingCallListener {
                                 }
 
                                 else -> {
-                                    // Allowed (WHITE or unknown)
+                                    // Allowed (not in contacts or label is WHITE)
                                     IncomingCallNotifier.showIncomingCall(
                                         context = context.applicationContext,
                                         callId = callId,
