@@ -33,7 +33,7 @@ interface CallRecordDao {
                SUM(CASE WHEN status = 'BLOCKED' THEN 1 ELSE 0 END) as blocked,
                AVG(CASE WHEN probability >= :threshold THEN probability ELSE NULL END) as avg_confidence
         FROM call_records
-        WHERE start_time BETWEEN :startMillis AND :endMillis
+        WHERE start_time BETWEEN :startMillis AND :endMillis AND direction = 'INCOMING'
         GROUP BY period
         ORDER BY period DESC
         """
@@ -50,7 +50,7 @@ interface CallRecordDao {
                SUM(CASE WHEN status = 'BLOCKED' THEN 1 ELSE 0 END) as blocked,
                AVG(CASE WHEN probability >= :threshold THEN probability ELSE NULL END) as avg_confidence
         FROM call_records
-        WHERE start_time BETWEEN :startMillis AND :endMillis
+        WHERE start_time BETWEEN :startMillis AND :endMillis AND direction = 'INCOMING'
         GROUP BY period
         ORDER BY period DESC
         """
