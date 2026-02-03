@@ -44,6 +44,7 @@ fun FirebaseCallHistoryScreen(
     errorMessage: String? = null,
     onRefresh: () -> Unit,
     onBack: () -> Unit,
+    onNavigateToSummary: (() -> Unit)? = null,
     onNavigateToDialer: (() -> Unit)? = null,
     onNavigateToContacts: (() -> Unit)? = null,
     onLogout: (() -> Unit)? = null
@@ -73,6 +74,7 @@ fun FirebaseCallHistoryScreen(
                 onNavigate = { route ->
                     when (route) {
                         "home" -> onBack()
+                        "summary" -> onNavigateToSummary?.invoke()
                         "call_history" -> { /* Already here */ }
                         "dialer" -> onNavigateToDialer?.invoke()
                         "contacts" -> onNavigateToContacts?.invoke()

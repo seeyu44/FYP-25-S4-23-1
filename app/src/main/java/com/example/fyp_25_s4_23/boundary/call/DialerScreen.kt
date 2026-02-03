@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun DialerScreen(
     onBack: () -> Unit,
+    onNavigateToSummary: (() -> Unit)? = null,
     onNavigateToCallHistory: (() -> Unit)? = null,
     onNavigateToContacts: (() -> Unit)? = null,
     onLogout: (() -> Unit)? = null
@@ -57,6 +58,7 @@ fun DialerScreen(
                 onNavigate = { route ->
                     when (route) {
                         "home" -> onBack()
+                        "summary" -> onNavigateToSummary?.invoke()
                         "call_history" -> onNavigateToCallHistory?.invoke()
                         "dialer" -> { /* Already here */ }
                         "contacts" -> onNavigateToContacts?.invoke()

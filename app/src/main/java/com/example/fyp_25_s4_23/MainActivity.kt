@@ -206,6 +206,7 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                     errorMessage = uiState.message,
                     onRefresh = { viewModel.loadFirebaseCallHistory() },
                     onBack = viewModel::navigateToDashboard,
+                    onNavigateToSummary = viewModel::navigateToSummary,
                     onNavigateToDialer = viewModel::navigateToDialer,
                     onNavigateToContacts = { viewModel.navigateToManagedContacts() },
                     onLogout = viewModel::logout
@@ -251,6 +252,7 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             } else {
                 com.example.fyp_25_s4_23.boundary.call.DialerScreen(
                     onBack = viewModel::navigateToDashboard,
+                    onNavigateToSummary = viewModel::navigateToSummary,
                     onNavigateToCallHistory = {
                         viewModel.loadFirebaseCallHistory()
                         viewModel.navigateToCallHistory()
@@ -289,7 +291,8 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
 
                 ManagedContactsScreen(
                     viewModel = managedViewModel,
-                    onBack = viewModel::navigateToDashboard,
+                    onBack = vieSummary = viewModel::navigateToSummary,
+                    onNavigateTowModel::navigateToDashboard,
                     onNavigateToCallHistory = {
                         viewModel.loadFirebaseCallHistory()
                         viewModel.navigateToCallHistory()

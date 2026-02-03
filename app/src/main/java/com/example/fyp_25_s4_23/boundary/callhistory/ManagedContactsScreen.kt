@@ -29,6 +29,7 @@ import kotlinx.coroutines.delay
 fun ManagedContactsScreen(
     viewModel: ManagedContactsViewModel,
     onBack: () -> Unit,
+    onNavigateToSummary: (() -> Unit)? = null,
     onNavigateToCallHistory: (() -> Unit)? = null,
     onNavigateToDialer: (() -> Unit)? = null,
     onLogout: (() -> Unit)? = null
@@ -77,6 +78,7 @@ fun ManagedContactsScreen(
                 onNavigate = { route ->
                     when (route) {
                         "home" -> onBack()
+                        "summary" -> onNavigateToSummary?.invoke()
                         "call_history" -> onNavigateToCallHistory?.invoke()
                         "dialer" -> onNavigateToDialer?.invoke()
                         "contacts" -> { /* Already here */ }
