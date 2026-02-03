@@ -20,13 +20,15 @@ object VoipCallManager {
 
         val callId = UUID.randomUUID().toString()
         val callerUsername = caller.displayName ?: caller.email ?: caller.uid
+        val callerPhone = caller.phoneNumber // Get phone from Firebase Auth
 
 
         FirebaseSignalingManager().createCall(
             callId = callId,
             callerUid = caller.uid,
             calleeUid = calleeUserId,
-            callerUsername = callerUsername
+            callerUsername = callerUsername,
+            callerPhone = callerPhone
         )
 
         val intent = Intent(context, CallInProgressActivity::class.java).apply {
