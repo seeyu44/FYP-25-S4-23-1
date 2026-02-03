@@ -6,6 +6,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import android.util.Log
 
 class FirebaseContactRepository {
 
@@ -59,7 +60,10 @@ class FirebaseContactRepository {
             .get()
             .await()
 
+        Log.d("FIREBASE_CONTACT", "Found ${snapshot.documents.size} contact(s) with username=$username")
+        
         snapshot.documents.forEach { doc ->
+            Log.d("FIREBASE_CONTACT", "Updating contact ${doc.id} label to ${label.name}")
             contactsRef().document(doc.id)
                 .update("label", label.name)
                 .await()

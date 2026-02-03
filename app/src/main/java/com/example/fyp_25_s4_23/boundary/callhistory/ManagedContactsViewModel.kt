@@ -157,23 +157,16 @@ class ManagedContactsViewModel(
                 // Update local database
                 repository.updateContactLabel(contact.id, ContactLabel.BLACK.toString())
                 
-                // Update Firebase
+                // Update Firebase - use displayName as username (for both phone contacts and VOIP contacts)
                 try {
-                    val username = if (contact.phoneNumber == "VOIP_USER") {
-                        contact.displayName
-                    } else {
-                        val normalizedPhone = if (contact.phoneNumber.startsWith("+65")) {
-                            contact.phoneNumber
-                        } else {
-                            "+65${contact.phoneNumber}"
-                        }
-                        phoneLookupService.getUserByPhoneNumber(normalizedPhone).username
-                    }
+                    val username = contact.displayName
                     
                     if (!username.isNullOrBlank()) {
+                        android.util.Log.d("BLOCK_CONTACT", "Blocking contact with username: $username")
                         firebaseRepo.updateContactLabel(username, ContactLabel.BLACK)
                     }
                 } catch (e: Exception) {
+                    android.util.Log.e("BLOCK_CONTACT", "Firebase update failed", e)
                     firebaseFailed = true
                 }
                 
@@ -195,23 +188,16 @@ class ManagedContactsViewModel(
                 // Update local database
                 repository.updateContactLabel(contact.id, ContactLabel.WHITE.toString())
                 
-                // Update Firebase
+                // Update Firebase - use displayName as username (for both phone contacts and VOIP contacts)
                 try {
-                    val username = if (contact.phoneNumber == "VOIP_USER") {
-                        contact.displayName
-                    } else {
-                        val normalizedPhone = if (contact.phoneNumber.startsWith("+65")) {
-                            contact.phoneNumber
-                        } else {
-                            "+65${contact.phoneNumber}"
-                        }
-                        phoneLookupService.getUserByPhoneNumber(normalizedPhone).username
-                    }
+                    val username = contact.displayName
                     
                     if (!username.isNullOrBlank()) {
+                        android.util.Log.d("UNBLOCK_CONTACT", "Unblocking contact with username: $username")
                         firebaseRepo.updateContactLabel(username, ContactLabel.WHITE)
                     }
                 } catch (e: Exception) {
+                    android.util.Log.e("UNBLOCK_CONTACT", "Firebase update failed", e)
                     firebaseFailed = true
                 }
                 
