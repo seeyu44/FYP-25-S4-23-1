@@ -90,18 +90,39 @@ object IncomingCallListener {
                             
                             // Check if contact is blocked by checking Firebase contacts collection
                             val isBlocked = try {
+                                // Get the actual username from the phone number
+                                val actualUsername = if (!callerPhone.isNullOrBlank()) {
+                                    try {
+                                        val phoneLookupService = com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService()
+                                        phoneLookupService.getUserByPhoneNumber(callerPhone).username
+                                    } catch (e: Exception) {
+                                        Log.d("INCOMING_CALL", "Phone lookup failed, using callerUsername: $callerUsername")
+                                        callerUsername
+                                    }
+                                } else {
+                                    callerUsername
+                                }
+                                
+                                Log.d("INCOMING_CALL", "Checking if username=$actualUsername is blocked")
+                                
                                 val contactsSnapshot = db
                                     .collection("users")
                                     .document(uid)
                                     .collection("contacts")
-                                    .whereEqualTo("username", callerUsername)
+                                    .whereEqualTo("username", actualUsername)
                                     .get()
                                     .await()
                                 
                                 // Check if any contact has label = "BLACK"
-                                contactsSnapshot.documents.any { doc ->
+                                val blocked = contactsSnapshot.documents.any { doc ->
                                     doc.getString("label") == "BLACK"
                                 }
+                                
+                                if (blocked) {
+                                    Log.d("INCOMING_CALL", "Found contact with username=$actualUsername marked as BLOCKED")
+                                }
+                                
+                                blocked
                             } catch (e: Exception) {
                                 Log.e("INCOMING_CALL", "Error checking Firebase contacts", e)
                                 false // Default to not blocked if error
@@ -111,7 +132,7 @@ object IncomingCallListener {
                                 isBlocked -> {
                                     Log.w(
                                         "INCOMING_CALL",
-                                        "Blocked incoming call from BLACKLISTED user=$callerId (username=$callerUsername) callId=$callId"
+                                        "Blocked incoming call from BLACKLISTED user=$callerId callId=$callId"
                                     )
 
                                     // Do NOT show notification
