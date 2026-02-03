@@ -58,16 +58,29 @@ fun SummaryScreen(
         return callsByDay.map { (date, callsForDay) ->
             val completedCalls = callsForDay.filter { it.status == "completed" }
             val missedCalls = callsForDay.filter { it.status in listOf("missed", "declined") }
+            
+            // Calculate detection metrics using the detection score
+            val callsWithScore = callsForDay.filter { it.detectionScore != null }
+            val suspiciousCalls = callsWithScore.filter { (it.detectionScore ?: 0.0) >= 0.5 }
+            val warnedCalls = callsWithScore.filter { 
+                val score = it.detectionScore ?: 0.0
+                score >= 0.5 && score < 0.8 
+            }
+            val avgScore = if (callsWithScore.isNotEmpty()) {
+                callsWithScore.mapNotNull { it.detectionScore }.average()
+            } else {
+                -1.0
+            }
 
             SummaryMetrics(
                 label = date,
                 totalCalls = callsForDay.size,
                 answered = completedCalls.size,
                 missed = missedCalls.size,
-                suspicious = 0, // Firebase data doesn't have probability/detection data
-                blocked = 0,
-                warned = 0,
-                avgConfidence = -1.0 // Not available from Firebase
+                suspicious = suspiciousCalls.size,
+                blocked = 0, // Would need blocked status from Firebase
+                warned = warnedCalls.size,
+                avgConfidence = avgScore
             )
         }.sortedByDescending { it.label }
     }

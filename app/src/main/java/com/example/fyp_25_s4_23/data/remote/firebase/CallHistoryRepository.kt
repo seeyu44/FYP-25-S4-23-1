@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.fyp_25_s4_23.entity.domain.entities.CallHistoryResponse
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.OtherUser
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
@@ -144,6 +145,18 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 OtherUser()
             }
 
+            // Extract UID-prefixed detection fields
+            val currentUid = FirebaseAuth.getInstance().currentUser?.uid
+            val detectionScore = if (currentUid != null) {
+                (data["${currentUid}_detection_score"] as? Number)?.toDouble()
+            } else null
+            val detectionTime = if (currentUid != null) {
+                data["${currentUid}_detection_time"] as? com.google.firebase.Timestamp
+            } else null
+            val isDeepfake = if (currentUid != null) {
+                data["${currentUid}_is_deepfake"] as? Boolean
+            } else null
+
             FirebaseCallRecord(
                 id = data["id"] as? String ?: "",
                 callerUserId = data["caller_user_id"] as? String ?: "",
@@ -153,7 +166,10 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 status = data["status"] as? String ?: "unknown",
                 duration = (data["duration"] as? Number)?.toLong() ?: 0L,
                 isCaller = data["is_caller"] as? Boolean ?: false,
-                otherUser = otherUser
+                otherUser = otherUser,
+                detectionScore = detectionScore,
+                detectionTime = detectionTime,
+                isDeepfake = isDeepfake
             )
         } catch (e: Exception) {
             Log.e("CallHistoryRepository", "Error parsing call record", e)
