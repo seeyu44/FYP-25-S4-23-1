@@ -221,24 +221,25 @@ fun SummaryScreen(
         val metrics = remember(startMillis, endMillis, incomingCalls) {
             Log.i("SummaryScreen", "Recalculating metrics: startMillis=$startMillis, endMillis=$endMillis, incomingCalls=${incomingCalls.size}")
             
-            // Debug: Log first few call timestamps
-            incomingCalls.take(5).forEach { call ->
-                val callTime = call.getCreatedAtMillis()
-                val callTimeSeconds = call.createdAt?.seconds ?: 0
-                val date = java.util.Date(callTime)
-                Log.i("SummaryScreen", "Sample call: millis=$callTime, seconds=$callTimeSeconds, date=$date")
+            // Check if timestamps are valid
+            val hasValidTimestamps = incomingCalls.any { it.getCreatedAtMillis() > 0 }
+            Log.i("SummaryScreen", "Has valid timestamps: $hasValidTimestamps")
+            
+            val callsInRange = if (!hasValidTimestamps) {
+                // If no valid timestamps, show all calls
+                Log.w("SummaryScreen", "No valid timestamps found, showing all calls")
+                incomingCalls
+            } else {
+                incomingCalls.filter { call ->
+                    var callTimeMillis = call.getCreatedAtMillis()
+                    // If getCreatedAtMillis returns a value that looks like seconds (< year 2000), convert it
+                    if (callTimeMillis > 0 && callTimeMillis < 946684800000L) {
+                        callTimeMillis *= 1000 // Convert seconds to milliseconds
+                    }
+                    callTimeMillis in startMillis..endMillis
+                }
             }
             
-            val callsInRange = incomingCalls.filter { call ->
-                var callTimeMillis = call.getCreatedAtMillis()
-                // If getCreatedAtMillis returns a value that looks like seconds (< year 2000), convert it
-                if (callTimeMillis > 0 && callTimeMillis < 946684800000L) {
-                    callTimeMillis *= 1000 // Convert seconds to milliseconds
-                }
-                val inRange = callTimeMillis in startMillis..endMillis
-                Log.d("SummaryScreen", "Call time: $callTimeMillis, in range [$startMillis..$endMillis]: $inRange")
-                inRange
-            }
             Log.i("SummaryScreen", "Calls in range: ${callsInRange.size}")
             generateMetrics(callsInRange)
         }
