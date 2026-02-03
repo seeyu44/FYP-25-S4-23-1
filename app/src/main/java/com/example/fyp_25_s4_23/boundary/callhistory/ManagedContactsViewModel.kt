@@ -157,13 +157,31 @@ class ManagedContactsViewModel(
                 // Update local database
                 repository.updateContactLabel(contact.id, ContactLabel.BLACK.toString())
                 
-                // Update Firebase - use displayName as username (for both phone contacts and VOIP contacts)
+                // Update Firebase - need to get the actual username from phone number
                 try {
-                    val username = contact.displayName
+                    val username = if (contact.phoneNumber == "VOIP_USER") {
+                        contact.displayName // For VOIP contacts, displayName is the username
+                    } else {
+                        // For phone contacts, look up the username from the phone number
+                        val normalizedPhone = if (contact.phoneNumber.startsWith("+65")) {
+                            contact.phoneNumber
+                        } else {
+                            "+65${contact.phoneNumber}"
+                        }
+                        try {
+                            phoneLookupService.getUserByPhoneNumber(normalizedPhone).username
+                        } catch (e: Exception) {
+                            android.util.Log.e("BLOCK_CONTACT", "Phone lookup failed for $normalizedPhone", e)
+                            null
+                        }
+                    }
                     
                     if (!username.isNullOrBlank()) {
-                        android.util.Log.d("BLOCK_CONTACT", "Blocking contact with username: $username")
+                        android.util.Log.d("BLOCK_CONTACT", "Blocking contact with username: $username (phone: ${contact.phoneNumber})")
                         firebaseRepo.updateContactLabel(username, ContactLabel.BLACK)
+                    } else {
+                        android.util.Log.e("BLOCK_CONTACT", "Could not determine username for contact")
+                        firebaseFailed = true
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("BLOCK_CONTACT", "Firebase update failed", e)
@@ -188,13 +206,31 @@ class ManagedContactsViewModel(
                 // Update local database
                 repository.updateContactLabel(contact.id, ContactLabel.WHITE.toString())
                 
-                // Update Firebase - use displayName as username (for both phone contacts and VOIP contacts)
+                // Update Firebase - need to get the actual username from phone number
                 try {
-                    val username = contact.displayName
+                    val username = if (contact.phoneNumber == "VOIP_USER") {
+                        contact.displayName // For VOIP contacts, displayName is the username
+                    } else {
+                        // For phone contacts, look up the username from the phone number
+                        val normalizedPhone = if (contact.phoneNumber.startsWith("+65")) {
+                            contact.phoneNumber
+                        } else {
+                            "+65${contact.phoneNumber}"
+                        }
+                        try {
+                            phoneLookupService.getUserByPhoneNumber(normalizedPhone).username
+                        } catch (e: Exception) {
+                            android.util.Log.e("UNBLOCK_CONTACT", "Phone lookup failed for $normalizedPhone", e)
+                            null
+                        }
+                    }
                     
                     if (!username.isNullOrBlank()) {
-                        android.util.Log.d("UNBLOCK_CONTACT", "Unblocking contact with username: $username")
+                        android.util.Log.d("UNBLOCK_CONTACT", "Unblocking contact with username: $username (phone: ${contact.phoneNumber})")
                         firebaseRepo.updateContactLabel(username, ContactLabel.WHITE)
+                    } else {
+                        android.util.Log.e("UNBLOCK_CONTACT", "Could not determine username for contact")
+                        firebaseFailed = true
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("UNBLOCK_CONTACT", "Firebase update failed", e)
@@ -204,6 +240,13 @@ class ManagedContactsViewModel(
                 _uiMessage.value = if (firebaseFailed) {
                     "Contact unblocked locally; sync pending"
                 } else {
+                    "Contact has been unblocked"
+                }
+            } catch (e: Exception) {
+                _uiMessage.value = "Failed to unblock contact"
+            }
+        }
+    }
                     "Contact has been unblocked"
                 }
             } catch (e: Exception) {
