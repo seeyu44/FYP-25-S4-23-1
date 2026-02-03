@@ -107,6 +107,7 @@ fun UserDashboard(
                 onNavigate = { route ->
                     when (route) {
                         "home" -> { /* Already on home */ }
+                        "summary" -> onNavigateToSummary?.invoke()
                         "call_history" -> onNavigateToCallHistory?.invoke()
                         "dialer" -> onNavigateToDialer?.invoke()
                         "contacts" -> onNavigateToContactList?.invoke()

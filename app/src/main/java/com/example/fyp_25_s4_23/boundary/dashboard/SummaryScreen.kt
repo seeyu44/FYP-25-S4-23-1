@@ -64,11 +64,29 @@ fun SummaryScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
+    Scaffold(
+        bottomBar = {
+            BottomNavigationBar(
+                currentRoute = "summary",
+                onNavigate = { route ->
+                    when (route) {
+                        "home" -> onNavigate("home")
+                        "summary" -> { /* Already on summary */ }
+                        "call_history" -> onNavigate("call_history")
+                        "dialer" -> onNavigate("dialer")
+                        "contacts" -> onNavigate("contacts")
+                        "logout" -> onNavigate("logout")
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
 
         /* =========================
            HEADER
@@ -206,7 +224,6 @@ fun SummaryScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
                 .padding(top = 12.dp)
         ) {
             items(metrics) { item ->
@@ -235,23 +252,7 @@ fun SummaryScreen(
                 }
             }
         }
-
-        /* =========================
-           BOTTOM NAVIGATION
-           ========================= */
-        BottomNavigationBar(
-            currentRoute = "summary",
-            onNavigate = { route ->
-                when (route) {
-                    "home" -> onNavigate("home")
-                    "summary" -> { /* Already on summary */ }
-                    "call_history" -> onNavigate("call_history")
-                    "dialer" -> onNavigate("dialer")
-                    "contacts" -> onNavigate("contacts")
-                    "logout" -> onNavigate("logout")
-                }
-            }
-        )
+        }
     }
 }
 
