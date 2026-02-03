@@ -220,9 +220,24 @@ fun SummaryScreen(
         // Filter calls for the selected date range
         val metrics = remember(startMillis, endMillis, incomingCalls) {
             Log.i("SummaryScreen", "Recalculating metrics: startMillis=$startMillis, endMillis=$endMillis, incomingCalls=${incomingCalls.size}")
+            
+            // Debug: Log first few call timestamps
+            incomingCalls.take(5).forEach { call ->
+                val callTime = call.getCreatedAtMillis()
+                val callTimeSeconds = call.createdAt?.seconds ?: 0
+                val date = java.util.Date(callTime)
+                Log.i("SummaryScreen", "Sample call: millis=$callTime, seconds=$callTimeSeconds, date=$date")
+            }
+            
             val callsInRange = incomingCalls.filter { call ->
-                val callTimeMillis = call.getCreatedAtMillis()
-                callTimeMillis in startMillis..endMillis
+                var callTimeMillis = call.getCreatedAtMillis()
+                // If getCreatedAtMillis returns a value that looks like seconds (< year 2000), convert it
+                if (callTimeMillis > 0 && callTimeMillis < 946684800000L) {
+                    callTimeMillis *= 1000 // Convert seconds to milliseconds
+                }
+                val inRange = callTimeMillis in startMillis..endMillis
+                Log.d("SummaryScreen", "Call time: $callTimeMillis, in range [$startMillis..$endMillis]: $inRange")
+                inRange
             }
             Log.i("SummaryScreen", "Calls in range: ${callsInRange.size}")
             generateMetrics(callsInRange)
