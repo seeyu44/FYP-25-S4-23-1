@@ -206,10 +206,7 @@ fun SummaryScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 12.dp)
-        ) {
-            items(metrics) { item ->
-                Cweight(1f)
+                .weight(1f)
                 .padding(top = 12.dp)
         ) {
             items(metrics) { item ->
@@ -255,9 +252,8 @@ fun SummaryScreen(
                 }
             }
         )
-/* =========================
-   DATE PICKER
-   ========================= */
+    }
+}
 
 private fun showCustomDatePicker(
     context: Context,
