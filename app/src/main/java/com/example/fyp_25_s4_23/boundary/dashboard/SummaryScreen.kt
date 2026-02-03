@@ -124,6 +124,7 @@ fun SummaryScreen(
                     rangeLabel = "Last 7 days"
                     isPeriodWeekly = true
                     localError = null
+                    onRequestSummary(startMillis, endMillis, false)
                 },
                 modifier = Modifier.weight(1f)
             ) {
@@ -144,6 +145,7 @@ fun SummaryScreen(
                     rangeLabel = "Last 30 days"
                     isPeriodWeekly = false
                     localError = null
+                    onRequestSummary(startMillis, endMillis, true)
                 },
                 modifier = Modifier.weight(1f)
             ) {
@@ -163,6 +165,7 @@ fun SummaryScreen(
                         endMillis = end
                         rangeLabel = "Custom"
                         localError = null
+                        onRequestSummary(startMillis, endMillis, !isPeriodWeekly)
                     }
                 }
             },
