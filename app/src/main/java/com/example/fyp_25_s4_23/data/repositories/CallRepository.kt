@@ -10,11 +10,17 @@ class CallRepository(private val callRecordDao: CallRecordDao) {
     suspend fun listRecent(): List<CallRecord> = callRecordDao.listRecent().map { it.toDomain() }
 
     suspend fun dailyAggregates(startMillis: Long, endMillis: Long, threshold: Double = 0.5): List<com.example.fyp_25_s4_23.data.dao.AggregateResult> {
-        return callRecordDao.dailyAggregates(startMillis, endMillis, threshold)
+        // Convert milliseconds to seconds for database comparison
+        val startSeconds = startMillis / 1000
+        val endSeconds = endMillis / 1000
+        return callRecordDao.dailyAggregates(startSeconds, endSeconds, threshold)
     }
 
     suspend fun weeklyAggregates(startMillis: Long, endMillis: Long, threshold: Double = 0.5): List<com.example.fyp_25_s4_23.data.dao.AggregateResult> {
-        return callRecordDao.weeklyAggregates(startMillis, endMillis, threshold)
+        // Convert milliseconds to seconds for database comparison
+        val startSeconds = startMillis / 1000
+        val endSeconds = endMillis / 1000
+        return callRecordDao.weeklyAggregates(startSeconds, endSeconds, threshold)
     }
 }
 

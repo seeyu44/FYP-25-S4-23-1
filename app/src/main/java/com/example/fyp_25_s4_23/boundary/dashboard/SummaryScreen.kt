@@ -35,33 +35,32 @@ fun SummaryScreen(
     var endMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var localError by remember { mutableStateOf<String?>(null) }
     var isPeriodWeekly by remember { mutableStateOf(true) }
+    var hasInitialLoad by remember { mutableStateOf(false) }
 
     /* =========================
-       INITIAL DATE RANGE
+       INITIAL DATE RANGE AND LOAD
        ========================= */
     LaunchedEffect(Unit) {
         val today = LocalDate.now(zone)
 
-        endMillis = today
+        val newEndMillis = today
             .plusDays(1)
             .atStartOfDay(zone)
             .toInstant()
             .toEpochMilli() - 1
 
-        startMillis = today
+        val newStartMillis = today
             .minusDays(6)
             .atStartOfDay(zone)
             .toInstant()
             .toEpochMilli()
-    }
 
-    /* =========================
-       REQUEST DATA WHEN INPUTS CHANGE
-       ========================= */
-    LaunchedEffect(startMillis, endMillis, isPeriodWeekly) {
-        if (startMillis <= endMillis) {
-            onRequestSummary(startMillis, endMillis, !isPeriodWeekly)
-        }
+        endMillis = newEndMillis
+        startMillis = newStartMillis
+        
+        // Trigger initial data load
+        onRequestSummary(newStartMillis, newEndMillis, false)
+        hasInitialLoad = true
     }
 
     Scaffold(
