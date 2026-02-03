@@ -56,31 +56,24 @@ fun SummaryScreen(
         }
 
         return callsByDay.map { (date, callsForDay) ->
-            val completedCalls = callsForDay.filter { it.status == "completed" }
-            val missedCalls = callsForDay.filter { it.status in listOf("missed", "declined") }
+            // Detection logic:
+            // - Answered calls: have detectionScore (call was answered, deepfake analysis was performed)
+            // - Missed calls: no detectionScore (call wasn't answered, so no analysis)
+            // - Deepfake calls: isDeepfake == true
             
-            // Calculate detection metrics using the detection score
-            val callsWithScore = callsForDay.filter { it.detectionScore != null }
-            val suspiciousCalls = callsWithScore.filter { (it.detectionScore ?: 0.0) >= 0.5 }
-            val warnedCalls = callsWithScore.filter { 
-                val score = it.detectionScore ?: 0.0
-                score >= 0.5 && score < 0.8 
-            }
-            val avgScore = if (callsWithScore.isNotEmpty()) {
-                callsWithScore.mapNotNull { it.detectionScore }.average()
-            } else {
-                -1.0
-            }
+            val answeredCalls = callsForDay.filter { it.detectionScore != null }
+            val missedCalls = callsForDay.filter { it.detectionScore == null }
+            val deepfakeCalls = answeredCalls.filter { it.isDeepfake == true }
 
             SummaryMetrics(
                 label = date,
                 totalCalls = callsForDay.size,
-                answered = completedCalls.size,
+                answered = answeredCalls.size,
                 missed = missedCalls.size,
-                suspicious = suspiciousCalls.size,
+                suspicious = deepfakeCalls.size, // Calls detected as deepfake
                 blocked = 0, // Would need blocked status from Firebase
-                warned = warnedCalls.size,
-                avgConfidence = avgScore
+                warned = 0, // Reserved for future use
+                avgConfidence = -1.0
             )
         }.sortedByDescending { it.label }
     }
