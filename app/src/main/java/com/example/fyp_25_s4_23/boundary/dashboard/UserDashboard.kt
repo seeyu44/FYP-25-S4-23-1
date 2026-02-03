@@ -234,45 +234,6 @@ fun UserDashboard(
                     }
                 }
 
-                // VoIP Test Calls (for testing)
-                if (onNavigateToDialer != null && users.any { it.id != user.id }) {
-                    item {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 16.dp)
-                        ) {
-                            Column(Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "VoIP Calls (Test)",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-
-                                users
-                                    .filter { it.id != user.id }
-                                    .forEach { otherUser ->
-                                        Button(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(top = 8.dp),
-                                            onClick = {
-                                                otherUser.firebaseUid?.let { uid ->
-                                                    VoipCallManager.startOutgoingVoipCall(
-                                                        context = ctx,
-                                                        calleeUserId = uid,
-                                                        calleeDisplayName = otherUser.username
-                                                    )
-                                                }
-                                            }
-                                        ) {
-                                            Text("Call ${otherUser.username}")
-                                        }
-                                    }
-                            }
-                        }
-                    }
-                }
-
                 // Admin panel
                 if (user.role == UserRole.ADMIN) {
                     item {
