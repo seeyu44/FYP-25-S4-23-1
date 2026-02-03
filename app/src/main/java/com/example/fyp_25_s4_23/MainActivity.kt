@@ -291,8 +291,8 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
 
                 ManagedContactsScreen(
                     viewModel = managedViewModel,
-                    onBack = vieSummary = viewModel::navigateToSummary,
-                    onNavigateTowModel::navigateToDashboard,
+                    onBack = viewModel::navigateToDashboard,
+                    onNavigateToSummary = viewModel::navigateToSummary,
                     onNavigateToCallHistory = {
                         viewModel.loadFirebaseCallHistory()
                         viewModel.navigateToCallHistory()
