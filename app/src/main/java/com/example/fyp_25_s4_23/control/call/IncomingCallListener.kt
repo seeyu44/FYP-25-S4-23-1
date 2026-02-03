@@ -85,6 +85,10 @@ object IncomingCallListener {
                                 userId = callerId, // Use callerId (Firebase UID) to look up contact
                                 fallbackName = callerUsername, // Use callerUsername (email) as last resort
                                 fallbackPhone = callerPhone // Use phone from call document
+                            )
+                            
+                            // Check if contact is blocked
+                            val contact = contactRepository.getContactByUsername(callerId)
 
                             when (contact?.label) {
                                 ContactLabel.BLACK -> {
