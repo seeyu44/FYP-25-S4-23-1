@@ -378,6 +378,9 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     isBusy = false
                 )
             }
+            
+            // Load Firebase call history for dashboard display
+            loadFirebaseCallHistory()
         }
     }
 
