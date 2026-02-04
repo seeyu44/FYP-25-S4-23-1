@@ -618,17 +618,25 @@ private fun ConfidenceGraph(
     val groupedData = if (groupByWeek) {
         // Group by week
         callsInRange.groupBy { call ->
-            val date = call.createdAt?.toDate() ?: java.util.Date()
+            var callTimeMillis = call.getCreatedAtMillis()
+            if (callTimeMillis > 0 && callTimeMillis < 946684800000L) {
+                callTimeMillis *= 1000
+            }
+            val date = java.util.Date(callTimeMillis)
             val cal = java.util.Calendar.getInstance()
             cal.time = date
             val weekOfYear = cal.get(java.util.Calendar.WEEK_OF_YEAR)
             val year = cal.get(java.util.Calendar.YEAR)
-            "W$weekOfYear"
+            "W$weekOfYear/$year"
         }
     } else {
         // Group by day
         callsInRange.groupBy { call ->
-            val date = call.createdAt?.toDate() ?: java.util.Date()
+            var callTimeMillis = call.getCreatedAtMillis()
+            if (callTimeMillis > 0 && callTimeMillis < 946684800000L) {
+                callTimeMillis *= 1000
+            }
+            val date = java.util.Date(callTimeMillis)
             val cal = java.util.Calendar.getInstance()
             cal.time = date
             LocalDate.of(cal.get(java.util.Calendar.YEAR),
