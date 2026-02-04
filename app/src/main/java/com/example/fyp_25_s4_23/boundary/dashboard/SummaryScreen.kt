@@ -479,6 +479,11 @@ private fun SimpleCallsBarGraph(metrics: List<SummaryMetrics>) {
                     },
                     shape = MaterialTheme.shapes.small
                 ) {}
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DateRangePickerModal(
