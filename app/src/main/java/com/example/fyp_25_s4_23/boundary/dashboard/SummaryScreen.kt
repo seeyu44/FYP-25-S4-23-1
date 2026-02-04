@@ -3,6 +3,7 @@ package com.example.fyp_25_s4_23.boundary.dashboard
 import android.app.DatePickerDialog
 import android.content.Context
 import android.util.Log
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,8 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -629,6 +630,9 @@ private fun ConfidenceGraph(
             val minConfidence = dataPoints.minOfOrNull { it.confidence } ?: 0.0
             val confidenceRange = maxConfidence - minConfidence
             
+            val primaryColor = MaterialTheme.colorScheme.primary
+            val outlineColor = MaterialTheme.colorScheme.outline
+            
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -651,9 +655,9 @@ private fun ConfidenceGraph(
                     for (i in 0..gridLines) {
                         val y = (height / gridLines) * i
                         drawLine(
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                            start = androidx.compose.ui.geometry.Offset(0f, y),
-                            end = androidx.compose.ui.geometry.Offset(width, y),
+                            color = outlineColor.copy(alpha = 0.2f),
+                            start = Offset(0f, y),
+                            end = Offset(width, y),
                             strokeWidth = 1f
                         )
                     }
@@ -667,7 +671,7 @@ private fun ConfidenceGraph(
                             0.5
                         }
                         val x = i * pointSpacing
-                        val y = height - (normalizedConfidence * height)
+                        val y = height - (normalizedConfidence.toFloat() * height)
                         
                         // Draw line to next point
                         if (i < dataPoints.size - 1) {
@@ -678,21 +682,21 @@ private fun ConfidenceGraph(
                                 0.5
                             }
                             val nextX = (i + 1) * pointSpacing
-                            val nextY = height - (nextNormalizedConfidence * height)
+                            val nextY = height - (nextNormalizedConfidence.toFloat() * height)
                             
                             drawLine(
-                                color = MaterialTheme.colorScheme.primary,
-                                start = androidx.compose.ui.geometry.Offset(x, y),
-                                end = androidx.compose.ui.geometry.Offset(nextX, nextY),
+                                color = primaryColor,
+                                start = Offset(x, y),
+                                end = Offset(nextX, nextY),
                                 strokeWidth = 2f
                             )
                         }
                         
                         // Draw data point circle
                         drawCircle(
-                            color = MaterialTheme.colorScheme.primary,
+                            color = primaryColor,
                             radius = 4f,
-                            center = androidx.compose.ui.geometry.Offset(x, y)
+                            center = Offset(x, y)
                         )
                     }
                 }
@@ -700,7 +704,7 @@ private fun ConfidenceGraph(
                 // Legend
                 Row(
                     modifier = Modifier
-                        .align(androidx.compose.ui.Alignment.BottomStart)
+                        .align(Alignment.BottomStart)
                         .padding(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
