@@ -64,6 +64,11 @@ fun SummaryScreen(
             val answeredCalls = callsForDay.filter { it.detectionScore != null }
             val missedCalls = callsForDay.filter { it.detectionScore == null }
             val deepfakeCalls = answeredCalls.filter { it.isDeepfake == true }
+            
+            Log.i("SummaryScreen", "Date: $date - Total: ${callsForDay.size}, Answered: ${answeredCalls.size}, Missed: ${missedCalls.size}, Deepfake: ${deepfakeCalls.size}")
+            callsForDay.forEach { call ->
+                Log.d("SummaryScreen", "  Call ${call.id}: detectionScore=${call.detectionScore}, isDeepfake=${call.isDeepfake}")
+            }
 
             SummaryMetrics(
                 label = date,
