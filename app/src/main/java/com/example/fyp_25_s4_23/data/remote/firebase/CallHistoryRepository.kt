@@ -147,18 +147,32 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
 
             // Extract UID-prefixed detection fields
             val currentUid = FirebaseAuth.getInstance().currentUser?.uid
+            val callId = data["id"] as? String ?: "unknown"
+            
+            Log.d("CallHistoryRepository", "Parsing call $callId - currentUid: $currentUid")
+            Log.d("CallHistoryRepository", "  Available keys: ${data.keys}")
+            
             val detectionScore = if (currentUid != null) {
-                (data["${currentUid}_detection_score"] as? Number)?.toDouble()
+                val scoreKey = "${currentUid}_detection_score"
+                val score = (data[scoreKey] as? Number)?.toDouble()
+                Log.d("CallHistoryRepository", "  Looking for '$scoreKey': $score")
+                score
             } else null
+            
             val detectionTime = if (currentUid != null) {
-                // Firebase stores this as detection_timestamp (milliseconds as Number)
-                val timestampMillis = (data["${currentUid}_detection_timestamp"] as? Number)?.toLong()
+                val timestampKey = "${currentUid}_detection_timestamp"
+                val timestampMillis = (data[timestampKey] as? Number)?.toLong()
+                Log.d("CallHistoryRepository", "  Looking for '$timestampKey': $timestampMillis")
                 if (timestampMillis != null) {
                     com.google.firebase.Timestamp(timestampMillis / 1000, ((timestampMillis % 1000) * 1000000).toInt())
                 } else null
             } else null
+            
             val isDeepfake = if (currentUid != null) {
-                data["${currentUid}_is_deepfake"] as? Boolean
+                val deepfakeKey = "${currentUid}_is_deepfake"
+                val deepfake = data[deepfakeKey] as? Boolean
+                Log.d("CallHistoryRepository", "  Looking for '$deepfakeKey': $deepfake")
+                deepfake
             } else null
 
             FirebaseCallRecord(
