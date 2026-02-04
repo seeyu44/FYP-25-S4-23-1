@@ -146,21 +146,27 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             }
 
             // Extract UID-prefixed detection fields
+            // Detection fields use the callee's UID as prefix
+            // For incoming calls, current user = callee, so we use current user's UID
             val currentUid = FirebaseAuth.getInstance().currentUser?.uid
             val callId = data["id"] as? String ?: "unknown"
+            val calleeUid = data["callee_user_id"] as? String
             
-            Log.d("CallHistoryRepository", "Parsing call $callId - currentUid: $currentUid")
+            Log.d("CallHistoryRepository", "Parsing call $callId - currentUid: $currentUid, calleeUid: $calleeUid")
             Log.d("CallHistoryRepository", "  Available keys: ${data.keys}")
             
-            val detectionScore = if (currentUid != null) {
-                val scoreKey = "${currentUid}_detection_score"
+            // Use current user's UID for incoming calls (where current user IS the callee)
+            val uidForDetection = currentUid ?: calleeUid
+            
+            val detectionScore = if (uidForDetection != null) {
+                val scoreKey = "${uidForDetection}_detection_score"
                 val score = (data[scoreKey] as? Number)?.toDouble()
                 Log.d("CallHistoryRepository", "  Looking for '$scoreKey': $score")
                 score
             } else null
             
-            val detectionTime = if (currentUid != null) {
-                val timestampKey = "${currentUid}_detection_timestamp"
+            val detectionTime = if (uidForDetection != null) {
+                val timestampKey = "${uidForDetection}_detection_timestamp"
                 val timestampMillis = (data[timestampKey] as? Number)?.toLong()
                 Log.d("CallHistoryRepository", "  Looking for '$timestampKey': $timestampMillis")
                 if (timestampMillis != null) {
@@ -168,8 +174,8 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 } else null
             } else null
             
-            val isDeepfake = if (currentUid != null) {
-                val deepfakeKey = "${currentUid}_is_deepfake"
+            val isDeepfake = if (uidForDetection != null) {
+                val deepfakeKey = "${uidForDetection}_is_deepfake"
                 val deepfake = data[deepfakeKey] as? Boolean
                 Log.d("CallHistoryRepository", "  Looking for '$deepfakeKey': $deepfake")
                 deepfake
