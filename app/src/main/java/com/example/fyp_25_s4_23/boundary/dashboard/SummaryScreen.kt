@@ -3,14 +3,19 @@ package com.example.fyp_25_s4_23.boundary.dashboard
 import android.app.DatePickerDialog
 import android.content.Context
 import android.util.Log
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
@@ -475,6 +480,13 @@ fun SummaryScreen(
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Confidence Trend Graph
+                        ConfidenceGraph(
+                            incomingCalls = incomingCalls,
+                            startMillis = startMillis,
+                            endMillis = endMillis
+                        )
 
                         // Simple Bar Graph for Daily Distribution
                         if (metrics.size > 1) {
@@ -532,6 +544,201 @@ private fun SimpleCallsBarGraph(metrics: List<SummaryMetrics>) {
                     },
                     shape = MaterialTheme.shapes.small
                 ) {}
+            }
+        }
+    }
+}
+
+/* =========================
+   AVERAGE CONFIDENCE GRAPH
+   ========================= */
+
+data class ConfidenceDataPoint(
+    val label: String,
+    val confidence: Double
+)
+
+@Composable
+private fun ConfidenceGraph(
+    incomingCalls: List<FirebaseCallRecord>,
+    startMillis: Long,
+    endMillis: Long
+) {
+    val zone = ZoneId.systemDefault()
+    
+    // Filter calls for date range with detection scores only
+    val callsInRange = incomingCalls.filter { call ->
+        val callTimeMillis = call.getCreatedAtMillis()
+        callTimeMillis in startMillis..endMillis && call.detectionScore != null
+    }
+    
+    if (callsInRange.isEmpty()) return
+    
+    // Determine grouping strategy based on date range
+    val rangeDays = (endMillis - startMillis) / (1000 * 60 * 60 * 24)
+    val groupByWeek = rangeDays > 30
+    
+    // Group calls by day or week
+    val groupedData = if (groupByWeek) {
+        // Group by week
+        callsInRange.groupBy { call ->
+            val date = call.createdAt?.toDate() ?: java.util.Date()
+            val cal = java.util.Calendar.getInstance()
+            cal.time = date
+            val weekOfYear = cal.get(java.util.Calendar.WEEK_OF_YEAR)
+            val year = cal.get(java.util.Calendar.YEAR)
+            "W$weekOfYear"
+        }
+    } else {
+        // Group by day
+        callsInRange.groupBy { call ->
+            val date = call.createdAt?.toDate() ?: java.util.Date()
+            val cal = java.util.Calendar.getInstance()
+            cal.time = date
+            LocalDate.of(cal.get(java.util.Calendar.YEAR),
+                        cal.get(java.util.Calendar.MONTH) + 1,
+                        cal.get(java.util.Calendar.DAY_OF_MONTH))
+                .toString()
+        }
+    }
+    
+    // Calculate average confidence for each group
+    val dataPoints = groupedData.map { (label, calls) ->
+        val avgConfidence = calls.mapNotNull { it.detectionScore }.average()
+        ConfidenceDataPoint(label, avgConfidence)
+    }.sortedBy { it.label }
+    
+    if (dataPoints.isEmpty()) return
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
+        colors = CardDefaults.cardColors(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Average Confidence Trend",
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            
+            // Simple line graph visualization
+            val maxConfidence = dataPoints.maxOfOrNull { it.confidence } ?: 1.0
+            val minConfidence = dataPoints.minOfOrNull { it.confidence } ?: 0.0
+            val confidenceRange = maxConfidence - minConfidence
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        shape = MaterialTheme.shapes.small
+                    )
+                    .padding(12.dp)
+            ) {
+                Canvas(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val width = size.width
+                    val height = size.height
+                    val pointSpacing = if (dataPoints.size > 1) width / (dataPoints.size - 1) else width / 2
+                    
+                    // Draw grid lines
+                    val gridLines = 5
+                    for (i in 0..gridLines) {
+                        val y = (height / gridLines) * i
+                        drawLine(
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                            start = androidx.compose.ui.geometry.Offset(0f, y),
+                            end = androidx.compose.ui.geometry.Offset(width, y),
+                            strokeWidth = 1f
+                        )
+                    }
+                    
+                    // Draw data points and lines
+                    for (i in dataPoints.indices) {
+                        val confidence = dataPoints[i].confidence
+                        val normalizedConfidence = if (confidenceRange > 0) {
+                            (confidence - minConfidence) / confidenceRange
+                        } else {
+                            0.5
+                        }
+                        val x = i * pointSpacing
+                        val y = height - (normalizedConfidence * height)
+                        
+                        // Draw line to next point
+                        if (i < dataPoints.size - 1) {
+                            val nextConfidence = dataPoints[i + 1].confidence
+                            val nextNormalizedConfidence = if (confidenceRange > 0) {
+                                (nextConfidence - minConfidence) / confidenceRange
+                            } else {
+                                0.5
+                            }
+                            val nextX = (i + 1) * pointSpacing
+                            val nextY = height - (nextNormalizedConfidence * height)
+                            
+                            drawLine(
+                                color = MaterialTheme.colorScheme.primary,
+                                start = androidx.compose.ui.geometry.Offset(x, y),
+                                end = androidx.compose.ui.geometry.Offset(nextX, nextY),
+                                strokeWidth = 2f
+                            )
+                        }
+                        
+                        // Draw data point circle
+                        drawCircle(
+                            color = MaterialTheme.colorScheme.primary,
+                            radius = 4f,
+                            center = androidx.compose.ui.geometry.Offset(x, y)
+                        )
+                    }
+                }
+                
+                // Legend
+                Row(
+                    modifier = Modifier
+                        .align(androidx.compose.ui.Alignment.BottomStart)
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Max: ${(maxConfidence * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp
+                    )
+                    Text(
+                        text = "Min: ${(minConfidence * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+            
+            // Data points list
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(dataPoints) { point ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = point.label,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                        Text(
+                            text = "${(point.confidence * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
             }
         }
     }
