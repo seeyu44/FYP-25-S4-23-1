@@ -554,17 +554,5 @@ private fun DateRangePickerModal(
                 }
             }
         }
-    }        val endMillis =
-                        endDate.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
-                    onRangeSelected(startMillis, endMillis)
-                },
-                today.year,
-                today.monthValue - 1,
-                today.dayOfMonth
-            ).show()
-        },
-        today.year,
-        today.monthValue - 1,
-        today.dayOfMonth
-    ).show()
+    }
 }
