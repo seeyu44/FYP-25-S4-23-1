@@ -20,21 +20,21 @@ fun AccountAnalysisCard(
     firebaseCalls: List<FirebaseCallRecord>,
     onClick: () -> Unit
 ) {
-    // Filter only incoming calls (where user is callee, not caller)
-    val incomingCalls = firebaseCalls.filter { !it.isCaller }
+    // Filter only incoming calls with detection score (answered calls)
+    val incomingCallsWithDetection = firebaseCalls.filter { !it.isCaller && it.detectionScore != null }
     
-    val totalCalls = incomingCalls.size
+    val totalCalls = incomingCallsWithDetection.size
     
-    // Calculate average call time in seconds (only from duration field in incoming calls)
-    val avgCallTime = if (incomingCalls.isNotEmpty()) {
-        val totalSeconds = incomingCalls.sumOf { it.duration }
-        (totalSeconds / incomingCalls.size.toDouble()).roundToInt()
+    // Calculate average call time in seconds (only for calls with detection score)
+    val avgCallTime = if (incomingCallsWithDetection.isNotEmpty()) {
+        val totalSeconds = incomingCallsWithDetection.sumOf { it.duration }
+        (totalSeconds / incomingCallsWithDetection.size.toDouble()).roundToInt()
     } else {
         0
     }
     
-    // Calculate average confidence score from available UID_detection_score values
-    val detectionScores = incomingCalls.mapNotNull { it.detectionScore }
+    // Calculate average confidence score from detection scores
+    val detectionScores = incomingCallsWithDetection.mapNotNull { it.detectionScore }
     val avgConfidence = if (detectionScores.isNotEmpty()) {
         (detectionScores.average() * 100).roundToInt()
     } else {

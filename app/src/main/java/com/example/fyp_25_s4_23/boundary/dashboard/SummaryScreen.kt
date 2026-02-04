@@ -62,44 +62,45 @@ fun SummaryScreen(
 
         return callsByDay.map { (date, callsForDay) ->
             // Detection logic:
-            // - Answered calls: have detectionScore (call was answered, deepfake analysis was performed)
-            // - Missed calls: no detectionScore (call wasn't answered, so no analysis)
-            // - Suspicious calls: isDeepfake == true
-            
+            // Count all incoming calls in the date range
+            // Answered calls: have detectionScore (deepfake analysis was performed)
+            // Missed calls: no detectionScore
+            // Suspicious calls: isDeepfake == true
+            val allCalls = callsForDay
             val answeredCalls = callsForDay.filter { it.detectionScore != null }
             val missedCalls = callsForDay.filter { it.detectionScore == null }
-            val suspiciousCalls = callsForDay.filter { it.isDeepfake == true }
+            val suspiciousCalls = answeredCalls.filter { it.isDeepfake == true }
             
-            // Calculate average confidence from all detection scores in this day
-            val detectionScores = callsForDay.mapNotNull { it.detectionScore }
+            // Calculate average confidence from detection scores (only for answered calls)
+            val detectionScores = answeredCalls.mapNotNull { it.detectionScore }
             val avgConfidence = if (detectionScores.isNotEmpty()) {
                 detectionScores.average()
             } else {
                 -1.0 // N/A
             }
             
-            // Calculate average call duration in seconds for this day
-            val avgDuration = if (callsForDay.isNotEmpty()) {
-                callsForDay.sumOf { it.duration } / callsForDay.size.toDouble()
+            // Calculate average call duration in seconds (only for answered calls with detection score)
+            val avgDuration = if (answeredCalls.isNotEmpty()) {
+                answeredCalls.sumOf { it.duration } / answeredCalls.size.toDouble()
             } else {
                 0.0
             }
             
-            Log.i("SummaryScreen", "Date: $date - Total: ${callsForDay.size}, Answered: ${answeredCalls.size}, Missed: ${missedCalls.size}, Suspicious: ${suspiciousCalls.size}, AvgConfidence: $avgConfidence, AvgDuration: $avgDuration")
-            callsForDay.forEach { call ->
+            Log.i("SummaryScreen", "Date: $date - Total: ${allCalls.size}, Answered: ${answeredCalls.size}, Missed: ${missedCalls.size}, Suspicious: ${suspiciousCalls.size}, AvgConfidence: $avgConfidence, AvgDuration: $avgDuration")
+            answeredCalls.forEach { call ->
                 Log.d("SummaryScreen", "  Call ${call.id}: detectionScore=${call.detectionScore}, isDeepfake=${call.isDeepfake}, duration=${call.duration}")
             }
 
             SummaryMetrics(
                 label = date,
-                totalCalls = callsForDay.size,
+                totalCalls = allCalls.size,
                 answered = answeredCalls.size,
                 missed = missedCalls.size,
-                suspicious = suspiciousCalls.size, // Calls detected as deepfake (isDeepfake == true)
-                blocked = 0, // Would need blocked status from Firebase
-                warned = 0, // Reserved for future use
-                avgConfidence = avgConfidence, // Average of all detection scores
-                avgDuration = avgDuration // Average call duration in seconds
+                suspicious = suspiciousCalls.size,
+                blocked = 0,
+                warned = 0,
+                avgConfidence = avgConfidence,
+                avgDuration = avgDuration
             )
         }.sortedByDescending { it.label }
     }
@@ -444,6 +445,22 @@ fun SummaryScreen(
                         // Divider
                         Divider(modifier = Modifier.padding(vertical = 12.dp))
 
+                        // Call Status Breakdown
+                        Text(
+                            text = "Call Status",
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("✓ Answered: ${item.answered}")
+                            Text("✗ Missed: ${item.missed}")
+                        }
+
+                        Divider(modifier = Modifier.padding(vertical = 12.dp))
+
                         // Detection Results - Only Suspicious
                         Text(
                             text = "Detection Results",
@@ -455,20 +472,6 @@ fun SummaryScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text("⚠ Suspicious: ${item.suspicious}")
-                        }
-
-                        // Call Status Breakdown
-                        Text(
-                            text = "Call Status",
-                            style = MaterialTheme.typography.labelMedium,
-                            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("✓ Answered: ${item.answered}")
-                            Text("✗ Missed: ${item.missed}")
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
