@@ -37,6 +37,8 @@ fun SummaryScreen(
     var rangeLabel by remember { mutableStateOf("Last 7 days") }
     var startMillis by remember { mutableStateOf(0L) }
     var endMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var startDateDisplay by remember { mutableStateOf("") }
+    var endDateDisplay by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
     var showDateRangePicker by remember { mutableStateOf(false) }
 
@@ -106,6 +108,12 @@ fun SummaryScreen(
 
         endMillis = newEndMillis
         startMillis = newStartMillis
+        
+        // Format dates for display
+        val startDate = Instant.ofEpochMilli(newStartMillis).atZone(zone).toLocalDate()
+        val endDate = Instant.ofEpochMilli(newEndMillis).atZone(zone).toLocalDate()
+        startDateDisplay = startDate.toString()
+        endDateDisplay = endDate.toString()
     }
 
     Scaffold(
@@ -166,6 +174,13 @@ fun SummaryScreen(
                         .atStartOfDay(zone)
                         .toInstant()
                         .toEpochMilli()
+                    
+                    // Update display dates
+                    val startDate = Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate()
+                    val endDate = Instant.ofEpochMilli(endMillis).atZone(zone).toLocalDate()
+                    startDateDisplay = startDate.toString()
+                    endDateDisplay = endDate.toString()
+                    
                     Log.i("SummaryScreen", "Updated: startMillis=$startMillis, endMillis=$endMillis")
                     rangeLabel = "Last 7 days"
                     localError = null
@@ -187,6 +202,13 @@ fun SummaryScreen(
                         .atStartOfDay(zone)
                         .toInstant()
                         .toEpochMilli()
+                    
+                    // Update display dates
+                    val startDate = Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate()
+                    val endDate = Instant.ofEpochMilli(endMillis).atZone(zone).toLocalDate()
+                    startDateDisplay = startDate.toString()
+                    endDateDisplay = endDate.toString()
+                    
                     Log.i("SummaryScreen", "Updated: startMillis=$startMillis, endMillis=$endMillis")
                     rangeLabel = "Last 30 days"
                     localError = null
@@ -220,6 +242,13 @@ fun SummaryScreen(
                         } else {
                             startMillis = start
                             endMillis = end
+                            
+                            // Update display dates
+                            val startDate = Instant.ofEpochMilli(start).atZone(zone).toLocalDate()
+                            val endDate = Instant.ofEpochMilli(end).atZone(zone).toLocalDate()
+                            startDateDisplay = startDate.toString()
+                            endDateDisplay = endDate.toString()
+                            
                             rangeLabel = "Custom"
                             localError = null
                             Log.i("SummaryScreen", "Updated date range: startMillis=$startMillis, endMillis=$endMillis")
@@ -318,7 +347,7 @@ fun SummaryScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "${item.label} — $rangeLabel",
+                            text = "$startDateDisplay to $endDateDisplay — $rangeLabel",
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
@@ -500,29 +529,30 @@ private fun DateRangePickerModal(
             tonalElevation = 6.dp,
             modifier = Modifier
                 .fillMaxWidth(0.95f)
-                .padding(8.dp)
+                .padding(horizontal = 0.dp, vertical = 8.dp)
         ) {
             Column(
-                modifier = Modifier.padding(8.dp)
+                modifier = Modifier.padding(0.dp)
             ) {
                 DateRangePicker(
                     state = dateRangePickerState,
                     title = {
                         Text(
                             text = "Select Date Range",
-                            modifier = Modifier.padding(8.dp)
+                            modifier = Modifier.padding(16.dp)
                         )
                     },
                     showModeToggle = false,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
+                        .padding(horizontal = 4.dp)
                 )
                 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp),
+                        .padding(top = 8.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
