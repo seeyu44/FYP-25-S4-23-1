@@ -213,6 +213,7 @@ fun SummaryScreen(
             DateRangePickerModal(
                 onDismiss = { showDateRangePicker = false },
                 onConfirm = { start, end ->
+                    Log.i("SummaryScreen", "Custom range selected: start=$start, end=$end")
                     if (start != null && end != null) {
                         if (start > end) {
                             localError = "Invalid date range"
@@ -221,6 +222,7 @@ fun SummaryScreen(
                             endMillis = end
                             rangeLabel = "Custom"
                             localError = null
+                            Log.i("SummaryScreen", "Updated date range: startMillis=$startMillis, endMillis=$endMillis")
                         }
                     }
                     showDateRangePicker = false
