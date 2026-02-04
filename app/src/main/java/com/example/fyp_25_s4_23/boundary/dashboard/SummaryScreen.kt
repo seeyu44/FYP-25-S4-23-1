@@ -11,8 +11,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.math.roundToInt
@@ -36,6 +38,7 @@ fun SummaryScreen(
     var startMillis by remember { mutableStateOf(0L) }
     var endMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var localError by remember { mutableStateOf<String?>(null) }
+    var showDateRangePicker by remember { mutableStateOf(false) }
 
     // Filter for incoming calls only (where user is callee, not caller)
     val incomingCalls = firebaseCalls.filter { !it.isCaller }
@@ -197,20 +200,31 @@ fun SummaryScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Button(
-            onClick = {
-                showCustomDatePicker(context) { start, end ->
-                    if (start > end) {
-                        localError = "Invalid date range"
-                    } else {
-                        startMillis = start
-                        endMillis = end
-                        rangeLabel = "Custom"
-                        localError = null
-                    }
-                }
+            onClick DateRangePicker = true
             },
             modifier = Modifier.fillMaxWidth()
         ) {
+            Text("Custom Range")
+        }
+        
+        // Date Range Picker Dialog
+        if (showDateRangePicker) {
+            DateRangePickerModal(
+                onDismiss = { showDateRangePicker = false },
+                onConfirm = { start, end ->
+                    if (start != null && end != null) {
+                        if (start > end) {
+                            localError = "Invalid date range"
+                        } else {
+                            startMillis = start
+                            endMillis = end
+                            rangeLabel = "Custom"
+                            localError = null
+                        }
+                    }
+                    showDateRangePicker = false
+                }
+            
             Text("Custom Range")
         }
 
@@ -465,36 +479,82 @@ private fun SimpleCallsBarGraph(metrics: List<SummaryMetrics>) {
                     },
                     shape = MaterialTheme.shapes.small
                 ) {}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateRangePickerModal(
+    onDismiss: () -> Unit,
+    onConfirm: (Long?, Long?) -> Unit
+) {
+    val dateRangePickerState = rememberDateRangePickerState()
 
-                Text(
-                    text = "${metric.totalCalls}",
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.width(30.dp),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 6.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                DateRangePicker(
+                    state = dateRangePickerState,
+                    title = {
+                        Text(
+                            text = "Select Date Range",
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    },
+                    showModeToggle = false,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
                 )
+                
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(
+                        onClick = {
+                            val zone = ZoneId.systemDefault()
+                            val start = dateRangePickerState.selectedStartDateMillis?.let { millis ->
+                                // Convert from UTC midnight to local start of day
+                                Instant.ofEpochMilli(millis)
+                                    .atZone(ZoneId.of("UTC"))
+                                    .toLocalDate()
+                                    .atStartOfDay(zone)
+                                    .toInstant()
+                                    .toEpochMilli()
+                            }
+                            val end = dateRangePickerState.selectedEndDateMillis?.let { millis ->
+                                // Convert from UTC midnight to local end of day
+                                Instant.ofEpochMilli(millis)
+                                    .atZone(ZoneId.of("UTC"))
+                                    .toLocalDate()
+                                    .plusDays(1)
+                                    .atStartOfDay(zone)
+                                    .toInstant()
+                                    .toEpochMilli() - 1
+                            }
+                            onConfirm(start, end)
+                        },
+                        enabled = dateRangePickerState.selectedStartDateMillis != null &&
+                                dateRangePickerState.selectedEndDateMillis != null
+                    ) {
+                        Text("OK")
+                    }
+                }
             }
         }
-    }
-}
-
-private fun showCustomDatePicker(
-    context: Context,
-    onRangeSelected: (Long, Long) -> Unit
-) {
-    val zone = ZoneId.systemDefault()
-    val today = LocalDate.now(zone)
-
-    DatePickerDialog(
-        context,
-        { _, y, m, d ->
-            val startDate = LocalDate.of(y, m + 1, d)
-            DatePickerDialog(
-                context,
-                { _, ey, em, ed ->
-                    val endDate = LocalDate.of(ey, em + 1, ed)
-                    val startMillis =
-                        startDate.atStartOfDay(zone).toInstant().toEpochMilli()
-                    val endMillis =
+    }        val endMillis =
                         endDate.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
                     onRangeSelected(startMillis, endMillis)
                 },
