@@ -499,21 +499,18 @@ private fun DateRangePickerModal(
             shape = MaterialTheme.shapes.large,
             tonalElevation = 6.dp,
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.9f)
-                .padding(16.dp)
+                .fillMaxWidth(0.95f)
+                .padding(8.dp)
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
+                modifier = Modifier.padding(8.dp)
             ) {
                 DateRangePicker(
                     state = dateRangePickerState,
                     title = {
                         Text(
                             text = "Select Date Range",
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier.padding(8.dp)
                         )
                     },
                     showModeToggle = false,
