@@ -500,10 +500,13 @@ private fun DateRangePickerModal(
             tonalElevation = 6.dp,
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.9f)
                 .padding(16.dp)
         ) {
             Column(
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
             ) {
                 DateRangePicker(
                     state = dateRangePickerState,

@@ -181,12 +181,30 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 deepfake
             } else null
 
+            // Convert created_at - could be Timestamp object or number (seconds)
+            val createdAt = when (val createdAtData = data["created_at"]) {
+                is com.google.firebase.Timestamp -> createdAtData
+                is Number -> com.google.firebase.Timestamp(createdAtData.toLong(), 0)
+                else -> {
+                    Log.w("CallHistoryRepository", "  Unknown created_at type: ${createdAtData?.javaClass}")
+                    null
+                }
+            }
+            
+            val endedAt = when (val endedAtData = data["ended_at"]) {
+                is com.google.firebase.Timestamp -> endedAtData
+                is Number -> com.google.firebase.Timestamp(endedAtData.toLong(), 0)
+                else -> null
+            }
+            
+            Log.d("CallHistoryRepository", "  created_at: ${data["created_at"]} -> $createdAt (millis: ${createdAt?.toDate()?.time})")
+
             FirebaseCallRecord(
                 id = data["id"] as? String ?: "",
                 callerUserId = data["caller_user_id"] as? String ?: "",
                 calleeUserId = data["callee_user_id"] as? String ?: "",
-                createdAt = data["created_at"] as? com.google.firebase.Timestamp,
-                endedAt = data["ended_at"] as? com.google.firebase.Timestamp,
+                createdAt = createdAt,
+                endedAt = endedAt,
                 status = data["status"] as? String ?: "unknown",
                 duration = (data["duration"] as? Number)?.toLong() ?: 0L,
                 isCaller = data["is_caller"] as? Boolean ?: false,
