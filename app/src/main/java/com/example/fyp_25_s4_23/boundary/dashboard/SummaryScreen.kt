@@ -200,7 +200,8 @@ fun SummaryScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Button(
-            onClick DateRangePicker = true
+            onClick = {
+                showDateRangePicker = true
             },
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -224,8 +225,7 @@ fun SummaryScreen(
                     }
                     showDateRangePicker = false
                 }
-            
-            Text("Custom Range")
+            )
         }
 
         /* =========================
