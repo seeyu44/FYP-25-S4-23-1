@@ -573,7 +573,37 @@ private fun ConfidenceGraph(
         callTimeMillis in startMillis..endMillis && call.detectionScore != null
     }
     
-    if (callsInRange.isEmpty()) return
+    Log.d("ConfidenceGraph", "Total incoming calls: ${incomingCalls.size}, Calls in range with detection: ${callsInRange.size}")
+    
+    if (callsInRange.isEmpty()) {
+        // Show a message when there's no data
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp),
+            colors = CardDefaults.cardColors(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Average Confidence Trend",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Text(
+                    text = "No answered calls with detection data in this period",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        return
+    }
     
     // Determine grouping strategy based on date range
     val rangeDays = (endMillis - startMillis) / (1000 * 60 * 60 * 24)
