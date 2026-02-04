@@ -64,15 +64,30 @@ fun SummaryScreen(
             // Detection logic:
             // - Answered calls: have detectionScore (call was answered, deepfake analysis was performed)
             // - Missed calls: no detectionScore (call wasn't answered, so no analysis)
-            // - Deepfake calls: isDeepfake == true
+            // - Suspicious calls: isDeepfake == true
             
             val answeredCalls = callsForDay.filter { it.detectionScore != null }
             val missedCalls = callsForDay.filter { it.detectionScore == null }
-            val deepfakeCalls = answeredCalls.filter { it.isDeepfake == true }
+            val suspiciousCalls = callsForDay.filter { it.isDeepfake == true }
             
-            Log.i("SummaryScreen", "Date: $date - Total: ${callsForDay.size}, Answered: ${answeredCalls.size}, Missed: ${missedCalls.size}, Deepfake: ${deepfakeCalls.size}")
+            // Calculate average confidence from all detection scores in this day
+            val detectionScores = callsForDay.mapNotNull { it.detectionScore }
+            val avgConfidence = if (detectionScores.isNotEmpty()) {
+                detectionScores.average()
+            } else {
+                -1.0 // N/A
+            }
+            
+            // Calculate average call duration in seconds for this day
+            val avgDuration = if (callsForDay.isNotEmpty()) {
+                callsForDay.sumOf { it.duration } / callsForDay.size.toDouble()
+            } else {
+                0.0
+            }
+            
+            Log.i("SummaryScreen", "Date: $date - Total: ${callsForDay.size}, Answered: ${answeredCalls.size}, Missed: ${missedCalls.size}, Suspicious: ${suspiciousCalls.size}, AvgConfidence: $avgConfidence, AvgDuration: $avgDuration")
             callsForDay.forEach { call ->
-                Log.d("SummaryScreen", "  Call ${call.id}: detectionScore=${call.detectionScore}, isDeepfake=${call.isDeepfake}")
+                Log.d("SummaryScreen", "  Call ${call.id}: detectionScore=${call.detectionScore}, isDeepfake=${call.isDeepfake}, duration=${call.duration}")
             }
 
             SummaryMetrics(
@@ -80,10 +95,11 @@ fun SummaryScreen(
                 totalCalls = callsForDay.size,
                 answered = answeredCalls.size,
                 missed = missedCalls.size,
-                suspicious = deepfakeCalls.size, // Calls detected as deepfake
+                suspicious = suspiciousCalls.size, // Calls detected as deepfake (isDeepfake == true)
                 blocked = 0, // Would need blocked status from Firebase
                 warned = 0, // Reserved for future use
-                avgConfidence = -1.0
+                avgConfidence = avgConfidence, // Average of all detection scores
+                avgDuration = avgDuration // Average call duration in seconds
             )
         }.sortedByDescending { it.label }
     }
@@ -377,41 +393,48 @@ fun SummaryScreen(
                                 )
                             }
 
-                            // Average Call Time
+                            // Average Call Time (in seconds)
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
                                     .padding(horizontal = 8.dp),
                                 horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
                             ) {
+                                // Calculate average duration for calls in this date range
+                                // This will be calculated in the metrics generation
+                                val avgTimeText = if (item.avgDuration > 0) {
+                                    "${item.avgDuration.toInt()}s"
+                                } else {
+                                    "—"
+                                }
                                 Text(
-                                    text = "Avg Time",
+                                    text = avgTimeText,
+                                    style = MaterialTheme.typography.headlineSmall
+                                )
+                                Text(
+                                    text = "Avg Call Time",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Text(
-                                    text = "—",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
                             }
 
-                            // Average Detection Rate
+                            // Average Confidence Score
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
                                     .padding(start = 8.dp),
                                 horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
                             ) {
-                                val detectionRate =
+                                val confidenceScore =
                                     if (item.avgConfidence >= 0)
                                         "${(item.avgConfidence * 100).toInt()}%"
                                     else "N/A"
                                 Text(
-                                    text = detectionRate,
+                                    text = confidenceScore,
                                     style = MaterialTheme.typography.headlineSmall
                                 )
                                 Text(
-                                    text = "Detection Rate",
+                                    text = "Avg Confidence",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -421,11 +444,24 @@ fun SummaryScreen(
                         // Divider
                         Divider(modifier = Modifier.padding(vertical = 12.dp))
 
+                        // Detection Results - Only Suspicious
+                        Text(
+                            text = "Detection Results",
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("⚠ Suspicious: ${item.suspicious}")
+                        }
+
                         // Call Status Breakdown
                         Text(
                             text = "Call Status",
                             style = MaterialTheme.typography.labelMedium,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),

@@ -25,22 +25,18 @@ fun AccountAnalysisCard(
     
     val totalCalls = incomingCalls.size
     
-    // Calculate average call time in minutes (only for completed incoming calls)
-    val completedCalls = incomingCalls.filter { it.isCompleted() }
-    val avgCallTime = if (completedCalls.isNotEmpty()) {
-        val totalMinutes = completedCalls.sumOf { call ->
-            (call.duration / 60.0)
-        }
-        (totalMinutes / completedCalls.size.toDouble()).roundToInt()
+    // Calculate average call time in seconds (only from duration field in incoming calls)
+    val avgCallTime = if (incomingCalls.isNotEmpty()) {
+        val totalSeconds = incomingCalls.sumOf { it.duration }
+        (totalSeconds / incomingCalls.size.toDouble()).roundToInt()
     } else {
         0
     }
     
-    // Calculate average confidence score (mock for now - can be enhanced with actual confidence data)
-    val avgConfidence = if (incomingCalls.isNotEmpty()) {
-        // This is a placeholder - you would calculate actual confidence from call analysis
-        val mockConfidence = (75..95).random()
-        mockConfidence
+    // Calculate average confidence score from available UID_detection_score values
+    val detectionScores = incomingCalls.mapNotNull { it.detectionScore }
+    val avgConfidence = if (detectionScores.isNotEmpty()) {
+        (detectionScores.average() * 100).roundToInt()
     } else {
         0
     }
@@ -87,7 +83,7 @@ fun AccountAnalysisCard(
                 // Avg Call Time
                 MetricColumn(
                     label = "Avg Call Time",
-                    value = "${avgCallTime}MIN"
+                    value = "${avgCallTime}S"
                 )
 
                 Divider(
