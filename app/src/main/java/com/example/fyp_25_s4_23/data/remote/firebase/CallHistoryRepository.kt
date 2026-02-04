@@ -151,7 +151,11 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 (data["${currentUid}_detection_score"] as? Number)?.toDouble()
             } else null
             val detectionTime = if (currentUid != null) {
-                data["${currentUid}_detection_time"] as? com.google.firebase.Timestamp
+                // Firebase stores this as detection_timestamp (milliseconds as Number)
+                val timestampMillis = (data["${currentUid}_detection_timestamp"] as? Number)?.toLong()
+                if (timestampMillis != null) {
+                    com.google.firebase.Timestamp(timestampMillis / 1000, ((timestampMillis % 1000) * 1000000).toInt())
+                } else null
             } else null
             val isDeepfake = if (currentUid != null) {
                 data["${currentUid}_is_deepfake"] as? Boolean
