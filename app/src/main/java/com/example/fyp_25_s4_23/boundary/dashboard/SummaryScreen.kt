@@ -93,7 +93,7 @@ fun SummaryScreen(
 
             SummaryMetrics(
                 label = date,
-                totalCalls = allCalls.size,
+                totalCalls = answeredCalls.size,
                 answered = answeredCalls.size,
                 missed = missedCalls.size,
                 suspicious = suspiciousCalls.size,
@@ -472,23 +472,6 @@ fun SummaryScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text("⚠ Suspicious: ${item.suspicious}")
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Detection Breakdown
-                        Text(
-                            text = "Detection Results",
-                            style = MaterialTheme.typography.labelMedium,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("⚠️ Suspicious: ${item.suspicious}")
-                            Text("🚫 Blocked: ${item.blocked}")
-                            Text("⚡ Warned: ${item.warned}")
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
