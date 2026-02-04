@@ -181,12 +181,23 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 deepfake
             } else null
 
-            // Convert created_at - could be Timestamp object or number (seconds)
+            // Convert created_at - could be Timestamp object, number (seconds), or Map with _seconds/_nanoseconds
             val createdAt = when (val createdAtData = data["created_at"]) {
                 is com.google.firebase.Timestamp -> createdAtData
                 is Number -> com.google.firebase.Timestamp(createdAtData.toLong(), 0)
+                is Map<*, *> -> {
+                    // Handle Firestore Timestamp serialized as Map
+                    val seconds = (createdAtData["_seconds"] as? Number)?.toLong()
+                    val nanoseconds = (createdAtData["_nanoseconds"] as? Number)?.toInt() ?: 0
+                    if (seconds != null) {
+                        com.google.firebase.Timestamp(seconds, nanoseconds)
+                    } else {
+                        Log.w("CallHistoryRepository", "  Map created_at missing _seconds: $createdAtData")
+                        null
+                    }
+                }
                 else -> {
-                    Log.w("CallHistoryRepository", "  Unknown created_at type: ${createdAtData?.javaClass}")
+                    Log.w("CallHistoryRepository", "  Unknown created_at type: ${createdAtData?.javaClass}, value: $createdAtData")
                     null
                 }
             }
@@ -194,6 +205,11 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             val endedAt = when (val endedAtData = data["ended_at"]) {
                 is com.google.firebase.Timestamp -> endedAtData
                 is Number -> com.google.firebase.Timestamp(endedAtData.toLong(), 0)
+                is Map<*, *> -> {
+                    val seconds = (endedAtData["_seconds"] as? Number)?.toLong()
+                    val nanoseconds = (endedAtData["_nanoseconds"] as? Number)?.toInt() ?: 0
+                    if (seconds != null) com.google.firebase.Timestamp(seconds, nanoseconds) else null
+                }
                 else -> null
             }
             
