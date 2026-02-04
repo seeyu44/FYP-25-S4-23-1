@@ -722,13 +722,13 @@ private fun ConfidenceGraph(
             }
             
             // Data points list
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(dataPoints) { point ->
+                dataPoints.forEach { point ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
