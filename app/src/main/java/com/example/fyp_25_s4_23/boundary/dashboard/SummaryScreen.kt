@@ -569,7 +569,12 @@ private fun ConfidenceGraph(
     
     // Filter calls for date range with detection scores only
     val callsInRange = incomingCalls.filter { call ->
-        val callTimeMillis = call.getCreatedAtMillis()
+        var callTimeMillis = call.getCreatedAtMillis()
+        // If getCreatedAtMillis returns a value that looks like seconds (< year 2000), convert it
+        if (callTimeMillis > 0 && callTimeMillis < 946684800000L) {
+            callTimeMillis *= 1000 // Convert seconds to milliseconds
+        }
+        Log.d("ConfidenceGraph", "Call ${call.id}: callTimeMillis=$callTimeMillis, startMillis=$startMillis, endMillis=$endMillis, hasDetection=${call.detectionScore != null}")
         callTimeMillis in startMillis..endMillis && call.detectionScore != null
     }
     
