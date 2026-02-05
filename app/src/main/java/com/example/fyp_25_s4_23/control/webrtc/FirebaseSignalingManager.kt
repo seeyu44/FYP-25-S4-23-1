@@ -246,13 +246,20 @@ class FirebaseSignalingManager {
             val highestScore = maxOf(score, currentHighest)
             val shouldUpdateHighest = highestScore > currentHighest
             
-            // Update detection fields
+            // Get the existing timestamp if not updating highest
+            val existingHighestTimestamp = if (shouldUpdateHighest) {
+                currentTime
+            } else {
+                snapshot.getLong("${userId}_highest_detection_timestamp") ?: currentTime
+            }
+            
+            // Update detection fields - only these 5 fields, nothing else
             transaction.update(callRef, mapOf(
-                "${userId}_detection_score" to score,  // Latest for real-time display
-                "${userId}_highest_detection_score" to highestScore,  // Peak score (atomic)
+                "${userId}_detection_score" to score,
+                "${userId}_highest_detection_score" to highestScore,
                 "${userId}_is_deepfake" to isDeepfake,
                 "${userId}_detection_timestamp" to currentTime,
-                "${userId}_highest_detection_timestamp" to if (shouldUpdateHighest) currentTime else (snapshot.getLong("${userId}_highest_detection_timestamp") ?: currentTime)
+                "${userId}_highest_detection_timestamp" to existingHighestTimestamp
             ))
             
             Log.d("DEEPFAKE_SYNC", "Detection: score=$score, highest=$highestScore (updated=$shouldUpdateHighest)")

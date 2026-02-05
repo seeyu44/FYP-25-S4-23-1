@@ -868,13 +868,13 @@ class WebRtcClient(
                 Log.w("DEEPFAKE", "━━━ INCOMING AUDIO FLAGGED AS DEEPFAKE! ━━━")
                 Log.w("DEEPFAKE", "   Score: $score")
                 Log.w("DEEPFAKE", "   Sending to Firestore for remote user ($remoteUserId) to see")
-                signaling.sendDetectionResult(callId, userId, score, true)
+                signaling.sendDetectionResult(callId, remoteUserId, score, true)
                 onDeepfakeDetected?.invoke(score, true)
             }
             detectionService?.onDetectionUpdate = { result ->
                 Log.d("DEEPFAKE", "📊 Incoming audio analyzed: score=${result.score}, fake=${result.isDeepfake}")
                 Log.d("DEEPFAKE", "   → Sending to Firestore for remote user")
-                signaling.sendDetectionResult(callId, userId, result.score, result.isDeepfake)
+                signaling.sendDetectionResult(callId, remoteUserId, result.score, result.isDeepfake)
                 onDetectionUpdate?.invoke(result.score)
                 if (result.isDeepfake) {
                     onDeepfakeDetected?.invoke(result.score, true)
