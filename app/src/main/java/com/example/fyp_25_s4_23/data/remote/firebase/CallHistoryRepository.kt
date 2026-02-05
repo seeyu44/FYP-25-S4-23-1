@@ -184,61 +184,11 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 deepfake
             } else null
 
-            // Convert created_at - could be Timestamp object, number (milliseconds or seconds), or Map with _seconds/_nanoseconds
-            val createdAt = when (val createdAtData = data["created_at"]) {
-                is com.google.firebase.Timestamp -> createdAtData
-                is Number -> {
-                    val numValue = createdAtData.toLong()
-                    Log.d("CallHistoryRepository", "  created_at is Number: $numValue")
-                    // Timestamps in milliseconds are >= 1000000000000 (13 digits, year 2001+)
-                    // Timestamps in seconds are < 10000000000 (11 digits, year 2286)
-                    // Current time: ~1738000000 seconds or ~1738000000000 milliseconds
-                    if (numValue >= 1000000000000L) {
-                        // It's in milliseconds, convert to seconds
-                        Log.d("CallHistoryRepository", "  Treating as milliseconds, converting to seconds")
-                        com.google.firebase.Timestamp(numValue / 1000, ((numValue % 1000) * 1000000).toInt())
-                    } else {
-                        // It's already in seconds
-                        Log.d("CallHistoryRepository", "  Treating as seconds")
-                        com.google.firebase.Timestamp(numValue, 0)
-                    }
-                }
-                is Map<*, *> -> {
-                    // Handle Firestore Timestamp serialized as Map
-                    val seconds = (createdAtData["_seconds"] as? Number)?.toLong()
-                    val nanoseconds = (createdAtData["_nanoseconds"] as? Number)?.toInt() ?: 0
-                    Log.d("CallHistoryRepository", "  created_at is Map: seconds=$seconds, nanoseconds=$nanoseconds")
-                    if (seconds != null) {
-                        com.google.firebase.Timestamp(seconds, nanoseconds)
-                    } else {
-                        Log.w("CallHistoryRepository", "  Map created_at missing _seconds: $createdAtData")
-                        null
-                    }
-                }
-                else -> {
-                    Log.w("CallHistoryRepository", "  Unknown created_at type: ${createdAtData?.javaClass}, value: $createdAtData")
-                    null
-                }
-            }
+            // Robust timestamp extraction - same logic as summary page
+            // Tries: created_at -> detection_timestamp -> current time
+            val createdAt = extractRobustTimestamp(data, "created_at", uidForDetection)
             
-            val endedAt = when (val endedAtData = data["ended_at"]) {
-                is com.google.firebase.Timestamp -> endedAtData
-                is Number -> {
-                    val numValue = endedAtData.toLong()
-                    // If the number is very large, it's likely in milliseconds, convert to seconds
-                    if (numValue >= 1000000000000L) {
-                        com.google.firebase.Timestamp(numValue / 1000, ((numValue % 1000) * 1000000).toInt())
-                    } else {
-                        com.google.firebase.Timestamp(numValue, 0)
-                    }
-                }
-                is Map<*, *> -> {
-                    val seconds = (endedAtData["_seconds"] as? Number)?.toLong()
-                    val nanoseconds = (endedAtData["_nanoseconds"] as? Number)?.toInt() ?: 0
-                    if (seconds != null) com.google.firebase.Timestamp(seconds, nanoseconds) else null
-                }
-                else -> null
-            }
+            val endedAt = extractRobustTimestamp(data, "ended_at", null)
             
             Log.d("CallHistoryRepository", "  PARSED created_at: $createdAt")
             Log.d("CallHistoryRepository", "  created_at.toDate(): ${createdAt?.toDate()}")
@@ -262,6 +212,101 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
         } catch (e: Exception) {
             Log.e("CallHistoryRepository", "Error parsing call record", e)
             null
+        }
+    }
+    
+    /**
+     * Robustly extract timestamp from Firebase data - same logic as summary page
+     * Handles: Timestamp objects, Numbers (millis/seconds), Maps with _seconds/seconds
+     * Falls back to detection_timestamp if primary field is invalid
+     * 
+     * Mimics TypeScript getMillis() and timestampToSeconds() functions
+     */
+    private fun extractRobustTimestamp(
+        data: Map<*, *>,
+        fieldName: String,
+        uidForDetection: String?
+    ): com.google.firebase.Timestamp? {
+        return try {
+            // Try primary field first
+            val primaryValue = data[fieldName]
+            val primaryMillis = getMillisFromValue(primaryValue)
+            
+            // Validate timestamp is reasonable (not in 1970s)
+            // Valid timestamps should be > 946684800000 (Jan 1, 2000)
+            if (primaryMillis > 946684800000L) {
+                Log.d("CallHistoryRepository", "  ✓ Valid $fieldName: $primaryMillis ms")
+                return com.google.firebase.Timestamp(
+                    primaryMillis / 1000,
+                    ((primaryMillis % 1000) * 1000000).toInt()
+                )
+            }
+            
+            Log.w("CallHistoryRepository", "  ✗ Invalid $fieldName ($primaryMillis ms), trying fallback...")
+            
+            // Fallback: Try detection_timestamp (which stores correct timestamps)
+            if (uidForDetection != null) {
+                val detectionKey = "${uidForDetection}_detection_timestamp"
+                val detectionValue = data[detectionKey]
+                val detectionMillis = getMillisFromValue(detectionValue)
+                
+                if (detectionMillis > 946684800000L) {
+                    Log.d("CallHistoryRepository", "  ✓ Using $detectionKey as fallback: $detectionMillis ms")
+                    return com.google.firebase.Timestamp(
+                        detectionMillis / 1000,
+                        ((detectionMillis % 1000) * 1000000).toInt()
+                    )
+                }
+            }
+            
+            // Last resort: use current time
+            Log.w("CallHistoryRepository", "  ✗ No valid timestamps found, using current time")
+            com.google.firebase.Timestamp(System.currentTimeMillis() / 1000, 0)
+        } catch (e: Exception) {
+            Log.e("CallHistoryRepository", "Error extracting timestamp for $fieldName", e)
+            null
+        }
+    }
+    
+    /**
+     * Extract milliseconds from various timestamp formats
+     * Matches TypeScript getMillis() function logic
+     */
+    private fun getMillisFromValue(value: Any?): Long {
+        if (value == null) return 0L
+        
+        return when (value) {
+            // Native Firebase Timestamp
+            is com.google.firebase.Timestamp -> value.toDate().time
+            
+            // Number (could be milliseconds or seconds)
+            is Number -> {
+                val numValue = value.toLong()
+                // Timestamps >= 1000000000000 are milliseconds (13+ digits)
+                // Timestamps < 1000000000000 are seconds (< 13 digits)
+                if (numValue >= 1000000000000L) {
+                    numValue // Already milliseconds
+                } else {
+                    numValue * 1000 // Convert seconds to milliseconds
+                }
+            }
+            
+            // Map with seconds/nanoseconds (serialized Timestamp)
+            is Map<*, *> -> {
+                val seconds = (value["seconds"] as? Number)?.toLong()
+                    ?: (value["_seconds"] as? Number)?.toLong()
+                    ?: 0L
+                seconds * 1000
+            }
+            
+            // Try parsing as date string
+            else -> {
+                try {
+                    java.util.Date(value.toString()).time
+                } catch (e: Exception) {
+                    0L
+                }
+            }
         }
     }
 }
