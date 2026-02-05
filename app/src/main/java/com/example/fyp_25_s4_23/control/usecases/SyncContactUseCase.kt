@@ -26,6 +26,7 @@ class SyncContactsUseCase(
             .filter { it.phoneNumber != "VOIP_USER" }
         val phoneToLocalContact = localPhoneContacts.associateBy { it.phoneNumber }
 
+        // Build username -> phone mapping from local contacts
         val usernameToPhone = mutableMapOf<String, String>()
         localPhoneContacts.forEach { localContact ->
             try {
@@ -45,15 +46,26 @@ class SyncContactsUseCase(
 
             if (alreadySeen) return@forEach
 
-            val localByUsername = if (username.isNotEmpty()) {
-                localRepo.getContactByUsername(currentUserId, username)
-            } else null
+            // Try to find matching local contact
+            var localContact: com.example.fyp_25_s4_23.domain.entities.Contact? = null
 
-            val localByPhone = if (phone != "VOIP_USER") {
-                phoneToLocalContact[phone]
-            } else null
+            // 1. First try: exact username match
+            if (username.isNotEmpty()) {
+                localContact = localRepo.getContactByUsername(currentUserId, username)
+            }
 
-            val localContact = localByUsername ?: localByPhone
+            // 2. Second try: if this is a VOIP contact, check if the username maps to a phone number we have locally
+            if (localContact == null && phone == "VOIP_USER" && username.isNotEmpty()) {
+                val knownPhone = usernameToPhone[username]
+                if (knownPhone != null) {
+                    localContact = phoneToLocalContact[knownPhone]
+                }
+            }
+
+            // 3. Third try: exact phone match (for phone contacts)
+            if (localContact == null && phone != "VOIP_USER") {
+                localContact = phoneToLocalContact[phone]
+            }
 
             if (localContact != null) {
                 // Update label only; keep local displayName/phoneNumber
