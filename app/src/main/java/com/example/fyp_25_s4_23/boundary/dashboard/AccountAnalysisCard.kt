@@ -20,27 +20,23 @@ fun AccountAnalysisCard(
     firebaseCalls: List<FirebaseCallRecord>,
     onClick: () -> Unit
 ) {
-    // Filter only incoming calls (where user is callee, not caller)
-    val incomingCalls = firebaseCalls.filter { !it.isCaller }
+    // Filter only incoming calls with detection score (answered calls)
+    val incomingCallsWithDetection = firebaseCalls.filter { !it.isCaller && it.detectionScore != null }
     
-    val totalCalls = incomingCalls.size
+    val totalCalls = incomingCallsWithDetection.size
     
-    // Calculate average call time in minutes (only for completed incoming calls)
-    val completedCalls = incomingCalls.filter { it.isCompleted() }
-    val avgCallTime = if (completedCalls.isNotEmpty()) {
-        val totalMinutes = completedCalls.sumOf { call ->
-            (call.duration / 60.0)
-        }
-        (totalMinutes / completedCalls.size.toDouble()).roundToInt()
+    // Calculate average call time in seconds (only for calls with detection score)
+    val avgCallTime = if (incomingCallsWithDetection.isNotEmpty()) {
+        val totalSeconds = incomingCallsWithDetection.sumOf { it.duration }
+        (totalSeconds / incomingCallsWithDetection.size.toDouble()).roundToInt()
     } else {
         0
     }
     
-    // Calculate average confidence score (mock for now - can be enhanced with actual confidence data)
-    val avgConfidence = if (incomingCalls.isNotEmpty()) {
-        // This is a placeholder - you would calculate actual confidence from call analysis
-        val mockConfidence = (75..95).random()
-        mockConfidence
+    // Calculate average confidence score from detection scores
+    val detectionScores = incomingCallsWithDetection.mapNotNull { it.detectionScore }
+    val avgConfidence = if (detectionScores.isNotEmpty()) {
+        (detectionScores.average() * 100).roundToInt()
     } else {
         0
     }
@@ -87,7 +83,7 @@ fun AccountAnalysisCard(
                 // Avg Call Time
                 MetricColumn(
                     label = "Avg Call Time",
-                    value = "${avgCallTime}MIN"
+                    value = "${avgCallTime}S"
                 )
 
                 Divider(

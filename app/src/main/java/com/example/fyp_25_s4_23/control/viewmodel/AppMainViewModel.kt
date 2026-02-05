@@ -18,6 +18,7 @@ import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.*
 import com.example.fyp_25_s4_23.entity.domain.entities.*
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.*
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.*
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.util.mapUserRole
 import com.google.firebase.auth.FirebaseAuth
@@ -483,10 +484,15 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
             val threshold = _state.value.userSettings.detectionThreshold
 
+            Log.i("SummaryDebug", "Querying summary: start=$startMillis, end=$endMillis, daily=$daily, threshold=$threshold")
+            Log.i("SummaryDebug", "Query in seconds: start=${startMillis/1000}, end=${endMillis/1000}")
+
             val rows = if (daily)
                 callRepository.dailyAggregates(startMillis, endMillis, threshold)
             else
                 callRepository.weeklyAggregates(startMillis, endMillis, threshold)
+
+            Log.i("SummaryDebug", "Query returned ${rows.size} rows")
 
             val metrics = rows.map {
                 SummaryMetrics(

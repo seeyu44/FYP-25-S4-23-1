@@ -1,5 +1,6 @@
 package com.example.fyp_25_s4_23.entity.data.repositories
 
+import android.util.Log
 import com.example.fyp_25_s4_23.entity.data.dao.CallDao
 import com.example.fyp_25_s4_23.entity.data.dao.CallMetadataDao
 import com.example.fyp_25_s4_23.entity.data.dao.DetectionResultDao
@@ -61,14 +62,38 @@ class CallRepository(
      * Get daily aggregated statistics
      */
     suspend fun dailyAggregates(startMillis: Long, endMillis: Long, threshold: Double = 0.5): List<com.example.fyp_25_s4_23.entity.data.dao.AggregateResult> {
-        return callDao.dailyAggregates(startMillis / 1000, endMillis / 1000, threshold)
+        val startSeconds = startMillis / 1000
+        val endSeconds = endMillis / 1000
+        
+        // Debug: Check database stats
+        val totalCalls = callDao.getTotalCallMetadataCount()
+        val incomingCalls = callDao.getIncomingCallCount()
+        val dateRange = callDao.getCallDateRange()
+        
+        Log.i("CallRepository", "Database stats - Total: $totalCalls, Incoming: $incomingCalls")
+        Log.i("CallRepository", "Date range in DB - Min: ${dateRange?.minTime}, Max: ${dateRange?.maxTime}")
+        Log.i("CallRepository", "Query range - Start: $startSeconds, End: $endSeconds")
+        
+        return callDao.dailyAggregates(startSeconds, endSeconds, threshold)
     }
 
     /**
      * Get weekly aggregated statistics
      */
     suspend fun weeklyAggregates(startMillis: Long, endMillis: Long, threshold: Double = 0.5): List<com.example.fyp_25_s4_23.entity.data.dao.AggregateResult> {
-        return callDao.weeklyAggregates(startMillis / 1000, endMillis / 1000, threshold)
+        val startSeconds = startMillis / 1000
+        val endSeconds = endMillis / 1000
+        
+        // Debug: Check database stats
+        val totalCalls = callDao.getTotalCallMetadataCount()
+        val incomingCalls = callDao.getIncomingCallCount()
+        val dateRange = callDao.getCallDateRange()
+        
+        Log.i("CallRepository", "Database stats - Total: $totalCalls, Incoming: $incomingCalls")
+        Log.i("CallRepository", "Date range in DB - Min: ${dateRange?.minTime}, Max: ${dateRange?.maxTime}")
+        Log.i("CallRepository", "Query range - Start: $startSeconds, End: $endSeconds")
+        
+        return callDao.weeklyAggregates(startSeconds, endSeconds, threshold)
     }
 }
 

@@ -184,11 +184,8 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             } else {
                 SummaryScreen(
                     user = user,
-                    metrics = uiState.summaryMetrics,
+                    firebaseCalls = uiState.firebaseCalls,
                     isLoading = uiState.isBusy,
-                    onRequestSummary = { start, end, daily ->
-                        viewModel.aggregateSummary(start, end, daily)
-                    },
                     onNavigate = { route ->
                         when (route) {
                             "home" -> viewModel.navigateToDashboard()

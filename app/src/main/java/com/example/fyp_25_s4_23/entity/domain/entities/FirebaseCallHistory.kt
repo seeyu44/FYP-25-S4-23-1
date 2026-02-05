@@ -27,7 +27,10 @@ data class FirebaseCallRecord(
     val status: String = "unknown", // "ongoing", "completed", "missed", "declined"
     val duration: Long = 0L, // Duration in seconds
     val isCaller: Boolean = false, // Whether current user is the caller
-    val otherUser: OtherUser = OtherUser()
+    val otherUser: OtherUser = OtherUser(),
+    val detectionScore: Double? = null, // Detection score for the callee
+    val detectionTime: Timestamp? = null, // When detection was performed
+    val isDeepfake: Boolean? = null // Whether deepfake was detected
 ) {
     /**
      * Check if this call is outgoing (current user is caller)

@@ -8,5 +8,6 @@ data class SummaryMetrics(
     val suspicious: Int,
     val blocked: Int,
     val warned: Int,
-    val avgConfidence: Double // -1 means N/A
+    val avgConfidence: Double, // -1 means N/A
+    val avgDuration: Double = 0.0 // in seconds
 )

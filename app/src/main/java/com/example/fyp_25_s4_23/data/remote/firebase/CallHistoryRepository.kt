@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.fyp_25_s4_23.entity.domain.entities.CallHistoryResponse
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.OtherUser
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
@@ -144,16 +145,89 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 OtherUser()
             }
 
+            // Extract UID-prefixed detection fields
+            // Detection fields use the callee's UID as prefix
+            // For incoming calls, current user = callee, so we use current user's UID
+            val currentUid = FirebaseAuth.getInstance().currentUser?.uid
+            val callId = data["id"] as? String ?: "unknown"
+            val calleeUid = data["callee_user_id"] as? String
+            
+            Log.d("CallHistoryRepository", "Parsing call $callId - currentUid: $currentUid, calleeUid: $calleeUid")
+            Log.d("CallHistoryRepository", "  Available keys: ${data.keys}")
+            
+            // Use current user's UID for incoming calls (where current user IS the callee)
+            val uidForDetection = currentUid ?: calleeUid
+            
+            val detectionScore = if (uidForDetection != null) {
+                val scoreKey = "${uidForDetection}_detection_score"
+                val score = (data[scoreKey] as? Number)?.toDouble()
+                Log.d("CallHistoryRepository", "  Looking for '$scoreKey': $score")
+                score
+            } else null
+            
+            val detectionTime = if (uidForDetection != null) {
+                val timestampKey = "${uidForDetection}_detection_timestamp"
+                val timestampMillis = (data[timestampKey] as? Number)?.toLong()
+                Log.d("CallHistoryRepository", "  Looking for '$timestampKey': $timestampMillis")
+                if (timestampMillis != null) {
+                    com.google.firebase.Timestamp(timestampMillis / 1000, ((timestampMillis % 1000) * 1000000).toInt())
+                } else null
+            } else null
+            
+            val isDeepfake = if (uidForDetection != null) {
+                val deepfakeKey = "${uidForDetection}_is_deepfake"
+                val deepfake = data[deepfakeKey] as? Boolean
+                Log.d("CallHistoryRepository", "  Looking for '$deepfakeKey': $deepfake")
+                deepfake
+            } else null
+
+            // Convert created_at - could be Timestamp object, number (seconds), or Map with _seconds/_nanoseconds
+            val createdAt = when (val createdAtData = data["created_at"]) {
+                is com.google.firebase.Timestamp -> createdAtData
+                is Number -> com.google.firebase.Timestamp(createdAtData.toLong(), 0)
+                is Map<*, *> -> {
+                    // Handle Firestore Timestamp serialized as Map
+                    val seconds = (createdAtData["_seconds"] as? Number)?.toLong()
+                    val nanoseconds = (createdAtData["_nanoseconds"] as? Number)?.toInt() ?: 0
+                    if (seconds != null) {
+                        com.google.firebase.Timestamp(seconds, nanoseconds)
+                    } else {
+                        Log.w("CallHistoryRepository", "  Map created_at missing _seconds: $createdAtData")
+                        null
+                    }
+                }
+                else -> {
+                    Log.w("CallHistoryRepository", "  Unknown created_at type: ${createdAtData?.javaClass}, value: $createdAtData")
+                    null
+                }
+            }
+            
+            val endedAt = when (val endedAtData = data["ended_at"]) {
+                is com.google.firebase.Timestamp -> endedAtData
+                is Number -> com.google.firebase.Timestamp(endedAtData.toLong(), 0)
+                is Map<*, *> -> {
+                    val seconds = (endedAtData["_seconds"] as? Number)?.toLong()
+                    val nanoseconds = (endedAtData["_nanoseconds"] as? Number)?.toInt() ?: 0
+                    if (seconds != null) com.google.firebase.Timestamp(seconds, nanoseconds) else null
+                }
+                else -> null
+            }
+            
+            Log.d("CallHistoryRepository", "  created_at: ${data["created_at"]} -> $createdAt (millis: ${createdAt?.toDate()?.time})")
+
             FirebaseCallRecord(
                 id = data["id"] as? String ?: "",
                 callerUserId = data["caller_user_id"] as? String ?: "",
                 calleeUserId = data["callee_user_id"] as? String ?: "",
-                createdAt = data["created_at"] as? com.google.firebase.Timestamp,
-                endedAt = data["ended_at"] as? com.google.firebase.Timestamp,
+                createdAt = createdAt,
+                endedAt = endedAt,
                 status = data["status"] as? String ?: "unknown",
                 duration = (data["duration"] as? Number)?.toLong() ?: 0L,
                 isCaller = data["is_caller"] as? Boolean ?: false,
-                otherUser = otherUser
+                otherUser = otherUser,
+                detectionScore = detectionScore,
+                detectionTime = detectionTime,
+                isDeepfake = isDeepfake
             )
         } catch (e: Exception) {
             Log.e("CallHistoryRepository", "Error parsing call record", e)
