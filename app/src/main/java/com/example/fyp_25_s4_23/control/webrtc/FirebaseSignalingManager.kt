@@ -32,7 +32,7 @@ class FirebaseSignalingManager {
                     "status" to "ringing",
                     "offer_sdp" to null,
                     "answer_sdp" to null,
-                    "created_at" to (System.currentTimeMillis() / 1000)
+                    "created_at" to com.google.firebase.Timestamp.now()
                 )
             )
             .addOnFailureListener { e ->
