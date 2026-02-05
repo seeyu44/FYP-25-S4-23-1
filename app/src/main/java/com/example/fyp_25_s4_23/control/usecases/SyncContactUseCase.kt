@@ -47,10 +47,7 @@ class SyncContactsUseCase(
 
             val localByPhone = if (phone != "VOIP_USER") {
                 phoneToLocalContact[phone]
-            } else {
-                val mappedPhone = usernameToPhone[username]
-                if (mappedPhone != null) phoneToLocalContact[mappedPhone] else null
-            }
+            } else null
 
             val localContact = localByUsername ?: localByPhone
 
