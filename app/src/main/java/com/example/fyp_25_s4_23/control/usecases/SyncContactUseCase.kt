@@ -4,6 +4,7 @@ import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseContactRepository
 import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
 import com.google.firebase.auth.FirebaseAuth
+import android.util.Log
 
 class SyncContactsUseCase(
     private val firebaseRepo: FirebaseContactRepository,
@@ -11,17 +12,19 @@ class SyncContactsUseCase(
     private val phoneLookupService: PhoneLookupService
 ) {
     private val auth = FirebaseAuth.getInstance()
+    private val TAG = "SyncContactsUseCase"
     
     suspend fun execute() {
         val currentUserId = auth.currentUser?.uid ?: return
         val remoteContacts = firebaseRepo.fetchContacts()
+        Log.d(TAG, "Syncing ${remoteContacts.size} remote contacts for user $currentUserId")
 
-        // Merge remote contacts into local database without overwriting local
-        // displayName/phoneNumber (custom names should remain local).
         val seenUsernames = mutableSetOf<String>()
         val seenPhones = mutableSetOf<String>()
 
         val localContacts = localRepo.getAllContactsOnce(currentUserId)
+        Log.d(TAG, "Found ${localContacts.size} local contacts")
+        
         val localPhoneContacts = localContacts
             .filter { it.phoneNumber != "VOIP_USER" }
         val phoneToLocalContact = localPhoneContacts.associateBy { it.phoneNumber }
@@ -32,8 +35,9 @@ class SyncContactsUseCase(
             try {
                 val result = phoneLookupService.getUserByPhoneNumber(localContact.phoneNumber)
                 usernameToPhone[result.username] = localContact.phoneNumber
-            } catch (_: Exception) {
-                // ignore lookup errors
+                Log.d(TAG, "Mapped username ${result.username} -> phone ${localContact.phoneNumber}")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to look up username for ${localContact.phoneNumber}: ${e.message}")
             }
         }
 
@@ -41,10 +45,15 @@ class SyncContactsUseCase(
             val username = contact.displayName ?: ""
             val phone = contact.phoneNumber
 
+            Log.d(TAG, "Processing remote contact: username=$username, type=$phone")
+
             val alreadySeen = (username.isNotEmpty() && seenUsernames.contains(username)) ||
                 (phone != "VOIP_USER" && seenPhones.contains(phone))
 
-            if (alreadySeen) return@forEach
+            if (alreadySeen) {
+                Log.d(TAG, "Skipping (already seen): $username")
+                return@forEach
+            }
 
             // Try to find matching local contact
             var localContact: com.example.fyp_25_s4_23.domain.entities.Contact? = null
@@ -52,25 +61,31 @@ class SyncContactsUseCase(
             // 1. First try: exact username match
             if (username.isNotEmpty()) {
                 localContact = localRepo.getContactByUsername(currentUserId, username)
+                if (localContact != null) Log.d(TAG, "Found match by username: $username")
             }
 
-            // 2. Second try: if this is a VOIP contact, check if the username maps to a phone number we have locally
+            // 2. Second try: if this is a VOIP contact, check if we have the phone number locally
             if (localContact == null && phone == "VOIP_USER" && username.isNotEmpty()) {
                 val knownPhone = usernameToPhone[username]
                 if (knownPhone != null) {
                     localContact = phoneToLocalContact[knownPhone]
+                    if (localContact != null) Log.d(TAG, "Found match by username->phone mapping: $username -> $knownPhone")
+                } else {
+                    Log.d(TAG, "No phone mapping found for username: $username")
                 }
             }
 
             // 3. Third try: exact phone match (for phone contacts)
             if (localContact == null && phone != "VOIP_USER") {
                 localContact = phoneToLocalContact[phone]
+                if (localContact != null) Log.d(TAG, "Found match by phone: $phone")
             }
 
             if (localContact != null) {
-                // Update label only; keep local displayName/phoneNumber
+                Log.d(TAG, "Updating label for existing contact: ${localContact.displayName}")
                 localRepo.updateContactLabel(localContact.id, contact.label.name)
             } else {
+                Log.d(TAG, "Creating new contact from remote: $username / $phone")
                 localRepo.insertContact(contact)
             }
 
@@ -79,10 +94,16 @@ class SyncContactsUseCase(
         }
 
         // Remove local username-only contacts missing from Firebase
-        localContacts
+        val removedCount = localContacts
             .filter { it.phoneNumber == "VOIP_USER" }
             .filter { (it.displayName ?: "").isNotEmpty() }
             .filter { (it.displayName ?: "") !in seenUsernames }
-            .forEach { localRepo.deleteContact(it) }
+            .onEach { 
+                Log.d(TAG, "Removing local contact not in Firebase: ${it.displayName}")
+                localRepo.deleteContact(it) 
+            }
+            .count()
+        
+        Log.d(TAG, "Sync complete: removed $removedCount orphaned contacts")
     }
 }
