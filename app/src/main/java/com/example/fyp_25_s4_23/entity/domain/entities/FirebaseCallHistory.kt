@@ -52,10 +52,10 @@ data class FirebaseCallRecord(
      * Format created timestamp for display
      */
     fun getCreatedAtFormatted(): String {
-        val mills = getCreatedAtMillis()
-        if (mills == 0L) return "Unknown"
+        val date = createdAt?.toDate()
+        if (date == null) return "Unknown"
         
-        val date = Date(mills)
+        val mills = date.time
         val now = System.currentTimeMillis()
         val diffMs = now - mills
         val diffMins = diffMs / (1000 * 60)
@@ -68,7 +68,7 @@ data class FirebaseCallRecord(
             diffHours < 24 -> "$diffHours hour${if (diffHours > 1) "s" else ""} ago"
             diffDays < 7 -> "$diffDays day${if (diffDays > 1) "s" else ""} ago"
             else -> {
-                val format = SimpleDateFormat("MMM dd", Locale.getDefault())
+                val format = SimpleDateFormat("MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
                 format.format(date)
             }
         }

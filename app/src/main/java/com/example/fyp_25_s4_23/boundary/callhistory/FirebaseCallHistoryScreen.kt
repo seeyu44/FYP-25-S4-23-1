@@ -239,12 +239,18 @@ fun FirebaseCallHistoryCard(call: FirebaseCallRecord) {
 
             Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // Timestamp
-            val dateFormat = SimpleDateFormat("MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
-            val createdAtMillis = call.getCreatedAtMillis()
-            if (createdAtMillis > 0) {
+            // Timestamp - extract date similar to summary page
+            val date = call.createdAt?.toDate()
+            if (date != null) {
+                val dateFormat = SimpleDateFormat("MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
                 Text(
-                    text = dateFormat.format(Date(createdAtMillis)),
+                    text = dateFormat.format(date),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            } else {
+                Text(
+                    text = "Unknown time",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )
