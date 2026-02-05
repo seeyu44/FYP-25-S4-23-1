@@ -218,7 +218,7 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
     /**
      * Robustly extract timestamp from Firebase data - same logic as summary page
      * Handles: Timestamp objects, Numbers (millis/seconds), Maps with _seconds/seconds
-     * Falls back to detection_timestamp if primary field is invalid
+     * Falls back to detection_timestamp if available and primary field is invalid
      * 
      * Mimics TypeScript getMillis() and timestampToSeconds() functions
      */
@@ -232,36 +232,46 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             val primaryValue = data[fieldName]
             val primaryMillis = getMillisFromValue(primaryValue)
             
-            // Validate timestamp is reasonable (not in 1970s)
-            // Valid timestamps should be > 946684800000 (Jan 1, 2000)
-            if (primaryMillis > 946684800000L) {
-                Log.d("CallHistoryRepository", "  ✓ Valid $fieldName: $primaryMillis ms")
+            // For answered calls: Validate timestamp is reasonable and use detection_timestamp as fallback
+            // For missed calls: Use whatever timestamp we have (even if invalid)
+            if (uidForDetection != null) {
+                // Check if detection_timestamp exists (indicates answered call)
+                val detectionKey = "${uidForDetection}_detection_timestamp"
+                val detectionValue = data[detectionKey]
+                
+                if (detectionValue != null) {
+                    // Answered call - prefer detection_timestamp if primary is invalid
+                    // Valid timestamps should be > 946684800000 (Jan 1, 2000)
+                    if (primaryMillis > 946684800000L) {
+                        Log.d("CallHistoryRepository", "  ✓ Valid $fieldName: $primaryMillis ms")
+                        return com.google.firebase.Timestamp(
+                            primaryMillis / 1000,
+                            ((primaryMillis % 1000) * 1000000).toInt()
+                        )
+                    } else {
+                        // Primary invalid, use detection_timestamp
+                        val detectionMillis = getMillisFromValue(detectionValue)
+                        Log.w("CallHistoryRepository", "  ✗ Invalid $fieldName ($primaryMillis ms), using $detectionKey ($detectionMillis ms)")
+                        return com.google.firebase.Timestamp(
+                            detectionMillis / 1000,
+                            ((detectionMillis % 1000) * 1000000).toInt()
+                        )
+                    }
+                }
+            }
+            
+            // Missed call or no detection timestamp: use primary value as-is
+            // Even if it's wrong (1970s), it's better than showing current time
+            if (primaryMillis > 0) {
+                Log.d("CallHistoryRepository", "  Using $fieldName as-is: $primaryMillis ms")
                 return com.google.firebase.Timestamp(
                     primaryMillis / 1000,
                     ((primaryMillis % 1000) * 1000000).toInt()
                 )
             }
             
-            Log.w("CallHistoryRepository", "  ✗ Invalid $fieldName ($primaryMillis ms), trying fallback...")
-            
-            // Fallback: Try detection_timestamp (which stores correct timestamps)
-            if (uidForDetection != null) {
-                val detectionKey = "${uidForDetection}_detection_timestamp"
-                val detectionValue = data[detectionKey]
-                val detectionMillis = getMillisFromValue(detectionValue)
-                
-                if (detectionMillis > 946684800000L) {
-                    Log.d("CallHistoryRepository", "  ✓ Using $detectionKey as fallback: $detectionMillis ms")
-                    return com.google.firebase.Timestamp(
-                        detectionMillis / 1000,
-                        ((detectionMillis % 1000) * 1000000).toInt()
-                    )
-                }
-            }
-            
-            // Last resort: use current time
-            Log.w("CallHistoryRepository", "  ✗ No valid timestamps found, using current time")
-            com.google.firebase.Timestamp(System.currentTimeMillis() / 1000, 0)
+            Log.w("CallHistoryRepository", "  ✗ No timestamp data found for $fieldName")
+            null
         } catch (e: Exception) {
             Log.e("CallHistoryRepository", "Error extracting timestamp for $fieldName", e)
             null
