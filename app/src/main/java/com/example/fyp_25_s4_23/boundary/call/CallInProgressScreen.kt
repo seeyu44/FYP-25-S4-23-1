@@ -152,6 +152,8 @@ fun CallInProgressScreen(
                             val activeState = currentState as CallUiState.Active
                             
                             // Demo audio selector (if enabled)
+                            // COMMENTED OUT: Demo audio button hidden from UI (functionality preserved)
+                            /*
                             if (onPlayDemoAudio != null && demoAudioFiles.isNotEmpty()) {
                                 var isDemoPlaying by remember { mutableStateOf(false) }
                                 var selectedFile by remember { mutableStateOf<String?>(null) }
@@ -240,6 +242,7 @@ fun CallInProgressScreen(
                                     }
                                 }
                             }
+                            */
                             
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(40.dp),
