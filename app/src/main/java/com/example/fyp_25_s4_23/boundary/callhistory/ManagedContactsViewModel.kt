@@ -57,8 +57,10 @@ class ManagedContactsViewModel(
                 val formattedPhone = "+65$cleanPhone"
 
                 // Check if phone number already exists in local database
+                android.util.Log.d("ADD_CONTACT", "Checking phone: $formattedPhone for userId: $currentUserId")
                 if (repository.existsByPhoneNumber(currentUserId, formattedPhone)) {
                     _uiMessage.value = "Contact with this phone number already exists"
+                    android.util.Log.w("ADD_CONTACT", "Phone number already exists locally")
                     return@launch
                 }
 
@@ -67,13 +69,16 @@ class ManagedContactsViewModel(
                     phoneLookupService.getUserByPhoneNumber(formattedPhone)
                 } catch (e: Exception) {
                     _uiMessage.value = "Phone number not found in system"
+                    android.util.Log.e("ADD_CONTACT", "Phone lookup failed", e)
                     return@launch
                 }
 
                 // Check if username already exists (avoid duplicate from Firebase sync)
+                android.util.Log.d("ADD_CONTACT", "Checking username: ${lookupResult.username} for userId: $currentUserId")
                 val alreadyExists = repository.existsByUsername(currentUserId, lookupResult.username)
                 if (alreadyExists) {
                     _uiMessage.value = "Contact already exists with this user"
+                    android.util.Log.w("ADD_CONTACT", "Username already exists locally")
                     return@launch
                 }
 
@@ -87,12 +92,15 @@ class ManagedContactsViewModel(
                 )
 
                 // Add to Firebase first (uses username)
+                android.util.Log.d("ADD_CONTACT", "Adding to Firebase: username=${lookupResult.username}, label=$label")
                 firebaseRepo.addContact(lookupResult.username, label)
                 
                 // Add to local database
+                android.util.Log.d("ADD_CONTACT", "Adding to local DB: displayName=${newContact.displayName}, phone=${newContact.phoneNumber}")
                 repository.insertContact(newContact)
 
                 _uiMessage.value = "Contact added successfully"
+                android.util.Log.d("ADD_CONTACT", "Contact added successfully")
                 onSuccess()
 
             } catch (e: Exception) {
@@ -141,11 +149,14 @@ class ManagedContactsViewModel(
                 }
 
                 if (!username.isNullOrBlank()) {
+                    android.util.Log.d("DELETE_CONTACT", "Deleting from Firebase: username=$username")
                     firebaseRepo.deleteContactByUsername(username)
                 }
             } catch (e: Exception) {
+                android.util.Log.e("DELETE_CONTACT", "Firebase delete failed", e)
                 firebaseFailed = true
             } finally {
+                android.util.Log.d("DELETE_CONTACT", "Deleting from local DB: id=${contact.id}, phone=${contact.phoneNumber}")
                 repository.deleteContact(contact)
                 _uiMessage.value = if (firebaseFailed) {
                     "Contact deleted locally; sync pending"
