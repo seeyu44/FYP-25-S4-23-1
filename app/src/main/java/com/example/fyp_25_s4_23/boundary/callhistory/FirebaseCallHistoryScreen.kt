@@ -239,9 +239,22 @@ fun FirebaseCallHistoryCard(call: FirebaseCallRecord) {
 
             Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // Timestamp - extract date similar to summary page
-            val date = call.createdAt?.toDate()
-            if (date != null) {
+            // Timestamp - extract date using Calendar like summary page does
+            val firebaseDate = call.createdAt?.toDate()
+            if (firebaseDate != null) {
+                val cal = java.util.Calendar.getInstance()
+                cal.time = firebaseDate
+                val year = cal.get(java.util.Calendar.YEAR)
+                val month = cal.get(java.util.Calendar.MONTH) // 0-indexed
+                val day = cal.get(java.util.Calendar.DAY_OF_MONTH)
+                val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+                val minute = cal.get(java.util.Calendar.MINUTE)
+                
+                // Reconstruct date from calendar
+                cal.set(year, month, day, hour, minute, 0)
+                cal.set(java.util.Calendar.MILLISECOND, 0)
+                val date = cal.time
+                
                 val dateFormat = SimpleDateFormat("MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
                 Text(
                     text = dateFormat.format(date),

@@ -152,7 +152,10 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             val callId = data["id"] as? String ?: "unknown"
             val calleeUid = data["callee_user_id"] as? String
             
-            Log.d("CallHistoryRepository", "Parsing call $callId - currentUid: $currentUid, calleeUid: $calleeUid")
+            Log.d("CallHistoryRepository", "=== Parsing call $callId ===")
+            Log.d("CallHistoryRepository", "  currentUid: $currentUid, calleeUid: $calleeUid")
+            Log.d("CallHistoryRepository", "  RAW created_at: ${data["created_at"]} (type: ${data["created_at"]?.javaClass})")
+            Log.d("CallHistoryRepository", "  RAW ended_at: ${data["ended_at"]} (type: ${data["ended_at"]?.javaClass})")
             Log.d("CallHistoryRepository", "  Available keys: ${data.keys}")
             
             // Use current user's UID for incoming calls (where current user IS the callee)
@@ -181,14 +184,30 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 deepfake
             } else null
 
-            // Convert created_at - could be Timestamp object, number (seconds), or Map with _seconds/_nanoseconds
+            // Convert created_at - could be Timestamp object, number (milliseconds or seconds), or Map with _seconds/_nanoseconds
             val createdAt = when (val createdAtData = data["created_at"]) {
                 is com.google.firebase.Timestamp -> createdAtData
-                is Number -> com.google.firebase.Timestamp(createdAtData.toLong(), 0)
+                is Number -> {
+                    val numValue = createdAtData.toLong()
+                    Log.d("CallHistoryRepository", "  created_at is Number: $numValue")
+                    // Timestamps in milliseconds are >= 1000000000000 (13 digits, year 2001+)
+                    // Timestamps in seconds are < 10000000000 (11 digits, year 2286)
+                    // Current time: ~1738000000 seconds or ~1738000000000 milliseconds
+                    if (numValue >= 1000000000000L) {
+                        // It's in milliseconds, convert to seconds
+                        Log.d("CallHistoryRepository", "  Treating as milliseconds, converting to seconds")
+                        com.google.firebase.Timestamp(numValue / 1000, ((numValue % 1000) * 1000000).toInt())
+                    } else {
+                        // It's already in seconds
+                        Log.d("CallHistoryRepository", "  Treating as seconds")
+                        com.google.firebase.Timestamp(numValue, 0)
+                    }
+                }
                 is Map<*, *> -> {
                     // Handle Firestore Timestamp serialized as Map
                     val seconds = (createdAtData["_seconds"] as? Number)?.toLong()
                     val nanoseconds = (createdAtData["_nanoseconds"] as? Number)?.toInt() ?: 0
+                    Log.d("CallHistoryRepository", "  created_at is Map: seconds=$seconds, nanoseconds=$nanoseconds")
                     if (seconds != null) {
                         com.google.firebase.Timestamp(seconds, nanoseconds)
                     } else {
@@ -204,7 +223,15 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             
             val endedAt = when (val endedAtData = data["ended_at"]) {
                 is com.google.firebase.Timestamp -> endedAtData
-                is Number -> com.google.firebase.Timestamp(endedAtData.toLong(), 0)
+                is Number -> {
+                    val numValue = endedAtData.toLong()
+                    // If the number is very large, it's likely in milliseconds, convert to seconds
+                    if (numValue >= 1000000000000L) {
+                        com.google.firebase.Timestamp(numValue / 1000, ((numValue % 1000) * 1000000).toInt())
+                    } else {
+                        com.google.firebase.Timestamp(numValue, 0)
+                    }
+                }
                 is Map<*, *> -> {
                     val seconds = (endedAtData["_seconds"] as? Number)?.toLong()
                     val nanoseconds = (endedAtData["_nanoseconds"] as? Number)?.toInt() ?: 0
@@ -213,7 +240,10 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 else -> null
             }
             
-            Log.d("CallHistoryRepository", "  created_at: ${data["created_at"]} -> $createdAt (millis: ${createdAt?.toDate()?.time})")
+            Log.d("CallHistoryRepository", "  PARSED created_at: $createdAt")
+            Log.d("CallHistoryRepository", "  created_at.toDate(): ${createdAt?.toDate()}")
+            Log.d("CallHistoryRepository", "  created_at millis: ${createdAt?.toDate()?.time}")
+            Log.d("CallHistoryRepository", "  created_at seconds: ${createdAt?.seconds}")
 
             FirebaseCallRecord(
                 id = data["id"] as? String ?: "",
