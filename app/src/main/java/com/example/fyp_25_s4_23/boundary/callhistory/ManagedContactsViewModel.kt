@@ -12,7 +12,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class ManagedContactsViewModel(
@@ -29,12 +33,42 @@ class ManagedContactsViewModel(
     private val currentUserId: String
         get() = auth.currentUser?.uid ?: ""
 
-    val contacts: StateFlow<List<Contact>> = repository.getAllContacts(currentUserId)
+    // Use switchMap pattern to restart the flow when user changes
+    private val userIdFlow = MutableStateFlow(currentUserId)
+    
+    val contacts: StateFlow<List<Contact>> = userIdFlow
+        .flatMapLatest { userId ->
+            if (userId.isEmpty()) {
+                flowOf(emptyList())
+            } else {
+                repository.getAllContacts(userId)
+            }
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+    
+    init {
+        // Listen for auth state changes
+        viewModelScope.launch {
+            flow {
+                var lastUserId = currentUserId
+                while (true) {
+                    delay(1000) // Check every second
+                    val newUserId = auth.currentUser?.uid ?: ""
+                    if (newUserId != lastUserId) {
+                        lastUserId = newUserId
+                        emit(newUserId)
+                    }
+                }
+            }.collect { newUserId ->
+                android.util.Log.d("ManagedContactsVM", "User changed: $newUserId")
+                userIdFlow.value = newUserId
+            }
+        }
+    }
 
 
 
