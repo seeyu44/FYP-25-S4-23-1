@@ -59,18 +59,27 @@ import com.google.firebase.auth.FirebaseAuth
 
 import kotlinx.coroutines.launch
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.w("BOOT","MainActivity onCreate reached")
+
         enableEdgeToEdge()
+
         setContent {
-            FYP25S423Theme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    AntiDeepfakeApp()
+            CompositionLocalProvider(
+                LocalDensity provides Density(density = LocalDensity.current.density, fontScale = 1f)
+            ) {
+                FYP25S423Theme {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        AntiDeepfakeApp()
+                    }
                 }
             }
         }
