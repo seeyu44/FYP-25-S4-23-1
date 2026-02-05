@@ -13,17 +13,14 @@ object VoipCallManager {
         context: Context,
         calleeUserId: String,
         calleeDisplayName: String? = null,
-        callerDisplayName: String? = null
+        calleePhoneNumber: String? = null
     ) {
         val caller = FirebaseAuthManager.currentUser()
             ?: error("User not logged in")
 
         val callId = UUID.randomUUID().toString()
-        val callerUsername = callerDisplayName?.takeIf { it.isNotBlank() }
-            ?: caller.displayName
-            ?: caller.email
-            ?: caller.uid
-        val resolvedCalleeName = calleeDisplayName?.takeIf { it.isNotBlank() } ?: calleeUserId
+        val callerUsername = caller.displayName ?: caller.email ?: caller.uid
+        val callerPhone = caller.phoneNumber // Get phone from Firebase Auth
 
 
         FirebaseSignalingManager().createCall(
@@ -31,14 +28,19 @@ object VoipCallManager {
             callerUid = caller.uid,
             calleeUid = calleeUserId,
             callerUsername = callerUsername,
-            calleeUsername = resolvedCalleeName
+            callerPhone = callerPhone
         )
 
         val intent = Intent(context, CallInProgressActivity::class.java).apply {
             putExtra(IncomingCallIntent.EXTRA_CALL_ID, callId)
             putExtra(IncomingCallIntent.EXTRA_IS_INCOMING, false)
             putExtra(IncomingCallIntent.EXTRA_REMOTE_USER_ID, calleeUserId)
-            putExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME, resolvedCalleeName)
+            if (calleeDisplayName != null) {
+                putExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME, calleeDisplayName)
+            }
+            if (calleePhoneNumber != null) {
+                putExtra("extra_phone_number", calleePhoneNumber)
+            }
         }
         context.startActivity(intent)
     }

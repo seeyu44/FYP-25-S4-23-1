@@ -10,9 +10,11 @@ import com.google.firebase.firestore.DocumentChange
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import com.example.fyp_25_s4_23.domain.entities.ContactLabel
+import com.example.fyp_25_s4_23.util.DisplayNameResolver
 
 
 object IncomingCallListener {
@@ -79,6 +81,7 @@ object IncomingCallListener {
                     val status = doc.getString("status") ?: continue
                     val callerId = doc.getString("caller_user_id") ?: continue
                     val callerUsername = doc.getString("caller_username") ?: callerId
+                    val callerPhone = doc.getString("caller_phone") // Get phone from call document
 
                     if (callId == activeCallId) continue
 
@@ -88,40 +91,76 @@ object IncomingCallListener {
                         handledCalls.add(callId)
 
                         scope.launch {
-                            // Map callerId → username if needed
-                            // (if callerId IS username, rename variable accordingly)
-                            val contact = contactRepository.getContactByUsername(callerUsername)
+                            // Resolve display name using the DisplayNameResolver utility
+                            // Priority: saved contact name > phone number > callerUsername (email)
+                            val resolvedDisplayName = DisplayNameResolver.resolveDisplayName(
+                                contactRepository = contactRepository,
+                                currentUserId = uid,
+                                userId = callerId, // Use callerId (Firebase UID) to look up contact
+                                fallbackName = callerUsername, // Use callerUsername (email) as last resort
+                                fallbackPhone = callerPhone // Use phone from call document
+                            )
+                            
+                            // Check if contact is blocked by checking Firebase contacts collection
+                            val isBlocked = try {
+                                // Get the actual username from the phone number
+                                val actualUsername = if (!callerPhone.isNullOrBlank()) {
+                                    try {
+                                        val phoneLookupService = com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService()
+                                        phoneLookupService.getUserByPhoneNumber(callerPhone).username
+                                    } catch (e: Exception) {
+                                        Log.d("INCOMING_CALL", "Phone lookup failed, using callerUsername: $callerUsername")
+                                        callerUsername
+                                    }
+                                } else {
+                                    callerUsername
+                                }
+                                
+                                Log.d("INCOMING_CALL", "Checking if username=$actualUsername is blocked")
+                                
+                                val contactsSnapshot = db
+                                    .collection("users")
+                                    .document(uid)
+                                    .collection("contacts")
+                                    .whereEqualTo("username", actualUsername)
+                                    .get()
+                                    .await()
+                                
+                                // Check if any contact has label = "BLACK"
+                                val blocked = contactsSnapshot.documents.any { doc ->
+                                    doc.getString("label") == "BLACK"
+                                }
+                                
+                                if (blocked) {
+                                    Log.d("INCOMING_CALL", "Found contact with username=$actualUsername marked as BLOCKED")
+                                }
+                                
+                                blocked
+                            } catch (e: Exception) {
+                                Log.e("INCOMING_CALL", "Error checking Firebase contacts", e)
+                                false // Default to not blocked if error
+                            }
 
-                            when (contact?.label) {
-                                ContactLabel.BLACK -> {
+                            when {
+                                isBlocked -> {
                                     Log.w(
                                         "INCOMING_CALL",
-                                        "Blocked incoming call from BLACKLISTED user=$callerUsername callId=$callId"
+                                        "Blocked incoming call from BLACKLISTED user=$callerId callId=$callId"
                                     )
 
                                     // Do NOT show notification
-                                    // Optional: mark call as ended
-                                    FirebaseFirestore.getInstance()
-                                        .collection("calls")
-                                        .document(callId)
-                                        .update(
-                                            mapOf(
-                                                "status" to "ended",
-                                                "ended_reason" to "blocked_contact",
-                                                "ended_by" to "callee"
-                                            )
-                                        )
-
+                                    // Do NOT end the call - let it ring on caller's side
+                                    // This way the blocked caller won't know they're blocked
                                     return@launch
                                 }
 
                                 else -> {
-                                    // Allowed (WHITE or unknown)
+                                    // Allowed (not in contacts or label is WHITE)
                                     IncomingCallNotifier.showIncomingCall(
                                         context = context.applicationContext,
                                         callId = callId,
                                         callerId = callerId,
-                                        displayName = contact?.displayName ?: callerUsername
+                                        displayName = resolvedDisplayName
                                     )
                                 }
                             }

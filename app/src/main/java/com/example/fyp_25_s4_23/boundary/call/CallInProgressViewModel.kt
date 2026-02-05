@@ -49,7 +49,7 @@ sealed class CallUiState {
         val outboundAudioLevel: Float = 0f
     ) : CallUiState()
 
-    data class Disconnected(val handle: String) : CallUiState()
+    data class Disconnected(val handle: String, val reason: String = "Call Ended") : CallUiState()
 }
 
 /* =========================
@@ -65,12 +65,32 @@ class CallInProgressViewModel : ViewModel() {
     val events = _events.asSharedFlow()
     private var webRtcClient: WebRtcClient? = null
     private var isIncomingCall: Boolean = false
-    var onStartCallRequested: (() -> Unit)? = null
-    var onCallEnded: (() -> Unit)? = null
+    private var resolvedDisplayName: String = ""
+    private var activeCallListenerStarted = false
 
     fun setCallDirection(isIncoming: Boolean) {
         isIncomingCall = isIncoming
         Log.d(TAG_UI, "Call direction set → incoming=$isIncoming")
+    }
+    
+    fun setDisplayName(displayName: String) {
+        resolvedDisplayName = displayName
+        Log.d(TAG_UI, "Display name set → $displayName")
+        
+        // Update current state with resolved name
+        val current = _state.value
+        _state.value = when (current) {
+            is CallUiState.Connecting -> current.copy(handle = displayName)
+            is CallUiState.Ringing -> current.copy(handle = displayName)
+            is CallUiState.Active -> current.copy(handle = displayName)
+            is CallUiState.Disconnected -> current.copy(handle = displayName)
+        }
+        
+        // Start listening to ActiveCallStore after display name is set
+        if (!activeCallListenerStarted) {
+            startActiveCallListener()
+            activeCallListenerStarted = true
+        }
     }
 
     fun setRemoteDisplayName(displayName: String) {
@@ -143,7 +163,34 @@ class CallInProgressViewModel : ViewModel() {
                     isDeepfake = isCurrentlyDeepfake,
                     isDetectionActive = true
                 )
-                Log.d(TAG_CALL, "🔄 UI updated: score=$score, isDeepfake=$isCurrentlyDeepfake")
+            }
+        }
+    }
+
+    /* =========================
+       TELECOM BRIDGE
+       ========================= */
+    private fun startActiveCallListener() {
+        viewModelScope.launch {
+            ActiveCallStore.state.collectLatest { snapshot ->
+                if (snapshot == null) {
+                    if (webRtcClient != null) return@collectLatest
+                    setDisconnected()
+                    return@collectLatest
+                }
+
+                Log.d(TAG_STORE, "Telecom state=${snapshot.state}")
+
+                when (snapshot.state) {
+                    Call.STATE_RINGING ->
+                        setRinging(resolvedDisplayName, preserveReady = true)
+
+                    Call.STATE_ACTIVE ->
+                        setActive()
+
+                    Call.STATE_DISCONNECTED ->
+                        setDisconnected()
+                }
             }
         }
     }
@@ -189,14 +236,13 @@ class CallInProgressViewModel : ViewModel() {
         Log.d(TAG_UI, "setRinging(handle=$handle incoming=$isIncomingCall)")
 
         val ready =
-            if (preserveReady) {
-                (_state.value as? CallUiState.Ringing)?.isReadyToAnswer ?: readyToAnswer
-            } else {
-                readyToAnswer
-            }
+            preserveReady && (_state.value as? CallUiState.Ringing)?.isReadyToAnswer == true
+        
+        // Use resolved display name if available, otherwise use the provided handle
+        val displayHandle = resolvedDisplayName.ifBlank { handle }
 
         _state.value = CallUiState.Ringing(
-            handle = handle,
+            handle = displayHandle,
             isIncoming = isIncomingCall,
             isReadyToAnswer = ready
         )
@@ -211,12 +257,14 @@ class CallInProgressViewModel : ViewModel() {
             is CallUiState.Active -> s.handle
             is CallUiState.Disconnected -> s.handle
         }
+        
+        // Use resolved display name if available, otherwise use the current handle
+        val displayHandle = resolvedDisplayName.ifBlank { handle }
 
         Log.d(TAG_UI, "Transition → Active")
 
         _state.value = CallUiState.Active(
-            handle = handle,
-            isIncoming = isIncomingCall,
+            handle = displayHandle,
             isMuted = false,
             isSpeakerOn = false,
             localAudioState = CallAudioState.SILENT,
@@ -232,16 +280,28 @@ class CallInProgressViewModel : ViewModel() {
         onStartCallRequested?.invoke()
     }
 
-    fun setDisconnected() {
+    fun setDisconnected(reason: String = "Call Ended") {
         val handle = when (val s = _state.value) {
             is CallUiState.Ringing -> s.handle
             is CallUiState.Active -> s.handle
             is CallUiState.Connecting -> s.handle
             is CallUiState.Disconnected -> s.handle
         }
+        
+        // Use resolved display name if available, otherwise use the current handle
+        val displayHandle = resolvedDisplayName.ifBlank { handle }
 
-        Log.d(TAG_UI, "Transition → Disconnected")
-        _state.value = CallUiState.Disconnected(handle)
+        Log.d(TAG_UI, "Transition → Disconnected (reason=$reason)")
+        _state.value = CallUiState.Disconnected(displayHandle, reason)
+    }
+
+    fun setDisconnectedWithReason(reason: String?) {
+        val finalReason = when (reason) {
+            "blocked_contact" -> "Call Failed"
+            null, "" -> "Call Ended"
+            else -> reason
+        }
+        setDisconnected(finalReason)
     }
 
 }

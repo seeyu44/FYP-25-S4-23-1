@@ -7,11 +7,11 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ContactDao {
 
-    @Query("SELECT * FROM contacts")
-    fun getAllContacts(): Flow<List<ContactEntity>>
+    @Query("SELECT * FROM contacts WHERE userId = :userId")
+    fun getAllContacts(userId: String): Flow<List<ContactEntity>>
 
-    @Query("SELECT * FROM contacts")
-    suspend fun getAllContactsOnce(): List<ContactEntity>
+    @Query("SELECT * FROM contacts WHERE userId = :userId")
+    suspend fun getAllContactsOnce(userId: String): List<ContactEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertContact(contact: ContactEntity)
@@ -22,17 +22,28 @@ interface ContactDao {
     @Query("DELETE FROM contacts WHERE id = :id")
     suspend fun deleteById(id: Int)
 
-    @Query("SELECT * FROM contacts WHERE displayName = :username LIMIT 1")
-    suspend fun getByUsername(username: String): ContactEntity?
+    @Query("SELECT * FROM contacts WHERE userId = :userId AND displayName = :username LIMIT 1")
+    suspend fun getByUsername(userId: String, username: String): ContactEntity?
 
     @Query(
         "SELECT EXISTS(" +
-                "SELECT 1 FROM contacts WHERE displayName = :username LIMIT 1" +
+                "SELECT 1 FROM contacts WHERE userId = :userId AND displayName = :username LIMIT 1" +
                 ")"
     )
-    suspend fun existsByUsername(username: String): Boolean
+    suspend fun existsByUsername(userId: String, username: String): Boolean
 
+    @Query("SELECT * FROM contacts WHERE userId = :userId AND phoneNumber = :phoneNumber LIMIT 1")
+    suspend fun getByPhoneNumber(userId: String, phoneNumber: String): ContactEntity?
 
+    @Query(
+        "SELECT EXISTS(" +
+                "SELECT 1 FROM contacts WHERE userId = :userId AND phoneNumber = :phoneNumber LIMIT 1" +
+                ")"
+    )
+    suspend fun existsByPhoneNumber(userId: String, phoneNumber: String): Boolean
+
+    @Query("UPDATE contacts SET label = :label WHERE id = :id")
+    suspend fun updateLabel(id: Int, label: String)
 
     @Query("DELETE FROM contacts")
     suspend fun clearAll()

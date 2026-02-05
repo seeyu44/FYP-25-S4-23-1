@@ -18,6 +18,12 @@ import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseAuthManager
 import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
 import androidx.lifecycle.lifecycleScope
 import com.example.fyp_25_s4_23.util.VibratorUtil
+import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
+import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
+import com.example.fyp_25_s4_23.util.DisplayNameResolver
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 private const val TAG_SIG = "CALL_SIG"
 private const val TAG_WEBRTC = "WEBRTC_FLOW"
 private lateinit var displayName : String
@@ -40,17 +46,43 @@ class CallInProgressActivity : ComponentActivity() {
         val isIncoming =
             intent.getBooleanExtra(IncomingCallIntent.EXTRA_IS_INCOMING, false)
 
-        // Initialize display name with intent extra, fallback to userId
-        displayName = intent.getStringExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME)
-            ?.takeIf { it.isNotBlank() }
-            ?: remoteUserId
+        // Resolve contact name synchronously to ensure it's available before any state transitions
+        val database = AppDatabase.getInstance(this)
+        val contactRepository = ContactRepository(database.contactDao())
+        
+        // Check if phone number was passed (for outgoing calls from saved contacts)
+        val passedPhoneNumber = intent.getStringExtra("extra_phone_number")
+        
+        displayName = runBlocking {
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            if (isIncoming) {
+                // For incoming calls: use passed display name or resolve from contact database
+                val incomingDisplayName = intent.getStringExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME)
+                if (incomingDisplayName != null) {
+                    incomingDisplayName
+                } else {
+                    DisplayNameResolver.resolveDisplayName(
+                        contactRepository, 
+                        currentUserId,
+                        remoteUserId,
+                        fallbackPhone = passedPhoneNumber
+                    )
+                }
+            } else {
+                // For outgoing calls: resolve from contact database
+                DisplayNameResolver.resolveDisplayName(
+                    contactRepository, 
+                    currentUserId,
+                    remoteUserId,
+                    fallbackPhone = passedPhoneNumber
+                )
+            }
+        }
 
-        viewModel.setRemoteDisplayName(displayName)
-
-
-        Log.d(TAG_SIG, "Call started → id=$callId incoming=$isIncoming")
+        Log.d(TAG_SIG, "Call started → id=$callId incoming=$isIncoming resolved name=$displayName")
 
         viewModel.setCallDirection(isIncoming)
+        viewModel.setDisplayName(displayName)
 
         val localUserId =
             FirebaseAuthManager.currentUser()?.uid ?: return finish()
@@ -174,6 +206,14 @@ class CallInProgressActivity : ComponentActivity() {
                         viewModel.setDisconnected()
                         client.onRemoteEnded()
                     }
+                }
+            },
+
+            onStatusWithReason = { status, reason ->
+                if (status == "ended" && reason == "blocked_contact") {
+                    Log.w(TAG_SIG, "Call rejected: contact is blocked")
+                    viewModel.setDisconnectedWithReason(reason)
+                    client.onRemoteEnded()
                 }
             }
         )

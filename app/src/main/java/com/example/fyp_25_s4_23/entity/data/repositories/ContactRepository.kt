@@ -11,10 +11,14 @@ class ContactRepository(
     private val contactDao: ContactDao
 ) {
 
-    fun getAllContacts(): Flow<List<Contact>> =
-        contactDao.getAllContacts().map { entities ->
+    fun getAllContacts(userId: String): Flow<List<Contact>> =
+        contactDao.getAllContacts(userId).map { entities ->
             entities.map { it.toDomain() }
         }
+
+    suspend fun getAllContactsOnce(userId: String): List<Contact> {
+        return contactDao.getAllContactsOnce(userId).map { it.toDomain() }
+    }
 
     suspend fun insertContact(contact: Contact) {
         contactDao.insertContact(contact.toEntity())
@@ -30,14 +34,27 @@ class ContactRepository(
         }
     }
 
-    suspend fun existsByUsername(username: String): Boolean {
-        return contactDao.existsByUsername(username)
+    suspend fun existsByUsername(userId: String, username: String): Boolean {
+        return contactDao.existsByUsername(userId, username)
     }
 
-    suspend fun getContactByUsername(username: String): Contact? {
-        return contactDao.getByUsername(username)?.toDomain()
+    suspend fun getContactByUsername(userId: String, username: String): Contact? {
+        return contactDao.getByUsername(userId, username)?.toDomain()
     }
 
+    suspend fun existsByPhoneNumber(userId: String, phoneNumber: String): Boolean {
+        return contactDao.existsByPhoneNumber(userId, phoneNumber)
+    }
+
+    suspend fun getContactByPhoneNumber(userId: String, phoneNumber: String): Contact? {
+        return contactDao.getByPhoneNumber(userId, phoneNumber)?.toDomain()
+    }
+
+    suspend fun updateContactLabel(id: String, label: String) {
+        id.toIntOrNull()?.let { intId ->
+            contactDao.updateLabel(intId, label)
+        }
+    }
 
     suspend fun clearAll(){
         contactDao.clearAll()

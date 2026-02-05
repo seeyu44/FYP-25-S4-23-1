@@ -25,7 +25,7 @@ interface CallRecordDao {
 
     @Query(
         """
-        SELECT strftime('%Y-%m-%d', start_time/1000, 'unixepoch', 'localtime') AS period,
+        SELECT strftime('%Y-%m-%d', start_time, 'unixepoch', 'localtime') AS period,
                COUNT(*) as total,
                SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as answered,
                SUM(CASE WHEN status = 'DROPPED' THEN 1 ELSE 0 END) as missed,
@@ -33,7 +33,7 @@ interface CallRecordDao {
                SUM(CASE WHEN status = 'BLOCKED' THEN 1 ELSE 0 END) as blocked,
                AVG(CASE WHEN probability >= :threshold THEN probability ELSE NULL END) as avg_confidence
         FROM call_records
-        WHERE start_time BETWEEN :startMillis AND :endMillis
+        WHERE start_time BETWEEN :startMillis AND :endMillis AND direction = 'INCOMING'
         GROUP BY period
         ORDER BY period DESC
         """
@@ -42,7 +42,7 @@ interface CallRecordDao {
 
     @Query(
         """
-        SELECT strftime('%Y-%W', start_time/1000, 'unixepoch', 'localtime') AS period,
+        SELECT strftime('%Y-%W', start_time, 'unixepoch', 'localtime') AS period,
                COUNT(*) as total,
                SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as answered,
                SUM(CASE WHEN status = 'DROPPED' THEN 1 ELSE 0 END) as missed,
@@ -50,7 +50,7 @@ interface CallRecordDao {
                SUM(CASE WHEN status = 'BLOCKED' THEN 1 ELSE 0 END) as blocked,
                AVG(CASE WHEN probability >= :threshold THEN probability ELSE NULL END) as avg_confidence
         FROM call_records
-        WHERE start_time BETWEEN :startMillis AND :endMillis
+        WHERE start_time BETWEEN :startMillis AND :endMillis AND direction = 'INCOMING'
         GROUP BY period
         ORDER BY period DESC
         """

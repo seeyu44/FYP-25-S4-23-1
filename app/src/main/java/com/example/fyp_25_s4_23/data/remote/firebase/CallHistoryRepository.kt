@@ -4,14 +4,18 @@ import android.util.Log
 import com.example.fyp_25_s4_23.entity.domain.entities.CallHistoryResponse
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.OtherUser
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
+import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
+import com.example.fyp_25_s4_23.util.DisplayNameResolver
 
 /**
  * Repository for fetching call history from Firebase Cloud Functions
  */
-class CallHistoryRepository {
+class CallHistoryRepository(private val contactRepository: ContactRepository? = null) {
     private val functions = FirebaseFunctions.getInstance()
+    private val auth = FirebaseAuth.getInstance()
 
     /**
      * Fetch call history for the current authenticated user
@@ -35,8 +39,15 @@ class CallHistoryRepository {
                 val calls = callsData.mapNotNull { callData ->
                     parseFirebaseCallRecord(callData)
                 }
+                
+                // Enrich with local contact information if repository is available
+                val enrichedCalls = if (contactRepository != null) {
+                    calls.map { call -> enrichCallWithLocalContact(call) }
+                } else {
+                    calls
+                }
 
-                CallHistoryResponse(calls = calls, hasMore = hasMore)
+                CallHistoryResponse(calls = enrichedCalls, hasMore = hasMore)
             } else {
                 CallHistoryResponse()
             }
@@ -78,6 +89,48 @@ class CallHistoryRepository {
     }
 
     /**
+     * Enrich a Firebase call record with local contact information
+     */
+    private suspend fun enrichCallWithLocalContact(call: FirebaseCallRecord): FirebaseCallRecord {
+        if (contactRepository == null) return call
+        
+        try {
+            val currentUserId = auth.currentUser?.uid ?: return call
+            val userId = call.otherUser.userId
+            val fallbackName = call.otherUser.displayName
+            val fallbackPhone = call.otherUser.phoneNumber
+            
+            // Resolve display name from local contacts
+            val resolvedDisplayName = DisplayNameResolver.resolveDisplayName(
+                contactRepository = contactRepository,
+                currentUserId = currentUserId,
+                userId = userId,
+                fallbackName = fallbackName,
+                fallbackPhone = fallbackPhone
+            )
+            
+            // Resolve phone number from local contacts
+            val resolvedPhone = DisplayNameResolver.resolvePhoneNumber(
+                contactRepository = contactRepository,
+                currentUserId = currentUserId,
+                userId = userId,
+                fallbackPhone = fallbackPhone
+            )
+            
+            // Update the otherUser with resolved information
+            val enrichedOtherUser = call.otherUser.copy(
+                displayName = resolvedDisplayName,
+                phoneNumber = resolvedPhone ?: call.otherUser.phoneNumber
+            )
+            
+            return call.copy(otherUser = enrichedOtherUser)
+        } catch (e: Exception) {
+            Log.e("CallHistoryRepository", "Error enriching call with local contact", e)
+            return call
+        }
+    }
+    
+    /**
      * Parse Firebase response data into FirebaseCallRecord object
      */
     private fun parseFirebaseCallRecord(data: Any?): FirebaseCallRecord? {
@@ -96,20 +149,178 @@ class CallHistoryRepository {
                 OtherUser()
             }
 
+            // Extract UID-prefixed detection fields
+            // Detection fields use the callee's UID as prefix
+            // For incoming calls, current user = callee, so we use current user's UID
+            val currentUid = FirebaseAuth.getInstance().currentUser?.uid
+            val callId = data["id"] as? String ?: "unknown"
+            val calleeUid = data["callee_user_id"] as? String
+            
+            Log.d("CallHistoryRepository", "=== Parsing call $callId ===")
+            Log.d("CallHistoryRepository", "  currentUid: $currentUid, calleeUid: $calleeUid")
+            Log.d("CallHistoryRepository", "  RAW created_at: ${data["created_at"]} (type: ${data["created_at"]?.javaClass})")
+            Log.d("CallHistoryRepository", "  RAW ended_at: ${data["ended_at"]} (type: ${data["ended_at"]?.javaClass})")
+            Log.d("CallHistoryRepository", "  Available keys: ${data.keys}")
+            
+            // Use current user's UID for incoming calls (where current user IS the callee)
+            val uidForDetection = currentUid ?: calleeUid
+            
+            val detectionScore = if (uidForDetection != null) {
+                val scoreKey = "${uidForDetection}_detection_score"
+                val score = (data[scoreKey] as? Number)?.toDouble()
+                Log.d("CallHistoryRepository", "  Looking for '$scoreKey': $score")
+                score
+            } else null
+            
+            val detectionTime = if (uidForDetection != null) {
+                val timestampKey = "${uidForDetection}_detection_timestamp"
+                val timestampMillis = (data[timestampKey] as? Number)?.toLong()
+                Log.d("CallHistoryRepository", "  Looking for '$timestampKey': $timestampMillis")
+                if (timestampMillis != null) {
+                    com.google.firebase.Timestamp(timestampMillis / 1000, ((timestampMillis % 1000) * 1000000).toInt())
+                } else null
+            } else null
+            
+            val isDeepfake = if (uidForDetection != null) {
+                val deepfakeKey = "${uidForDetection}_is_deepfake"
+                val deepfake = data[deepfakeKey] as? Boolean
+                Log.d("CallHistoryRepository", "  Looking for '$deepfakeKey': $deepfake")
+                deepfake
+            } else null
+
+            // Robust timestamp extraction - same logic as summary page
+            // Tries: created_at -> detection_timestamp -> current time
+            val createdAt = extractRobustTimestamp(data, "created_at", uidForDetection)
+            
+            val endedAt = extractRobustTimestamp(data, "ended_at", null)
+            
+            Log.d("CallHistoryRepository", "  PARSED created_at: $createdAt")
+            Log.d("CallHistoryRepository", "  created_at.toDate(): ${createdAt?.toDate()}")
+            Log.d("CallHistoryRepository", "  created_at millis: ${createdAt?.toDate()?.time}")
+            Log.d("CallHistoryRepository", "  created_at seconds: ${createdAt?.seconds}")
+
             FirebaseCallRecord(
                 id = data["id"] as? String ?: "",
                 callerUserId = data["caller_user_id"] as? String ?: "",
                 calleeUserId = data["callee_user_id"] as? String ?: "",
-                createdAt = data["created_at"] as? com.google.firebase.Timestamp,
-                endedAt = data["ended_at"] as? com.google.firebase.Timestamp,
+                createdAt = createdAt,
+                endedAt = endedAt,
                 status = data["status"] as? String ?: "unknown",
                 duration = (data["duration"] as? Number)?.toLong() ?: 0L,
                 isCaller = data["is_caller"] as? Boolean ?: false,
-                otherUser = otherUser
+                otherUser = otherUser,
+                detectionScore = detectionScore,
+                detectionTime = detectionTime,
+                isDeepfake = isDeepfake
             )
         } catch (e: Exception) {
             Log.e("CallHistoryRepository", "Error parsing call record", e)
             null
+        }
+    }
+    
+    /**
+     * Robustly extract timestamp from Firebase data - same logic as summary page
+     * Handles: Timestamp objects, Numbers (millis/seconds), Maps with _seconds/seconds
+     * Falls back to detection_timestamp if available and primary field is invalid
+     * 
+     * Mimics TypeScript getMillis() and timestampToSeconds() functions
+     */
+    private fun extractRobustTimestamp(
+        data: Map<*, *>,
+        fieldName: String,
+        uidForDetection: String?
+    ): com.google.firebase.Timestamp? {
+        return try {
+            // Try primary field first
+            val primaryValue = data[fieldName]
+            val primaryMillis = getMillisFromValue(primaryValue)
+            
+            // For answered calls: Validate timestamp is reasonable and use detection_timestamp as fallback
+            // For missed calls: Use whatever timestamp we have (even if invalid)
+            if (uidForDetection != null) {
+                // Check if detection_timestamp exists (indicates answered call)
+                val detectionKey = "${uidForDetection}_detection_timestamp"
+                val detectionValue = data[detectionKey]
+                
+                if (detectionValue != null) {
+                    // Answered call - prefer detection_timestamp if primary is invalid
+                    // Valid timestamps should be > 946684800000 (Jan 1, 2000)
+                    if (primaryMillis > 946684800000L) {
+                        Log.d("CallHistoryRepository", "  ✓ Valid $fieldName: $primaryMillis ms")
+                        return com.google.firebase.Timestamp(
+                            primaryMillis / 1000,
+                            ((primaryMillis % 1000) * 1000000).toInt()
+                        )
+                    } else {
+                        // Primary invalid, use detection_timestamp
+                        val detectionMillis = getMillisFromValue(detectionValue)
+                        Log.w("CallHistoryRepository", "  ✗ Invalid $fieldName ($primaryMillis ms), using $detectionKey ($detectionMillis ms)")
+                        return com.google.firebase.Timestamp(
+                            detectionMillis / 1000,
+                            ((detectionMillis % 1000) * 1000000).toInt()
+                        )
+                    }
+                }
+            }
+            
+            // Missed call or no detection timestamp: use primary value as-is
+            // Even if it's wrong (1970s), it's better than showing current time
+            if (primaryMillis > 0) {
+                Log.d("CallHistoryRepository", "  Using $fieldName as-is: $primaryMillis ms")
+                return com.google.firebase.Timestamp(
+                    primaryMillis / 1000,
+                    ((primaryMillis % 1000) * 1000000).toInt()
+                )
+            }
+            
+            Log.w("CallHistoryRepository", "  ✗ No timestamp data found for $fieldName")
+            null
+        } catch (e: Exception) {
+            Log.e("CallHistoryRepository", "Error extracting timestamp for $fieldName", e)
+            null
+        }
+    }
+    
+    /**
+     * Extract milliseconds from various timestamp formats
+     * Matches TypeScript getMillis() function logic
+     */
+    private fun getMillisFromValue(value: Any?): Long {
+        if (value == null) return 0L
+        
+        return when (value) {
+            // Native Firebase Timestamp
+            is com.google.firebase.Timestamp -> value.toDate().time
+            
+            // Number (could be milliseconds or seconds)
+            is Number -> {
+                val numValue = value.toLong()
+                // Timestamps >= 1000000000000 are milliseconds (13+ digits)
+                // Timestamps < 1000000000000 are seconds (< 13 digits)
+                if (numValue >= 1000000000000L) {
+                    numValue // Already milliseconds
+                } else {
+                    numValue * 1000 // Convert seconds to milliseconds
+                }
+            }
+            
+            // Map with seconds/nanoseconds (serialized Timestamp)
+            is Map<*, *> -> {
+                val seconds = (value["seconds"] as? Number)?.toLong()
+                    ?: (value["_seconds"] as? Number)?.toLong()
+                    ?: 0L
+                seconds * 1000
+            }
+            
+            // Try parsing as date string
+            else -> {
+                try {
+                    java.util.Date(value.toString()).time
+                } catch (e: Exception) {
+                    0L
+                }
+            }
         }
     }
 }

@@ -15,17 +15,29 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
+import com.example.fyp_25_s4_23.domain.entities.ContactLabel
+import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
+import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
+import com.example.fyp_25_s4_23.boundary.dashboard.BottomNavigationBar
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DialerScreen(
     onBack: () -> Unit,
-    callerDisplayName: String?
+    onNavigateToSummary: (() -> Unit)? = null,
+    onNavigateToCallHistory: (() -> Unit)? = null,
+    onNavigateToContacts: (() -> Unit)? = null,
+    onLogout: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val phoneLookupService = remember { PhoneLookupService() }
+    val contactRepository = remember {
+        ContactRepository(AppDatabase.getInstance(context).contactDao())
+    }
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     
     var phoneNumber by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
@@ -39,10 +51,20 @@ fun DialerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Secure Dialer") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                title = { Text("Secure Dialer") }
+            )
+        },
+        bottomBar = {
+            BottomNavigationBar(
+                currentRoute = "dialer",
+                onNavigate = { route ->
+                    when (route) {
+                        "home" -> onBack()
+                        "summary" -> onNavigateToSummary?.invoke()
+                        "call_history" -> onNavigateToCallHistory?.invoke()
+                        "dialer" -> { /* Already here */ }
+                        "contacts" -> onNavigateToContacts?.invoke()
+                        "logout" -> onLogout?.invoke()
                     }
                 }
             )
@@ -188,6 +210,14 @@ fun DialerScreen(
                                 
                                 val normalized = "+65$phoneNumber"
                                 Log.d("DialerScreen", "Calling phone number: $normalized")
+
+                                val existingContact = contactRepository
+                                    .getContactByPhoneNumber(currentUserId, normalized)
+                                if (existingContact?.label == ContactLabel.BLACK) {
+                                    isLoading = false
+                                    errorMessage = "This number is blocked"
+                                    return@launch
+                                }
                                 
                                 // Look up user by phone number
                                 val result = phoneLookupService.getUserByPhoneNumber(normalized)
@@ -195,12 +225,12 @@ fun DialerScreen(
                                 Log.d("DialerScreen", "Found user: ${result.username} (${result.uid})")
                                 isLoading = false
                                 
-                                // Initiate call with the resolved UID
+                                // Initiate call with the resolved UID and available info
                                 VoipCallManager.startOutgoingVoipCall(
                                     context = context,
                                     calleeUserId = result.uid,
                                     calleeDisplayName = result.username,
-                                    callerDisplayName = callerDisplayName
+                                    calleePhoneNumber = normalized
                                 )
                                 
                                 // Go back to dashboard after initiating call

@@ -6,6 +6,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import android.util.Log
 
 class FirebaseContactRepository {
 
@@ -42,7 +43,35 @@ class FirebaseContactRepository {
         contactsRef().document(contactId).delete().await()
     }
 
+    suspend fun deleteContactByUsername(username: String) {
+        val snapshot = contactsRef()
+            .whereEqualTo("username", username)
+            .get()
+            .await()
+
+        snapshot.documents.forEach { doc ->
+            contactsRef().document(doc.id).delete().await()
+        }
+    }
+
+    suspend fun updateContactLabel(username: String, label: ContactLabel) {
+        val snapshot = contactsRef()
+            .whereEqualTo("username", username)
+            .get()
+            .await()
+
+        Log.d("FIREBASE_CONTACT", "Found ${snapshot.documents.size} contact(s) with username=$username")
+        
+        snapshot.documents.forEach { doc ->
+            Log.d("FIREBASE_CONTACT", "Updating contact ${doc.id} label to ${label.name}")
+            contactsRef().document(doc.id)
+                .update("label", label.name)
+                .await()
+        }
+    }
+
     suspend fun fetchContacts(): List<Contact> {
+        val currentUserId = auth.currentUser?.uid ?: ""
         return contactsRef()
             .get()
             .await()
@@ -50,6 +79,7 @@ class FirebaseContactRepository {
             .map {
                 Contact(
                     id = it.id,
+                    userId = currentUserId,
                     displayName = it.getString("username")!!,
                     phoneNumber = "VOIP_USER",
                     label = ContactLabel.valueOf(it.getString("label")!!)

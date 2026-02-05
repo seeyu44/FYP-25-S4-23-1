@@ -18,12 +18,14 @@ import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.*
 import com.example.fyp_25_s4_23.entity.domain.entities.*
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.*
+import com.example.fyp_25_s4_23.entity.domain.valueobjects.*
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
 import com.example.fyp_25_s4_23.util.mapUserRole
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import com.example.fyp_25_s4_23.control.usecases.SyncContactsUseCase
+import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
 import com.example.fyp_25_s4_23.control.call.IncomingCallListener
 import com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics
 
@@ -103,7 +105,6 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val pendingUsernameStore = PendingUsernameStore(application)
     private val tokenStore = FCMTokenStore(application)
     private val reviewRepository = ReviewRepository()
-    private val callHistoryRepository = CallHistoryRepository()
 
     /* ---------- Detection ---------- */
     private val modelRunner = ModelRunner(application)
@@ -117,11 +118,14 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
     /*--------Contacts---------*/
     private val contactRepository = ContactRepository(db.contactDao())
+    private val callHistoryRepository = CallHistoryRepository(contactRepository)
     private val firebaseContactRepository = FirebaseContactRepository()
+    private val phoneLookupService = PhoneLookupService()
 
     private val contactSyncUseCase = SyncContactsUseCase(
         firebaseRepo = firebaseContactRepository,
-        localRepo = contactRepository
+        localRepo = contactRepository,
+        phoneLookupService = phoneLookupService
     )
 
     /* =========================
@@ -375,6 +379,9 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     isBusy = false
                 )
             }
+            
+            // Load Firebase call history for dashboard display
+            loadFirebaseCallHistory()
         }
     }
 
@@ -470,10 +477,15 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
             val threshold = _state.value.userSettings.detectionThreshold
 
+            Log.i("SummaryDebug", "Querying summary: start=$startMillis, end=$endMillis, daily=$daily, threshold=$threshold")
+            Log.i("SummaryDebug", "Query in seconds: start=${startMillis/1000}, end=${endMillis/1000}")
+
             val rows = if (daily)
                 callRepository.dailyAggregates(startMillis, endMillis, threshold)
             else
                 callRepository.weeklyAggregates(startMillis, endMillis, threshold)
+
+            Log.i("SummaryDebug", "Query returned ${rows.size} rows")
 
             val metrics = rows.map {
                 SummaryMetrics(

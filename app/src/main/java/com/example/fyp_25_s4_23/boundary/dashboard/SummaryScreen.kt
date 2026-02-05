@@ -2,17 +2,28 @@ package com.example.fyp_25_s4_23.boundary.dashboard
 
 import android.app.DatePickerDialog
 import android.content.Context
+import android.util.Log
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlin.math.roundToInt
 
 /* =========================
    SUMMARY SCREEN
@@ -21,53 +32,136 @@ import java.time.ZoneId
 @Composable
 fun SummaryScreen(
     user: UserAccount,
-    metrics: List<SummaryMetrics>,
+    firebaseCalls: List<FirebaseCallRecord>,
     isLoading: Boolean,
-    onRequestSummary: (startMillis: Long, endMillis: Long, daily: Boolean) -> Unit,
+    onNavigate: (String) -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
     val zone = ZoneId.systemDefault()
 
-    var periodDaily by remember { mutableStateOf(true) }
     var rangeLabel by remember { mutableStateOf("Last 7 days") }
     var startMillis by remember { mutableStateOf(0L) }
     var endMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var startDateDisplay by remember { mutableStateOf("") }
+    var endDateDisplay by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
+    var showDateRangePicker by remember { mutableStateOf(false) }
+
+    // Filter for incoming calls only (where user is callee, not caller)
+    val incomingCalls = firebaseCalls.filter { !it.isCaller }
+
+    // Helper function to generate summary metrics from calls in a date range
+    fun generateMetrics(callsInRange: List<FirebaseCallRecord>): List<SummaryMetrics> {
+        if (callsInRange.isEmpty()) return emptyList()
+
+        // Group calls by day
+        val callsByDay = callsInRange.groupBy { call ->
+            val date = call.createdAt?.toDate() ?: java.util.Date()
+            val cal = java.util.Calendar.getInstance()
+            cal.time = date
+            LocalDate.of(cal.get(java.util.Calendar.YEAR), 
+                        cal.get(java.util.Calendar.MONTH) + 1,
+                        cal.get(java.util.Calendar.DAY_OF_MONTH))
+                .toString()
+        }
+
+        return callsByDay.map { (date, callsForDay) ->
+            // Detection logic:
+            // Count all incoming calls in the date range
+            // Answered calls: have detectionScore (deepfake analysis was performed)
+            // Missed calls: no detectionScore
+            // Suspicious calls: isDeepfake == true
+            val allCalls = callsForDay
+            val answeredCalls = callsForDay.filter { it.detectionScore != null }
+            val missedCalls = callsForDay.filter { it.detectionScore == null }
+            val suspiciousCalls = answeredCalls.filter { it.isDeepfake == true }
+            
+            // Calculate average confidence from detection scores (only for answered calls)
+            val detectionScores = answeredCalls.mapNotNull { it.detectionScore }
+            val avgConfidence = if (detectionScores.isNotEmpty()) {
+                detectionScores.average()
+            } else {
+                -1.0 // N/A
+            }
+            
+            // Calculate average call duration in seconds (only for answered calls with detection score)
+            val avgDuration = if (answeredCalls.isNotEmpty()) {
+                answeredCalls.sumOf { it.duration } / answeredCalls.size.toDouble()
+            } else {
+                0.0
+            }
+            
+            Log.i("SummaryScreen", "Date: $date - Total: ${allCalls.size}, Answered: ${answeredCalls.size}, Missed: ${missedCalls.size}, Suspicious: ${suspiciousCalls.size}, AvgConfidence: $avgConfidence, AvgDuration: $avgDuration")
+            answeredCalls.forEach { call ->
+                Log.d("SummaryScreen", "  Call ${call.id}: detectionScore=${call.detectionScore}, isDeepfake=${call.isDeepfake}, duration=${call.duration}")
+            }
+
+            SummaryMetrics(
+                label = date,
+                totalCalls = answeredCalls.size,
+                answered = answeredCalls.size,
+                missed = missedCalls.size,
+                suspicious = suspiciousCalls.size,
+                blocked = 0,
+                warned = 0,
+                avgConfidence = avgConfidence,
+                avgDuration = avgDuration
+            )
+        }.sortedByDescending { it.label }
+    }
 
     /* =========================
-       INITIAL DATE RANGE
+       INITIAL DATE RANGE AND LOAD
        ========================= */
     LaunchedEffect(Unit) {
         val today = LocalDate.now(zone)
 
-        endMillis = today
+        val newEndMillis = today
             .plusDays(1)
             .atStartOfDay(zone)
             .toInstant()
             .toEpochMilli() - 1
 
-        startMillis = today
-            .minusDays(6)
+        val newStartMillis = today
+            .minusDays(7)
             .atStartOfDay(zone)
             .toInstant()
             .toEpochMilli()
+
+        endMillis = newEndMillis
+        startMillis = newStartMillis
+        
+        // Format dates for display
+        val startDate = Instant.ofEpochMilli(newStartMillis).atZone(zone).toLocalDate()
+        val endDate = Instant.ofEpochMilli(newEndMillis).atZone(zone).toLocalDate()
+        startDateDisplay = startDate.toString()
+        endDateDisplay = endDate.toString()
     }
 
-    /* =========================
-       REQUEST DATA WHEN INPUTS CHANGE
-       ========================= */
-    LaunchedEffect(startMillis, endMillis, periodDaily) {
-        if (startMillis <= endMillis) {
-            onRequestSummary(startMillis, endMillis, periodDaily)
+    Scaffold(
+        bottomBar = {
+            BottomNavigationBar(
+                currentRoute = "summary",
+                onNavigate = { route ->
+                    when (route) {
+                        "home" -> onNavigate("home")
+                        "summary" -> { /* Already on summary */ }
+                        "call_history" -> onNavigate("call_history")
+                        "dialer" -> onNavigate("dialer")
+                        "contacts" -> onNavigate("contacts")
+                        "logout" -> onNavigate("logout")
+                    }
+                }
+            )
         }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
 
         /* =========================
            HEADER
@@ -80,101 +174,112 @@ fun SummaryScreen(
                 text = "Summary for ${user.displayName}",
                 style = MaterialTheme.typography.titleLarge
             )
-            Button(onClick = onBack) {
-                Text("Back")
-            }
-        }
-
-        /* =========================
-           PERIOD TOGGLE
-           ========================= */
-        Row(modifier = Modifier.padding(top = 12.dp)) {
-            RadioButton(
-                selected = periodDaily,
-                onClick = { periodDaily = true }
-            )
-            Text("Daily", modifier = Modifier.padding(end = 12.dp))
-
-            RadioButton(
-                selected = !periodDaily,
-                onClick = { periodDaily = false }
-            )
-            Text("Weekly")
         }
 
         /* =========================
            DATE RANGE BUTTONS
            ========================= */
-        Row(modifier = Modifier.padding(top = 12.dp)) {
-
-            Button(onClick = {
-                val today = LocalDate.now(zone)
-                endMillis = today.plusDays(1)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli() - 1
-                startMillis = today.minusDays(6)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli()
-                rangeLabel = "Last 7 days"
-                localError = null
-            }) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = {
+                    Log.i("SummaryScreen", "Last 7 days button clicked")
+                    val today = LocalDate.now(zone)
+                    endMillis = today.plusDays(1)
+                        .atStartOfDay(zone)
+                        .toInstant()
+                        .toEpochMilli() - 1
+                    startMillis = today.minusDays(7)
+                        .atStartOfDay(zone)
+                        .toInstant()
+                        .toEpochMilli()
+                    
+                    // Update display dates
+                    val startDate = Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate()
+                    val endDate = Instant.ofEpochMilli(endMillis).atZone(zone).toLocalDate()
+                    startDateDisplay = startDate.toString()
+                    endDateDisplay = endDate.toString()
+                    
+                    Log.i("SummaryScreen", "Updated: startMillis=$startMillis, endMillis=$endMillis")
+                    rangeLabel = "Last 7 days"
+                    localError = null
+                },
+                modifier = Modifier.weight(1f)
+            ) {
                 Text("Last 7 days")
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Button(onClick = {
-                val today = LocalDate.now(zone)
-                endMillis = today.plusDays(1)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli() - 1
-                startMillis = today.minusDays(29)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli()
-                rangeLabel = "Last 30 days"
-                localError = null
-            }) {
+            Button(
+                onClick = {
+                    Log.i("SummaryScreen", "Last 30 days button clicked")
+                    val today = LocalDate.now(zone)
+                    endMillis = today.plusDays(1)
+                        .atStartOfDay(zone)
+                        .toInstant()
+                        .toEpochMilli() - 1
+                    startMillis = today.minusDays(30)
+                        .atStartOfDay(zone)
+                        .toInstant()
+                        .toEpochMilli()
+                    
+                    // Update display dates
+                    val startDate = Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate()
+                    val endDate = Instant.ofEpochMilli(endMillis).atZone(zone).toLocalDate()
+                    startDateDisplay = startDate.toString()
+                    endDateDisplay = endDate.toString()
+                    
+                    Log.i("SummaryScreen", "Updated: startMillis=$startMillis, endMillis=$endMillis")
+                    rangeLabel = "Last 30 days"
+                    localError = null
+                },
+                modifier = Modifier.weight(1f)
+            ) {
                 Text("Last 30 days")
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Button(onClick = {
-                val today = LocalDate.now(zone)
-                endMillis = today.plusDays(1)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli() - 1
-                startMillis = today.withDayOfMonth(1)
-                    .atStartOfDay(zone)
-                    .toInstant()
-                    .toEpochMilli()
-                rangeLabel = "This month"
-                localError = null
-            }) {
-                Text("This month")
             }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Button(onClick = {
-            showCustomDatePicker(context) { start, end ->
-                if (start > end) {
-                    localError = "Invalid date range"
-                } else {
-                    startMillis = start
-                    endMillis = end
-                    rangeLabel = "Custom"
-                    localError = null
-                }
-            }
-        }) {
+        Button(
+            onClick = {
+                showDateRangePicker = true
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text("Custom Range")
+        }
+        
+        // Date Range Picker Dialog
+        if (showDateRangePicker) {
+            DateRangePickerModal(
+                onDismiss = { showDateRangePicker = false },
+                onConfirm = { start, end ->
+                    Log.i("SummaryScreen", "Custom range selected: start=$start, end=$end")
+                    if (start != null && end != null) {
+                        if (start > end) {
+                            localError = "Invalid date range"
+                        } else {
+                            startMillis = start
+                            endMillis = end
+                            
+                            // Update display dates
+                            val startDate = Instant.ofEpochMilli(start).atZone(zone).toLocalDate()
+                            val endDate = Instant.ofEpochMilli(end).atZone(zone).toLocalDate()
+                            startDateDisplay = startDate.toString()
+                            endDateDisplay = endDate.toString()
+                            
+                            rangeLabel = "Custom"
+                            localError = null
+                            Log.i("SummaryScreen", "Updated date range: startMillis=$startMillis, endMillis=$endMillis")
+                        }
+                    }
+                    showDateRangePicker = false
+                }
+            )
         }
 
         /* =========================
@@ -189,22 +294,67 @@ fun SummaryScreen(
         }
 
         /* =========================
-           LOADING STATE
+           SUMMARY DATA
            ========================= */
-        if (isLoading) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                CircularProgressIndicator()
+        // Filter calls for the selected date range
+        val metrics = remember(startMillis, endMillis, incomingCalls) {
+            Log.i("SummaryScreen", "Recalculating metrics: startMillis=$startMillis, endMillis=$endMillis, incomingCalls=${incomingCalls.size}")
+            
+            // Check if timestamps are valid
+            val hasValidTimestamps = incomingCalls.any { it.getCreatedAtMillis() > 0 }
+            Log.i("SummaryScreen", "Has valid timestamps: $hasValidTimestamps")
+            
+            val callsInRange = if (!hasValidTimestamps) {
+                // If no valid timestamps, show all calls
+                Log.w("SummaryScreen", "No valid timestamps found, showing all calls")
+                incomingCalls
+            } else {
+                incomingCalls.filter { call ->
+                    var callTimeMillis = call.getCreatedAtMillis()
+                    // If getCreatedAtMillis returns a value that looks like seconds (< year 2000), convert it
+                    if (callTimeMillis > 0 && callTimeMillis < 946684800000L) {
+                        callTimeMillis *= 1000 // Convert seconds to milliseconds
+                    }
+                    callTimeMillis in startMillis..endMillis
+                }
             }
+            
+            Log.i("SummaryScreen", "Calls in range: ${callsInRange.size}")
+            generateMetrics(callsInRange)
         }
 
         /* =========================
-           SUMMARY LIST
+           EMPTY STATE
            ========================= */
+        if (metrics.isEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "No data available",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Text(
+                        text = "No incoming calls found for the selected period.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
@@ -214,24 +364,426 @@ fun SummaryScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    colors = CardDefaults.cardColors()
+                        .padding(bottom = 12.dp),
+                    colors = CardDefaults.cardColors(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "${item.label} — $rangeLabel",
-                            style = MaterialTheme.typography.titleMedium
+                            text = "$startDateDisplay to $endDateDisplay — $rangeLabel",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(bottom = 12.dp)
                         )
-                        Text("Total calls: ${item.totalCalls}")
-                        Text("Answered: ${item.answered}   Missed: ${item.missed}")
-                        Text("Suspicious: ${item.suspicious}   Blocked: ${item.blocked}   Warned: ${item.warned}")
 
-                        val avg =
-                            if (item.avgConfidence >= 0)
-                                "${(item.avgConfidence * 100).toInt()}%"
-                            else "N/A"
+                        // Key Metrics Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            // Total Calls
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp),
+                                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "${item.totalCalls}",
+                                    style = MaterialTheme.typography.headlineSmall
+                                )
+                                Text(
+                                    text = "Total Calls",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
 
-                        Text("Average confidence: $avg")
+                            // Average Call Time (in seconds)
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 8.dp),
+                                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                            ) {
+                                // Calculate average duration for calls in this date range
+                                // This will be calculated in the metrics generation
+                                val avgTimeText = if (item.avgDuration > 0) {
+                                    "${item.avgDuration.toInt()}s"
+                                } else {
+                                    "—"
+                                }
+                                Text(
+                                    text = avgTimeText,
+                                    style = MaterialTheme.typography.headlineSmall
+                                )
+                                Text(
+                                    text = "Avg Call Time",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            // Average Confidence Score
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 8.dp),
+                                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                            ) {
+                                val confidenceScore =
+                                    if (item.avgConfidence >= 0)
+                                        "${(item.avgConfidence * 100).toInt()}%"
+                                    else "N/A"
+                                Text(
+                                    text = confidenceScore,
+                                    style = MaterialTheme.typography.headlineSmall
+                                )
+                                Text(
+                                    text = "Avg Confidence",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Divider
+                        Divider(modifier = Modifier.padding(vertical = 12.dp))
+
+                        // Call Status Breakdown
+                        Text(
+                            text = "Call Status",
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("✓ Answered: ${item.answered}")
+                            Text("✗ Missed: ${item.missed}")
+                        }
+
+                        Divider(modifier = Modifier.padding(vertical = 12.dp))
+
+                        // Detection Results - Only Suspicious
+                        Text(
+                            text = "Detection Results",
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("⚠ Suspicious: ${item.suspicious}")
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Confidence Trend Graph
+                        ConfidenceGraph(
+                            incomingCalls = incomingCalls,
+                            startMillis = startMillis,
+                            endMillis = endMillis
+                        )
+
+                        // Simple Bar Graph for Daily Distribution
+                        if (metrics.size > 1) {
+                            Text(
+                                text = "Daily Distribution",
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
+                            )
+                            SimpleCallsBarGraph(metrics = metrics)
+                        }
+                    }
+                }
+            }
+        }
+        }
+    }
+}
+
+/* =========================
+   SIMPLE BAR GRAPH COMPOSABLE
+   ========================= */
+
+@Composable
+private fun SimpleCallsBarGraph(metrics: List<SummaryMetrics>) {
+    val maxCalls = metrics.maxOfOrNull { it.totalCalls }?.toFloat() ?: 1f
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+    ) {
+        metrics.take(7).forEach { metric ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = metric.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.width(50.dp)
+                )
+
+                val barWidth = (metric.totalCalls.toFloat() / maxCalls) * 200f
+                Surface(
+                    modifier = Modifier
+                        .width(barWidth.dp)
+                        .height(20.dp),
+                    color = when {
+                        metric.suspicious > 0 -> MaterialTheme.colorScheme.error
+                        metric.warned > 0 -> MaterialTheme.colorScheme.tertiary
+                        else -> MaterialTheme.colorScheme.primary
+                    },
+                    shape = MaterialTheme.shapes.small
+                ) {}
+            }
+        }
+    }
+}
+
+/* =========================
+   AVERAGE CONFIDENCE GRAPH
+   ========================= */
+
+data class ConfidenceDataPoint(
+    val label: String,
+    val confidence: Double
+)
+
+@Composable
+private fun ConfidenceGraph(
+    incomingCalls: List<FirebaseCallRecord>,
+    startMillis: Long,
+    endMillis: Long
+) {
+    val zone = ZoneId.systemDefault()
+    
+    // Filter calls for date range with detection scores only
+    val callsInRange = incomingCalls.filter { call ->
+        var callTimeMillis = call.getCreatedAtMillis()
+        // If getCreatedAtMillis returns a value that looks like seconds (< year 2000), convert it
+        if (callTimeMillis > 0 && callTimeMillis < 946684800000L) {
+            callTimeMillis *= 1000 // Convert seconds to milliseconds
+        }
+        Log.d("ConfidenceGraph", "Call ${call.id}: callTimeMillis=$callTimeMillis, startMillis=$startMillis, endMillis=$endMillis, hasDetection=${call.detectionScore != null}")
+        callTimeMillis in startMillis..endMillis && call.detectionScore != null
+    }
+    
+    Log.d("ConfidenceGraph", "Total incoming calls: ${incomingCalls.size}, Calls in range with detection: ${callsInRange.size}")
+    
+    if (callsInRange.isEmpty()) {
+        // Show a message when there's no data
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp),
+            colors = CardDefaults.cardColors(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Average Confidence Trend",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Text(
+                    text = "No answered calls with detection data in this period",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        return
+    }
+    
+    // Determine grouping strategy based on date range
+    val rangeDays = (endMillis - startMillis) / (1000 * 60 * 60 * 24)
+    val groupByWeek = rangeDays > 30
+    
+    // Group calls by day or week
+    val groupedData = if (groupByWeek) {
+        // Group by week
+        callsInRange.groupBy { call ->
+            var callTimeMillis = call.getCreatedAtMillis()
+            if (callTimeMillis > 0 && callTimeMillis < 946684800000L) {
+                callTimeMillis *= 1000
+            }
+            val date = java.util.Date(callTimeMillis)
+            val cal = java.util.Calendar.getInstance()
+            cal.time = date
+            val weekOfYear = cal.get(java.util.Calendar.WEEK_OF_YEAR)
+            val year = cal.get(java.util.Calendar.YEAR)
+            "W$weekOfYear/$year"
+        }
+    } else {
+        // Group by day
+        callsInRange.groupBy { call ->
+            var callTimeMillis = call.getCreatedAtMillis()
+            if (callTimeMillis > 0 && callTimeMillis < 946684800000L) {
+                callTimeMillis *= 1000
+            }
+            val date = java.util.Date(callTimeMillis)
+            val cal = java.util.Calendar.getInstance()
+            cal.time = date
+            LocalDate.of(cal.get(java.util.Calendar.YEAR),
+                        cal.get(java.util.Calendar.MONTH) + 1,
+                        cal.get(java.util.Calendar.DAY_OF_MONTH))
+                .toString()
+        }
+    }
+    
+    // Calculate average confidence for each group
+    val dataPoints = groupedData.map { (label, calls) ->
+        val avgConfidence = calls.mapNotNull { it.detectionScore }.average()
+        ConfidenceDataPoint(label, avgConfidence)
+    }.sortedBy { it.label }
+    
+    if (dataPoints.isEmpty()) return
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
+        colors = CardDefaults.cardColors(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Average Confidence Trend",
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            
+            // Simple line graph visualization
+            val maxConfidence = dataPoints.maxOfOrNull { it.confidence } ?: 1.0
+            val minConfidence = dataPoints.minOfOrNull { it.confidence } ?: 0.0
+            val confidenceRange = maxConfidence - minConfidence
+            
+            val primaryColor = MaterialTheme.colorScheme.primary
+            val outlineColor = MaterialTheme.colorScheme.outline
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        shape = MaterialTheme.shapes.small
+                    )
+                    .padding(12.dp)
+            ) {
+                Canvas(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val width = size.width
+                    val height = size.height
+                    val pointSpacing = if (dataPoints.size > 1) width / (dataPoints.size - 1) else width / 2
+                    
+                    // Draw grid lines
+                    val gridLines = 5
+                    for (i in 0..gridLines) {
+                        val y = (height / gridLines) * i
+                        drawLine(
+                            color = outlineColor.copy(alpha = 0.2f),
+                            start = Offset(0f, y),
+                            end = Offset(width, y),
+                            strokeWidth = 1f
+                        )
+                    }
+                    
+                    // Draw data points and lines
+                    for (i in dataPoints.indices) {
+                        val confidence = dataPoints[i].confidence
+                        val normalizedConfidence = if (confidenceRange > 0) {
+                            (confidence - minConfidence) / confidenceRange
+                        } else {
+                            0.5
+                        }
+                        val x = i * pointSpacing
+                        val y = height - (normalizedConfidence.toFloat() * height)
+                        
+                        // Draw line to next point
+                        if (i < dataPoints.size - 1) {
+                            val nextConfidence = dataPoints[i + 1].confidence
+                            val nextNormalizedConfidence = if (confidenceRange > 0) {
+                                (nextConfidence - minConfidence) / confidenceRange
+                            } else {
+                                0.5
+                            }
+                            val nextX = (i + 1) * pointSpacing
+                            val nextY = height - (nextNormalizedConfidence.toFloat() * height)
+                            
+                            drawLine(
+                                color = primaryColor,
+                                start = Offset(x, y),
+                                end = Offset(nextX, nextY),
+                                strokeWidth = 2f
+                            )
+                        }
+                        
+                        // Draw data point circle
+                        drawCircle(
+                            color = primaryColor,
+                            radius = 4f,
+                            center = Offset(x, y)
+                        )
+                    }
+                }
+                
+                // Legend
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Max: ${(maxConfidence * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp
+                    )
+                    Text(
+                        text = "Min: ${(minConfidence * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+            
+            // Data points list
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                dataPoints.forEach { point ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = point.label,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                        Text(
+                            text = "${(point.confidence * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelSmall
+                        )
                     }
                 }
             }
@@ -239,38 +791,81 @@ fun SummaryScreen(
     }
 }
 
-/* =========================
-   DATE PICKER
-   ========================= */
-
-private fun showCustomDatePicker(
-    context: Context,
-    onRangeSelected: (Long, Long) -> Unit
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateRangePickerModal(
+    onDismiss: () -> Unit,
+    onConfirm: (Long?, Long?) -> Unit
 ) {
-    val zone = ZoneId.systemDefault()
-    val today = LocalDate.now(zone)
+    val dateRangePickerState = rememberDateRangePickerState()
 
-    DatePickerDialog(
-        context,
-        { _, y, m, d ->
-            val startDate = LocalDate.of(y, m + 1, d)
-            DatePickerDialog(
-                context,
-                { _, ey, em, ed ->
-                    val endDate = LocalDate.of(ey, em + 1, ed)
-                    val startMillis =
-                        startDate.atStartOfDay(zone).toInstant().toEpochMilli()
-                    val endMillis =
-                        endDate.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
-                    onRangeSelected(startMillis, endMillis)
-                },
-                today.year,
-                today.monthValue - 1,
-                today.dayOfMonth
-            ).show()
-        },
-        today.year,
-        today.monthValue - 1,
-        today.dayOfMonth
-    ).show()
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 6.dp,
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .padding(horizontal = 0.dp, vertical = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(0.dp)
+            ) {
+                DateRangePicker(
+                    state = dateRangePickerState,
+                    title = {
+                        Text(
+                            text = "Select Date Range",
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    },
+                    showModeToggle = false,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 4.dp)
+                )
+                
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(
+                        onClick = {
+                            val zone = ZoneId.systemDefault()
+                            val start = dateRangePickerState.selectedStartDateMillis?.let { millis ->
+                                // Convert from UTC midnight to local start of day
+                                Instant.ofEpochMilli(millis)
+                                    .atZone(ZoneId.of("UTC"))
+                                    .toLocalDate()
+                                    .atStartOfDay(zone)
+                                    .toInstant()
+                                    .toEpochMilli()
+                            }
+                            val end = dateRangePickerState.selectedEndDateMillis?.let { millis ->
+                                // Convert from UTC midnight to local end of day
+                                Instant.ofEpochMilli(millis)
+                                    .atZone(ZoneId.of("UTC"))
+                                    .toLocalDate()
+                                    .plusDays(1)
+                                    .atStartOfDay(zone)
+                                    .toInstant()
+                                    .toEpochMilli() - 1
+                            }
+                            onConfirm(start, end)
+                        },
+                        enabled = dateRangePickerState.selectedStartDateMillis != null &&
+                                dateRangePickerState.selectedEndDateMillis != null
+                    ) {
+                        Text("OK")
+                    }
+                }
+            }
+        }
+    }
 }

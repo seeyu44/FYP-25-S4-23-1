@@ -175,10 +175,17 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             } else {
                 SummaryScreen(
                     user = user,
-                    metrics = uiState.summaryMetrics,
+                    firebaseCalls = uiState.firebaseCalls,
                     isLoading = uiState.isBusy,
-                    onRequestSummary = { start, end, daily ->
-                        viewModel.aggregateSummary(start, end, daily)
+                    onNavigate = { route ->
+                        when (route) {
+                            "home" -> viewModel.navigateToDashboard()
+                            "summary" -> { /* Already on summary */ }
+                            "call_history" -> viewModel.navigateToCallHistory()
+                            "dialer" -> viewModel.navigateToDialer()
+                            "contacts" -> viewModel.navigateToManagedContacts()
+                            "logout" -> viewModel.logout()
+                        }
                     },
                     onBack = viewModel::navigateToDashboard
                 )
@@ -195,7 +202,11 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                     isLoading = uiState.isBusy,
                     errorMessage = uiState.message,
                     onRefresh = { viewModel.loadFirebaseCallHistory() },
-                    onBack = viewModel::navigateToDashboard
+                    onBack = viewModel::navigateToDashboard,
+                    onNavigateToSummary = viewModel::navigateToSummary,
+                    onNavigateToDialer = viewModel::navigateToDialer,
+                    onNavigateToContacts = { viewModel.navigateToManagedContacts() },
+                    onLogout = viewModel::logout
                 )
             }
         }
@@ -222,14 +233,11 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
                         viewModel.navigateToCallHistory()
                     },
                     onNavigateToContactList = { viewModel.navigateToManagedContacts() },
-                    onToggleDetection = detectionToggleHandler,
                     systemController = systemController,
-                    modelRunner = modelRunner,
-                    onRunModelTest = viewModel::runModelTest,
-                    modelTestResult = uiState.modelTest,
                     onSubmitReview = viewModel::submitReview,
                     onCreateAdmin = viewModel::createAdminUser,
-                    onNavigateToDialer = viewModel::navigateToDialer
+                    onNavigateToDialer = viewModel::navigateToDialer,
+                    firebaseCalls = uiState.firebaseCalls
                 )
             }
         }
@@ -241,7 +249,13 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
             } else {
                 com.example.fyp_25_s4_23.boundary.call.DialerScreen(
                     onBack = viewModel::navigateToDashboard,
-                    callerDisplayName = user.displayName.ifBlank { user.username }
+                    onNavigateToSummary = viewModel::navigateToSummary,
+                    onNavigateToCallHistory = {
+                        viewModel.loadFirebaseCallHistory()
+                        viewModel.navigateToCallHistory()
+                    },
+                    onNavigateToContacts = { viewModel.navigateToManagedContacts() },
+                    onLogout = viewModel::logout
                 )
             }
         }
@@ -274,7 +288,14 @@ fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
 
                 ManagedContactsScreen(
                     viewModel = managedViewModel,
-                    onBack = viewModel::navigateToDashboard
+                    onBack = viewModel::navigateToDashboard,
+                    onNavigateToSummary = viewModel::navigateToSummary,
+                    onNavigateToCallHistory = {
+                        viewModel.loadFirebaseCallHistory()
+                        viewModel.navigateToCallHistory()
+                    },
+                    onNavigateToDialer = viewModel::navigateToDialer,
+                    onLogout = viewModel::logout
                 )
             }
         }

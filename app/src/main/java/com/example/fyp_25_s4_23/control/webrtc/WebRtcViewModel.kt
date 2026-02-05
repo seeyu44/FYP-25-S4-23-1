@@ -73,6 +73,13 @@ class WebRtcCallViewModel(
                     Log.w("CALL_VM", "Remote ended call")
                     webRtcClient?.onRemoteEnded()
                 }
+            },
+
+            onStatusWithReason = { status, reason ->
+                if (status == "ended" && reason == "blocked_contact") {
+                    Log.w("CALL_VM", "Call rejected: contact is blocked")
+                    // The reason will be handled by the ViewModel
+                }
             }
         )
         webRtcClient?.start()

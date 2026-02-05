@@ -15,15 +15,19 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
+import com.example.fyp_25_s4_23.boundary.dashboard.BottomNavigationBar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -32,120 +36,155 @@ import java.util.Locale
  * Displays call history fetched from Firebase Cloud Functions
  * Shows calls where the user is either caller or callee
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FirebaseCallHistoryScreen(
     calls: List<FirebaseCallRecord>,
     isLoading: Boolean = false,
     errorMessage: String? = null,
     onRefresh: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToSummary: (() -> Unit)? = null,
+    onNavigateToDialer: (() -> Unit)? = null,
+    onNavigateToContacts: (() -> Unit)? = null,
+    onLogout: (() -> Unit)? = null
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Call History",
-                style = MaterialTheme.typography.headlineSmall
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Call History",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                },
+                actions = {
+                    Button(
+                        onClick = onRefresh,
+                        enabled = !isLoading
+                    ) {
+                        Text("Refresh")
+                    }
+                }
             )
-            Row {
-                Button(
-                    onClick = onRefresh,
-                    modifier = Modifier.padding(end = 8.dp),
-                    enabled = !isLoading
-                ) {
-                    Text("Refresh")
+        },
+        bottomBar = {
+            BottomNavigationBar(
+                currentRoute = "call_history",
+                onNavigate = { route ->
+                    when (route) {
+                        "home" -> onBack()
+                        "summary" -> onNavigateToSummary?.invoke()
+                        "call_history" -> { /* Already here */ }
+                        "dialer" -> onNavigateToDialer?.invoke()
+                        "contacts" -> onNavigateToContacts?.invoke()
+                        "logout" -> onLogout?.invoke()
+                    }
                 }
-                Button(onClick = onBack) {
-                    Text("Back")
-                }
-            }
+            )
         }
-
-        // Loading state
-        if (isLoading) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                CircularProgressIndicator()
-                Text(
-                    text = "Loading call history...",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 16.dp)
-                )
-            }
-            return
-        }
-
-        // Error state
-        if (errorMessage != null) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFEBEE)
-                )
-            ) {
-                Text(
-                    text = errorMessage,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFFC62828),
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-        }
-
-        // Empty state
-        if (calls.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Phone,
-                    contentDescription = "No calls",
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
+            // Loading state
+            if (isLoading) {
+                Column(
                     modifier = Modifier
-                        .padding(bottom = 16.dp)
-                        .align(Alignment.CenterHorizontally),
-                    tint = Color.Gray
-                )
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        text = "Loading call history...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
+            } else if (calls.isEmpty()) {
+                // Error message if present
+                if (errorMessage != null) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFFFEBEE)
+                        )
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFFC62828),
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+                
+                // Empty state
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Phone,
+                        contentDescription = "No calls",
+                        modifier = Modifier
+                            .padding(bottom = 16.dp)
+                            .align(Alignment.CenterHorizontally),
+                        tint = Color.Gray
+                    )
+                    Text(
+                        text = "No call history",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "Your calls will appear here",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            } else {
+                // Error message if present
+                if (errorMessage != null) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFFFEBEE)
+                        )
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFFC62828),
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+
+                // Call count summary
                 Text(
-                    text = "No call history",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "Your calls will appear here",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "${calls.size} call${if (calls.size != 1) "s" else ""}",
+                    style = MaterialTheme.typography.labelMedium,
                     color = Color.Gray,
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
-            }
-            return
-        }
 
-        // Call count summary
-        Text(
-            text = "${calls.size} call${if (calls.size != 1) "s" else ""}",
-            style = MaterialTheme.typography.labelMedium,
-            color = Color.Gray,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        // Call list
-        LazyColumn(modifier = Modifier.fillMaxWidth()) {
-            items(calls) { call ->
-                FirebaseCallHistoryCard(call = call)
+                // Call list
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(calls) { call ->
+                        FirebaseCallHistoryCard(call = call)
+                    }
+                }
             }
         }
     }
@@ -200,12 +239,31 @@ fun FirebaseCallHistoryCard(call: FirebaseCallRecord) {
 
             Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // Timestamp
-            val dateFormat = SimpleDateFormat("MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
-            val createdAtMillis = call.getCreatedAtMillis()
-            if (createdAtMillis > 0) {
+            // Timestamp - extract date using Calendar like summary page does
+            val firebaseDate = call.createdAt?.toDate()
+            if (firebaseDate != null) {
+                val cal = java.util.Calendar.getInstance()
+                cal.time = firebaseDate
+                val year = cal.get(java.util.Calendar.YEAR)
+                val month = cal.get(java.util.Calendar.MONTH) // 0-indexed
+                val day = cal.get(java.util.Calendar.DAY_OF_MONTH)
+                val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+                val minute = cal.get(java.util.Calendar.MINUTE)
+                
+                // Reconstruct date from calendar
+                cal.set(year, month, day, hour, minute, 0)
+                cal.set(java.util.Calendar.MILLISECOND, 0)
+                val date = cal.time
+                
+                val dateFormat = SimpleDateFormat("MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
                 Text(
-                    text = dateFormat.format(Date(createdAtMillis)),
+                    text = dateFormat.format(date),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            } else {
+                Text(
+                    text = "Unknown time",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )

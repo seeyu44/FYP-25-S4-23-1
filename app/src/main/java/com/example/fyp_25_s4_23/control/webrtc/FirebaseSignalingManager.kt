@@ -38,7 +38,7 @@ class FirebaseSignalingManager {
                     "status" to "ringing",
                     "offer_sdp" to null,
                     "answer_sdp" to null,
-                    "created_at" to (System.currentTimeMillis() / 1000)
+                    "created_at" to com.google.firebase.Timestamp.now()
                 )
             )
             .addOnFailureListener { e ->
@@ -54,7 +54,8 @@ class FirebaseSignalingManager {
         isCaller: Boolean,
         onOffer: (String) -> Unit,
         onAnswer: (String) -> Unit,
-        onStatus: (String) -> Unit
+        onStatus: (String) -> Unit,
+        onStatusWithReason: ((String, String?) -> Unit)? = null
     ) {
         stopListening()
         val ref = firestore.collection("calls").document(callId)
@@ -84,7 +85,8 @@ class FirebaseSignalingManager {
                 isCaller = isCaller,
                 onOffer = onOffer,
                 onAnswer = onAnswer,
-                onStatus = onStatus
+                onStatus = onStatus,
+                onStatusWithReason = onStatusWithReason
             )
         }
     }
@@ -97,7 +99,8 @@ class FirebaseSignalingManager {
         isCaller: Boolean,
         onOffer: (String) -> Unit,
         onAnswer: (String) -> Unit,
-        onStatus: (String) -> Unit
+        onStatus: (String) -> Unit,
+        onStatusWithReason: ((String, String?) -> Unit)? = null
     ) {
         /* ---- STATUS ---- */
         snapshot.getString("status")?.let { status ->
@@ -105,6 +108,12 @@ class FirebaseSignalingManager {
                 lastStatus = status
                 Log.d("CALL_SIG", "Status → $status")
                 onStatus(status)
+                
+                // Pass status with reason if available
+                if (status == "ended") {
+                    val reason = snapshot.getString("ended_reason")
+                    onStatusWithReason?.invoke(status, reason)
+                }
             }
         }
 
