@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "contacts")
 data class ContactEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val userId: String = "",
     val displayName: String?,
     val phoneNumber: String,
     val label: String

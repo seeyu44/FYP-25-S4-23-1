@@ -3,13 +3,17 @@ package com.example.fyp_25_s4_23.control.usecases
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseContactRepository
 import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
+import com.google.firebase.auth.FirebaseAuth
 
 class SyncContactsUseCase(
     private val firebaseRepo: FirebaseContactRepository,
     private val localRepo: ContactRepository,
     private val phoneLookupService: PhoneLookupService
 ) {
+    private val auth = FirebaseAuth.getInstance()
+    
     suspend fun execute() {
+        val currentUserId = auth.currentUser?.uid ?: return
         val remoteContacts = firebaseRepo.fetchContacts()
 
         // Merge remote contacts into local database without overwriting local
@@ -17,7 +21,7 @@ class SyncContactsUseCase(
         val seenUsernames = mutableSetOf<String>()
         val seenPhones = mutableSetOf<String>()
 
-        val localContacts = localRepo.getAllContactsOnce()
+        val localContacts = localRepo.getAllContactsOnce(currentUserId)
         val localPhoneContacts = localContacts
             .filter { it.phoneNumber != "VOIP_USER" }
         val phoneToLocalContact = localPhoneContacts.associateBy { it.phoneNumber }
@@ -42,7 +46,7 @@ class SyncContactsUseCase(
             if (alreadySeen) return@forEach
 
             val localByUsername = if (username.isNotEmpty()) {
-                localRepo.getContactByUsername(username)
+                localRepo.getContactByUsername(currentUserId, username)
             } else null
 
             val localByPhone = if (phone != "VOIP_USER") {

@@ -83,6 +83,7 @@ object IncomingCallListener {
                             // Priority: saved contact name > phone number > callerUsername (email)
                             val resolvedDisplayName = DisplayNameResolver.resolveDisplayName(
                                 contactRepository = contactRepository,
+                                currentUserId = uid,
                                 userId = callerId, // Use callerId (Firebase UID) to look up contact
                                 fallbackName = callerUsername, // Use callerUsername (email) as last resort
                                 fallbackPhone = callerPhone // Use phone from call document

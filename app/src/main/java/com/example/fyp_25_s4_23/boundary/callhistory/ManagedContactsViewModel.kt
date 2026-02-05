@@ -7,6 +7,7 @@ import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
 import com.example.fyp_25_s4_23.domain.entities.Contact
 import com.example.fyp_25_s4_23.domain.entities.ContactLabel
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,12 +20,16 @@ class ManagedContactsViewModel(
 ) : ViewModel() {
 
     private val phoneLookupService = PhoneLookupService()
+    private val auth = FirebaseAuth.getInstance()
 
     private val _uiMessage = MutableStateFlow<String?>(null)
     private val firebaseRepo = FirebaseContactRepository()
     val uiMessage = _uiMessage.asStateFlow()
 
-    val contacts: StateFlow<List<Contact>> = repository.getAllContacts()
+    private val currentUserId: String
+        get() = auth.currentUser?.uid ?: ""
+
+    val contacts: StateFlow<List<Contact>> = repository.getAllContacts(currentUserId)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -52,7 +57,7 @@ class ManagedContactsViewModel(
                 val formattedPhone = "+65$cleanPhone"
 
                 // Check if phone number already exists in local database
-                if (repository.existsByPhoneNumber(formattedPhone)) {
+                if (repository.existsByPhoneNumber(currentUserId, formattedPhone)) {
                     _uiMessage.value = "Contact with this phone number already exists"
                     return@launch
                 }
@@ -66,7 +71,7 @@ class ManagedContactsViewModel(
                 }
 
                 // Check if username already exists (avoid duplicate from Firebase sync)
-                val alreadyExists = repository.existsByUsername(lookupResult.username)
+                val alreadyExists = repository.existsByUsername(currentUserId, lookupResult.username)
                 if (alreadyExists) {
                     _uiMessage.value = "Contact already exists with this user"
                     return@launch
@@ -75,6 +80,7 @@ class ManagedContactsViewModel(
                 // Create the contact
                 val newContact = Contact(
                     id = java.util.UUID.randomUUID().toString(),
+                    userId = currentUserId,
                     displayName = contactName.trim(),
                     phoneNumber = formattedPhone,
                     label = label

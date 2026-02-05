@@ -71,6 +71,7 @@ class FirebaseContactRepository {
     }
 
     suspend fun fetchContacts(): List<Contact> {
+        val currentUserId = auth.currentUser?.uid ?: ""
         return contactsRef()
             .get()
             .await()
@@ -78,6 +79,7 @@ class FirebaseContactRepository {
             .map {
                 Contact(
                     id = it.id,
+                    userId = currentUserId,
                     displayName = it.getString("username")!!,
                     phoneNumber = "VOIP_USER",
                     label = ContactLabel.valueOf(it.getString("label")!!)

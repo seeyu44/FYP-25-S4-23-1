@@ -18,19 +18,20 @@ object DisplayNameResolver {
      */
     suspend fun resolveDisplayName(
         contactRepository: ContactRepository,
+        currentUserId: String,
         userId: String,
         fallbackName: String? = null,
         fallbackPhone: String? = null
     ): String {
         // Try to find contact by username (Firebase UID)
-        val contactByUsername = contactRepository.getContactByUsername(userId)
+        val contactByUsername = contactRepository.getContactByUsername(currentUserId, userId)
         if (contactByUsername != null && !contactByUsername.displayName.isNullOrBlank()) {
             return contactByUsername.displayName
         }
         
         // Try to find contact by phone number if provided
         if (fallbackPhone != null) {
-            val contactByPhone = contactRepository.getContactByPhoneNumber(fallbackPhone)
+            val contactByPhone = contactRepository.getContactByPhoneNumber(currentUserId, fallbackPhone)
             if (contactByPhone != null && !contactByPhone.displayName.isNullOrBlank()) {
                 return contactByPhone.displayName
             }
@@ -61,18 +62,19 @@ object DisplayNameResolver {
      */
     suspend fun resolvePhoneNumber(
         contactRepository: ContactRepository,
+        currentUserId: String,
         userId: String,
         fallbackPhone: String? = null
     ): String? {
         // Try to find contact by username (Firebase UID)
-        val contactByUsername = contactRepository.getContactByUsername(userId)
+        val contactByUsername = contactRepository.getContactByUsername(currentUserId, userId)
         if (contactByUsername?.phoneNumber?.isNotBlank() == true) {
             return contactByUsername.phoneNumber
         }
         
         // Try to find contact by phone number if provided
         if (fallbackPhone != null) {
-            val contactByPhone = contactRepository.getContactByPhoneNumber(fallbackPhone)
+            val contactByPhone = contactRepository.getContactByPhoneNumber(currentUserId, fallbackPhone)
             if (contactByPhone?.phoneNumber?.isNotBlank() == true) {
                 return contactByPhone.phoneNumber
             }

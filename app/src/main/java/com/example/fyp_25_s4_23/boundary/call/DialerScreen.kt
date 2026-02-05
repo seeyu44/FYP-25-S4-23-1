@@ -19,6 +19,7 @@ import com.example.fyp_25_s4_23.domain.entities.ContactLabel
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import com.example.fyp_25_s4_23.boundary.dashboard.BottomNavigationBar
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,6 +37,7 @@ fun DialerScreen(
     val contactRepository = remember {
         ContactRepository(AppDatabase.getInstance(context).contactDao())
     }
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     
     var phoneNumber by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
@@ -210,7 +212,7 @@ fun DialerScreen(
                                 Log.d("DialerScreen", "Calling phone number: $normalized")
 
                                 val existingContact = contactRepository
-                                    .getContactByPhoneNumber(normalized)
+                                    .getContactByPhoneNumber(currentUserId, normalized)
                                 if (existingContact?.label == ContactLabel.BLACK) {
                                     isLoading = false
                                     errorMessage = "This number is blocked"

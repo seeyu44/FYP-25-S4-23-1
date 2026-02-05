@@ -21,6 +21,7 @@ import com.example.fyp_25_s4_23.util.VibratorUtil
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import com.example.fyp_25_s4_23.util.DisplayNameResolver
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 private const val TAG_SIG = "CALL_SIG"
@@ -53,6 +54,7 @@ class CallInProgressActivity : ComponentActivity() {
         val passedPhoneNumber = intent.getStringExtra("extra_phone_number")
         
         displayName = runBlocking {
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
             if (isIncoming) {
                 // For incoming calls: use passed display name or resolve from contact database
                 val incomingDisplayName = intent.getStringExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME)
@@ -61,6 +63,7 @@ class CallInProgressActivity : ComponentActivity() {
                 } else {
                     DisplayNameResolver.resolveDisplayName(
                         contactRepository, 
+                        currentUserId,
                         remoteUserId,
                         fallbackPhone = passedPhoneNumber
                     )
@@ -69,6 +72,7 @@ class CallInProgressActivity : ComponentActivity() {
                 // For outgoing calls: resolve from contact database
                 DisplayNameResolver.resolveDisplayName(
                     contactRepository, 
+                    currentUserId,
                     remoteUserId,
                     fallbackPhone = passedPhoneNumber
                 )

@@ -15,6 +15,7 @@ import com.example.fyp_25_s4_23.util.DisplayNameResolver
  */
 class CallHistoryRepository(private val contactRepository: ContactRepository? = null) {
     private val functions = FirebaseFunctions.getInstance()
+    private val auth = FirebaseAuth.getInstance()
 
     /**
      * Fetch call history for the current authenticated user
@@ -94,6 +95,7 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
         if (contactRepository == null) return call
         
         try {
+            val currentUserId = auth.currentUser?.uid ?: return call
             val userId = call.otherUser.userId
             val fallbackName = call.otherUser.displayName
             val fallbackPhone = call.otherUser.phoneNumber
@@ -101,6 +103,7 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             // Resolve display name from local contacts
             val resolvedDisplayName = DisplayNameResolver.resolveDisplayName(
                 contactRepository = contactRepository,
+                currentUserId = currentUserId,
                 userId = userId,
                 fallbackName = fallbackName,
                 fallbackPhone = fallbackPhone
@@ -109,6 +112,7 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             // Resolve phone number from local contacts
             val resolvedPhone = DisplayNameResolver.resolvePhoneNumber(
                 contactRepository = contactRepository,
+                currentUserId = currentUserId,
                 userId = userId,
                 fallbackPhone = fallbackPhone
             )

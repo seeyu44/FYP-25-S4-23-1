@@ -7,6 +7,7 @@ import com.example.fyp_25_s4_23.domain.entities.ContactLabel
 fun ContactEntity.toDomain(): Contact {
     return Contact(
         id = this.id.toString(),
+        userId = this.userId,
         displayName = this.displayName,
         phoneNumber = this.phoneNumber,
         label = try {
@@ -20,6 +21,7 @@ fun ContactEntity.toDomain(): Contact {
 fun Contact.toEntity(phoneNumber: String = ""): ContactEntity {
     return ContactEntity(
         id = this.id.toIntOrNull() ?: 0,
+        userId = this.userId,
         displayName = this.displayName,
         phoneNumber = if (phoneNumber.isEmpty()) this.phoneNumber else phoneNumber,
         label = this.label.name
