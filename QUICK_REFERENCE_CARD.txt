@@ -1,0 +1,309 @@
+# QUICK REFERENCE CARD - Call Lifecycle
+
+## 🎯 THE BIG THREE FILES
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ 1. WebRTCClient.kt (1278 lines)                         │
+├─────────────────────────────────────────────────────────┤
+│ initialize()              108-129   Setup WebRTC       │
+│ createAudioTrack()        155-169   Create audio       │
+│ createPeerConnection()    489-750   Setup peer conn    │
+│ createOffer()             800-830   Generate SDP       │
+│ createAnswer()            930-960   Generate SDP       │
+│ startDeepfakeDetection()  850-890   Init detection    │
+│ attachIncomingDetectionSink() 200   Wire audio->det   │
+│ hangUp() / engineEnd()    1100+     Cleanup            │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│ 2. FirebaseSignalingManager.kt (280 lines)              │
+├─────────────────────────────────────────────────────────┤
+│ createCall()              20-48     Create call doc    │
+│ listenToCall()            49-98     Listen for SDP     │
+│ sendOffer()               120-127   Send offer to FB   │
+│ sendAnswer()              135-142   Send answer to FB  │
+│ sendIceCandidate()        185-195   Send ICE to FB    │
+│ listenForIceCandidates()  200-220   Listen for ICE    │
+│ updateCallStatus()        165-175   Update FB doc     │
+│ stopListening()           250-280   Cleanup listeners  │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│ 3. DeepfakeDetectionService.kt (376 lines)              │
+├─────────────────────────────────────────────────────────┤
+│ startMonitoring()         80-120    Begin detection    │
+│ feedAudioChunk()          150+      Queue audio        │
+│ Detection Loop (bg)       100+      Inference every 3s │
+│ stopMonitoring()          250+      Stop detection     │
+│ onDeepfakeDetected        Callback  Alert on detection │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🎬 CALL FLOW TIMELINE
+
+```
+CALLER                          FIREBASE               CALLEE
+  │                               │                       │
+  ├─ Click Call ─────────────────→│                       │
+  │                               │ [NEW CALL DOC]        │
+  │                               │ status: "ringing"     │
+  │                               ├──────────────────────→│
+  │                               │                   [Show Notification]
+  │
+  ├─ WebRTC Init ────────────────→│                       │
+  │ createOffer()                 │                       │
+  │ sendOffer() ───────────────────→│ offer_sdp = [SDP]    │
+  │                               │                   [Show Answer Button]
+  │                               │                       │
+  │                               │←────────── sendAnswer()
+  │ onRemoteAnswer() ←─────────────│ answer_sdp = [SDP]   │
+  │                               │                       │
+  ├─────────── ICE Candidates ────→├──────────────────────→│
+  │ [×N candidates]               │ [×N candidates]       │
+  │                               │                       │
+  ├─────────── ICE CONNECTED ─────→├──────────────────────→│
+  │                               │                       │
+  ├─ startDeepfakeDetection() ────→├──────────────────────→│
+  │                               │                       │
+  ├─ DETECTION RUNS (every 3s) ───→├──────────────────────→│
+  │ Model inference                                       │
+  │ SQLite writes                                         │
+  │                               │                       │
+  ├─ Hang Up ─────────────────────→│                       │
+  │                               │ status: "ended"       │
+  │                               ├──────────────────────→│
+  │                               │                   [Call Ended]
+  │
+  ├─ Activity.finish()            │                       │
+```
+
+---
+
+## 💾 DATABASE PERSISTENCE
+
+```
+SQLite (Room) - 4 Key Tables:
+├─ calls
+│  ├─ id: String (PK)
+│  ├─ user_id: Long
+│  ├─ status: String ("ringing", "in_call", "ended")
+│  ├─ created_seconds: Long
+│  └─ updated_seconds: Long
+│
+├─ detection_results ⭐ (Main one)
+│  ├─ id: String (PK)
+│  ├─ call_id: String (FK)
+│  ├─ probability: Float (0.0-1.0)
+│  ├─ is_deepfake: Boolean
+│  ├─ timestamp_seconds: Long
+│  ├─ model_version: String
+│  └─ confidence_level: String
+│
+├─ alert_events
+│  ├─ id: String
+│  ├─ type: String
+│  └─ timestamp: Long
+│
+└─ users, contacts, settings, etc.
+
+Firestore:
+└─ calls/{callId}
+   ├─ caller_user_id
+   ├─ callee_user_id
+   ├─ status (synced with local)
+   ├─ offer_sdp
+   ├─ answer_sdp
+   └─ ice_candidates/{userId}/candidates/{id}
+```
+
+---
+
+## 📊 OPERATION TIMELINE
+
+```
+Time    Event                        Database         File
+──────────────────────────────────────────────────────────
+0ms     User initiates call         
+                                    Firebase WRITE   VOIPCallManager
+100ms   Activity launches           
+                                    Memory UPDATE    ActiveCallStore
+500ms   WebRTC audio track                           WebRTCClient
+1000ms  Peer connection created                      WebRTCClient
+2000ms  Offer SDP created           
+                                    Firebase WRITE   FirebaseSignalingMgr
+5000ms  Answer SDP received                          Firestore listener
+7500ms  ICE CONNECTED               
+                                    Firebase UPDATE  FirebaseSignalingMgr
+8000ms  Detection starts            
+                                    Memory UPDATE    DeepfakeDetectionSvc
+10000ms First inference              
+                                    SQLite INSERT    DetectionResultDao
+13000ms Second inference             
+                                    SQLite INSERT    DetectionResultDao
+60000ms User hangs up               
+                                    Firebase UPDATE  FirebaseSignalingMgr
+61000ms Activity destroyed          
+                                    Memory CLEAR     ActiveCallStore
+```
+
+---
+
+## 🔌 CRITICAL METHODS TO UNDERSTAND
+
+```
+1. VOIPCallManager.startOutgoingVoipCall()
+   └─→ Creates: UUID callId
+   └─→ Calls: FirebaseSignalingManager.createCall()
+   └─→ Launches: CallInProgressActivity
+
+2. IncomingCallListener.start()
+   └─→ Watches: Firestore for status="ringing"
+   └─→ On change: Shows notification + launches Activity
+
+3. WebRTCClient.initialize()
+   └─→ Creates: PeerConnectionFactory
+   └─→ Creates: JavaAudioDeviceModule
+
+4. WebRTCClient.createPeerConnection()
+   └─→ Creates: Peer connection
+   └─→ Adds: Observer for ICE, Track, Signaling
+
+5. FirebaseSignalingManager.listenToCall()
+   └─→ Listens: For offer_sdp, answer_sdp, status
+   └─→ Calls: onOffer, onAnswer, onStatus callbacks
+
+6. WebRTCClient.startDeepfakeDetection()
+   └─→ Creates: DeepfakeDetectionService
+   └─→ Calls: startMonitoring()
+   └─→ Calls: attachIncomingDetectionSink()
+
+7. DeepfakeDetectionService.startMonitoring()
+   └─→ Starts: Background loop
+   └─→ Accumulates: 3-second audio buffer
+   └─→ Calls: modelRunner.predict()
+   └─→ Saves: detectionDao.insert()
+
+8. CallInProgressActivity.onDestroy()
+   └─→ Calls: signaling.stopListening()
+   └─→ Calls: ActiveCallStore.clear()
+   └─→ Calls: IncomingCallListener.start()
+```
+
+---
+
+## 🎯 FILE LOCATIONS QUICK LOOKUP
+
+```
+UI & Activity
+├─ boundary/call/CallInProgressActivity.kt
+├─ boundary/call/CallInProgressViewModel.kt
+├─ boundary/call/CallInProgressScreen.kt
+└─ boundary/callhistory/CallHistoryScreen.kt
+
+WebRTC & Signaling
+├─ control/webrtc/WebRTCClient.kt ⭐
+├─ control/webrtc/FirebaseSignalingManager.kt ⭐
+└─ control/webrtc/WebRtcViewModel.kt
+
+Detection
+├─ control/detection/DeepfakeDetectionService.kt ⭐
+└─ entity/ml/ModelRunner.kt
+
+Database
+├─ entity/data/db/AppDatabase.kt
+├─ entity/data/entities/CallEntity.kt
+├─ entity/data/entities/DetectionResultEntity.kt
+├─ entity/data/dao/CallDao.kt
+└─ entity/data/dao/DetectionResultDao.kt
+
+Incoming Call Handling
+├─ control/call/IncomingCallListener.kt
+├─ control/call/IncomingCallNotifier.kt
+└─ control/call/ActiveCallStore.kt
+
+Services
+├─ boundary/handlers/CallMonitorService.kt
+├─ boundary/handlers/AntiDeepfakeInCallService.kt
+└─ boundary/handlers/VOIPMessagingService.kt
+
+Firebase
+├─ data/remote/firebase/FirebaseSignalingManager.kt
+├─ data/remote/firebase/FirebaseAuthManager.kt
+└─ data/remote/firebase/CallHistoryRepository.kt
+
+Initialization
+└─ boundary/call/VOIPCallManager.kt
+```
+
+---
+
+## ⏱️ KEY TIMEOUTS
+
+```
+Ring Timeout (Caller)        60 seconds     WebRTCClient
+ICE Extended Timeout         +30 seconds    WebRTCClient
+Audio Monitoring Poll        300ms          WebRTCClient
+Detection Buffer             3 seconds      DeepfakeDetectionService
+Inference Loop               ~500ms         DeepfakeDetectionService
+Incoming Call Age Filter     5 minutes      IncomingCallListener
+ICE Failure Recovery Wait    15 seconds     WebRTCClient
+```
+
+---
+
+## 🔄 STATE MACHINES
+
+```
+Call States:
+Connecting → Ringing → Active → Disconnected
+
+ICE States:
+new → CHECKING → [CONNECTED|COMPLETED] → [DISCONNECTED|FAILED]
+
+Detection States:
+CREATED → MONITORING → STOPPED
+
+Audio States:
+MUTED | SILENT | ACTIVE
+```
+
+---
+
+## 📋 SUMMARY
+
+| Aspect | Details |
+|--------|---------|
+| **Total Files** | 52+ |
+| **Critical Files** | 7 (The Big Three + 4) |
+| **Lifecycle Phases** | 8 |
+| **Key Timeouts** | 8 |
+| **Database Tables** | 7+ |
+| **Firebase Collections** | 2+ |
+| **Main Entry Point** | VOIPCallManager |
+| **Main Activity** | CallInProgressActivity |
+| **Main Engine** | WebRTCClient |
+| **Main Service** | DeepfakeDetectionService |
+| **Detection Result DB** | SQLite (Room) |
+| **Signaling DB** | Firestore |
+
+---
+
+## ✅ COMPLETION STATUS
+
+- [x] All files mapped (52+)
+- [x] All phases documented (8)
+- [x] All critical files detailed
+- [x] All databases explained
+- [x] All timelines documented
+- [x] All integration points mapped
+- [x] All diagrams created
+- [x] All code flows explained
+
+**READY FOR DEVELOPMENT** ✨
+
+---
+
+Print or bookmark this card for quick reference!

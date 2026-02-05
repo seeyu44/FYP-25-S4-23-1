@@ -233,28 +233,30 @@ class FirebaseSignalingManager {
     /**
      * Send detection result to Firestore so the OTHER user can see it
      * Stores HIGHEST score throughout the call for conservative alerting
+     * Uses transactions to prevent race conditions
      */
     fun sendDetectionResult(callId: String, userId: String, score: Float, isDeepfake: Boolean) {
         val callRef = firestore.collection("calls").document(callId)
+        val currentTime = System.currentTimeMillis()
         
-        // First, read current highest score
-        callRef.get().addOnSuccessListener { snapshot ->
-            if (snapshot != null && snapshot.exists()) {
-                val currentHighest = snapshot.getDouble("${userId}_highest_detection_score")?.toFloat() ?: 0f
-                val highestScore = maxOf(score, currentHighest)
-                
-                // Update highest score and related fields
-                callRef.update(
-                    mapOf(
-                        "${userId}_detection_score" to score,  // Latest for real-time display
-                        "${userId}_highest_detection_score" to highestScore,  // Peak score
-                        "${userId}_is_deepfake" to isDeepfake,
-                        "${userId}_detection_timestamp" to System.currentTimeMillis(),
-                        "${userId}_highest_detection_timestamp" to if (highestScore > currentHighest ?: 0f) System.currentTimeMillis() else snapshot.getLong("${userId}_highest_detection_timestamp") ?: System.currentTimeMillis()
-                    )
-                )
-                Log.d("DEEPFAKE_SYNC", "Detection: score=$score, highest=$highestScore")
-            }
+        // Use transaction to atomically read-compare-write the highest score
+        firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(callRef)
+            val currentHighest = snapshot.getDouble("${userId}_highest_detection_score")?.toFloat() ?: 0f
+            val highestScore = maxOf(score, currentHighest)
+            val shouldUpdateHighest = highestScore > currentHighest
+            
+            // Update detection fields
+            transaction.update(callRef, mapOf(
+                "${userId}_detection_score" to score,  // Latest for real-time display
+                "${userId}_highest_detection_score" to highestScore,  // Peak score (atomic)
+                "${userId}_is_deepfake" to isDeepfake,
+                "${userId}_detection_timestamp" to currentTime,
+                "${userId}_highest_detection_timestamp" to if (shouldUpdateHighest) currentTime else (snapshot.getLong("${userId}_highest_detection_timestamp") ?: currentTime)
+            ))
+            
+            Log.d("DEEPFAKE_SYNC", "Detection: score=$score, highest=$highestScore (updated=$shouldUpdateHighest)")
+            null
         }.addOnFailureListener { e ->
             Log.e("DEEPFAKE_SYNC", "Failed to send detection result", e)
         }

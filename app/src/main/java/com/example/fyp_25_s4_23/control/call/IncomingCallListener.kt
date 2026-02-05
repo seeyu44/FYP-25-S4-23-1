@@ -40,14 +40,19 @@ object IncomingCallListener {
         // Remove old listeners if any
         listener?.remove()
         endedListener?.remove()
+        
+        // CRITICAL: Clear old handled calls on fresh start to avoid showing old notifications
+        handledCalls.clear()
 
-        // Listen for ringing calls for this user
+        // Listen for ringing calls for this user (filter by timestamp in code to avoid composite index)
+        val fiveMinutesAgo = System.currentTimeMillis() / 1000 - (5 * 60)
+        
         listener = db.collection("calls")
-            .whereEqualTo("callee_user_id", uid) // MUST be Firebase UID
+            .whereEqualTo("callee_user_id", uid)
             .whereEqualTo("status", "ringing")
             .addSnapshotListener { snapshots, error ->
                 if (error != null) {
-                    Log.e("INCOMING_CALL", "Listen failed", error)
+                    Log.e("INCOMING_CALL", "Listen failed (Ask Gemini)", error)
                     return@addSnapshotListener
                 }
 
@@ -62,6 +67,13 @@ object IncomingCallListener {
                     if (change.type != DocumentChange.Type.ADDED) continue
 
                     val doc = change.document
+                    
+                    // Filter by timestamp in code to avoid composite index requirement
+                    val createdAt = doc.getLong("created_at") ?: continue
+                    if (createdAt < fiveMinutesAgo) {
+                        Log.d("INCOMING_CALL", "Skipping old call (created_at=$createdAt is before $fiveMinutesAgo)")
+                        continue
+                    }
 
                     val callId = doc.id
                     val status = doc.getString("status") ?: continue

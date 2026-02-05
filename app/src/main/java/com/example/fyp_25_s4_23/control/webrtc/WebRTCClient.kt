@@ -566,8 +566,7 @@ class WebRtcClient(
                                 startAudioMonitoring()
                                 
                                 // Start deepfake detection when call connects
-                                val database = com.example.fyp_25_s4_23.entity.data.db.AppDatabase.getInstance(context)
-                                startDeepfakeDetection(database.detectionResultDao())
+                                startDeepfakeDetection()
                                 
                                 onAnswered?.invoke()
 
@@ -844,7 +843,7 @@ class WebRtcClient(
      * Each phone monitors ITS OWN input and informs the OTHER user!
      * ═══════════════════════════════════════════════════════════════════════════════
      */
-    fun startDeepfakeDetection(detectionDao: com.example.fyp_25_s4_23.entity.data.dao.DetectionResultDao? = null) {
+    fun startDeepfakeDetection() {
         Log.i("DEEPFAKE", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         Log.i("DEEPFAKE", "🎯 STARTING DEEPFAKE DETECTION")
         Log.i("DEEPFAKE", "   Mode: Receiver-side (incoming audio only)")
@@ -860,8 +859,7 @@ class WebRtcClient(
             Log.d("DEEPFAKE", "📦 Creating service to analyze INCOMING audio...")
             detectionService = DeepfakeDetectionService(
                 context = context,
-                callId = callId,
-                detectionDao = detectionDao
+                callId = callId
             )
             Log.d("DEEPFAKE", "✅ Detection service created")
             

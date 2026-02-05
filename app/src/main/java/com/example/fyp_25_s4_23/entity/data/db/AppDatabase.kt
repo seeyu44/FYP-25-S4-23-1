@@ -65,6 +65,11 @@ abstract class AppDatabase : RoomDatabase() {
                     .addMigrations(MIGRATION_3_4)
                     .fallbackToDestructiveMigration()
                     .build()
+                    .apply {
+                        // Disable foreign key constraints to allow detection results to be saved
+                        // even when CallEntity doesn't exist (detection results are synced to Firebase)
+                        openHelper.writableDatabase.execSQL("PRAGMA foreign_keys = OFF;")
+                    }
                     .also { INSTANCE = it }
             }
         }

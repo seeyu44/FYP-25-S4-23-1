@@ -3,8 +3,7 @@ package com.example.fyp_25_s4_23.control.detection
 import android.content.Context
 import android.util.Log
 import com.example.fyp_25_s4_23.entity.ml.ModelRunner
-import com.example.fyp_25_s4_23.entity.data.dao.DetectionResultDao
-import com.example.fyp_25_s4_23.entity.data.entities.DetectionResultEntity
+import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,10 +18,12 @@ import java.util.concurrent.ConcurrentLinkedQueue
 class DeepfakeDetectionService(
     private val context: Context,
     private val callId: String,
-    private val detectionDao: DetectionResultDao? = null,
     private val detectionThreshold: Float = 0.7f
 ) {
     private val TAG = "DeepfakeDetection"
+    
+    // Database for direct SQLite access (bypasses Room's transaction system)
+    private val database: AppDatabase = AppDatabase.getInstance(context)
     
     // Model runner for inference
     private val modelRunner = ModelRunner(context)
@@ -282,24 +283,29 @@ class DeepfakeDetectionService(
             
             Log.d(TAG, "Detection result: score=$score, isDeepfake=$isDeepfake, count=$newDetectionCount")
             
-            // Save to database (async)
-            detectionDao?.let { dao ->
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        // Use raw SQL insert to avoid Room's transaction wrapping
-                        dao.insertRaw(
-                            id = "${callId}_${timestamp}",
-                            callId = callId,
-                            probability = score,
-                            isDeepfake = isDeepfake,
-                            timestamp = timestamp / 1000,
-                            modelVersion = "melcnn-0.0.1",
-                            confidenceLevel = "MEDIUM"
-                        )
-                        Log.d(TAG, "✅ Detection saved to database")
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to save detection to database (Ask Gemini)", e)
-                    }
+            // Save to database (async) - Use direct SQLite to avoid Room's transaction system
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val db = database.openHelper.writableDatabase
+                    // Use raw SQL to completely bypass Room's transaction system
+                    val sql = """
+                        INSERT OR REPLACE INTO detection_results 
+                        (id, call_id, probability, is_deepfake, timestamp_seconds, model_version, confidence_level)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """.trimIndent()
+                    val args = arrayOf(
+                        "${callId}_${timestamp}",
+                        callId,
+                        score,
+                        if (isDeepfake) 1 else 0,
+                        timestamp / 1000,
+                        "melcnn-0.0.1",
+                        "MEDIUM"
+                    )
+                    db.execSQL(sql, args)
+                    Log.d(TAG, "✅ Detection saved to database")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to save detection to database (Ask Gemini)", e)
                 }
             }
             
