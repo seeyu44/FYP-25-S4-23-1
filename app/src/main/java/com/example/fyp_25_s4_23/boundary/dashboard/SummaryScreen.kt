@@ -99,7 +99,7 @@ fun SummaryScreen(
 
             SummaryMetrics(
                 label = date,
-                totalCalls = answeredCalls.size,
+                totalCalls = allCalls.size,
                 answered = answeredCalls.size,
                 missed = missedCalls.size,
                 suspicious = suspiciousCalls.size,

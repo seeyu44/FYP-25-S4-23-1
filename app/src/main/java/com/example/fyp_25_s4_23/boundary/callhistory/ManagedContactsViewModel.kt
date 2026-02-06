@@ -80,10 +80,10 @@ class ManagedContactsViewModel(
     ) {
         viewModelScope.launch {
             try {
-                // Validate phone number format (8 digits starting with 8 or 9)
+                // Validate phone number format (8 digits starting with 6, 8, or 9)
                 val cleanPhone = phoneNumber.trim()
                 if (!isValidPhoneNumber(cleanPhone)) {
-                    _uiMessage.value = "Invalid phone number. Enter 8 digits starting with 8 or 9."
+                    _uiMessage.value = "Invalid phone number. Enter 8 digits starting with 6, 8, or 9."
                     return@launch
                 }
 
@@ -144,10 +144,10 @@ class ManagedContactsViewModel(
     }
 
     private fun isValidPhoneNumber(phoneNumber: String): Boolean {
-        // Should be 8 digits starting with 8 or 9
-        return phoneNumber.length == 8 && 
-               (phoneNumber[0] == '8' || phoneNumber[0] == '9') &&
-               phoneNumber.all { it.isDigit() }
+         // Should be 8 digits starting with 6, 8, or 9
+         return phoneNumber.length == 8 &&
+             (phoneNumber[0] == '6' || phoneNumber[0] == '8' || phoneNumber[0] == '9') &&
+             phoneNumber.all { it.isDigit() }
     }
 
 

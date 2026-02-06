@@ -31,7 +31,7 @@ import com.example.fyp_25_s4_23.entity.data.entities.ContactEntity
         AlertEventEntity::class,
         ContactEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

@@ -71,9 +71,19 @@ object IncomingCallListener {
                     val doc = change.document
                     
                     // Filter by timestamp in code to avoid composite index requirement
-                    val createdAt = doc.getLong("created_at") ?: continue
-                    if (createdAt < fiveMinutesAgo) {
-                        Log.d("INCOMING_CALL", "Skipping old call (created_at=$createdAt is before $fiveMinutesAgo)")
+                    val createdAtSeconds = when (val createdAtValue = doc.get("created_at")) {
+                        is com.google.firebase.Timestamp -> createdAtValue.seconds
+                        is Number -> {
+                            val num = createdAtValue.toLong()
+                            if (num >= 1_000_000_000_000L) num / 1000 else num
+                        }
+                        else -> null
+                    } ?: continue
+                    if (createdAtSeconds < fiveMinutesAgo) {
+                        Log.d(
+                            "INCOMING_CALL",
+                            "Skipping old call (created_at=$createdAtSeconds is before $fiveMinutesAgo)"
+                        )
                         continue
                     }
 

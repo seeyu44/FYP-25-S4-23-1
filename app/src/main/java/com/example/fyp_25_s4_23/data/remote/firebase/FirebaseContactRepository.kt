@@ -76,13 +76,23 @@ class FirebaseContactRepository {
             .get()
             .await()
             .documents
-            .map {
+            .mapNotNull { doc ->
+                val username = doc.getString("username")
+                if (username.isNullOrBlank()) {
+                    Log.w("FIREBASE_CONTACT", "Skipping contact ${doc.id}: missing username")
+                    return@mapNotNull null
+                }
+
+                val labelRaw = doc.getString("label")
+                val label = runCatching { ContactLabel.valueOf(labelRaw ?: "") }
+                    .getOrDefault(ContactLabel.NONE)
+
                 Contact(
-                    id = it.id,
+                    id = doc.id,
                     userId = currentUserId,
-                    displayName = it.getString("username")!!,
+                    displayName = username,
                     phoneNumber = "VOIP_USER",
-                    label = ContactLabel.valueOf(it.getString("label")!!)
+                    label = label
                 )
             }
     }

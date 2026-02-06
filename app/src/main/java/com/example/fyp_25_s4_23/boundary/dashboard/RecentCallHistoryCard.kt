@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
+import kotlin.math.roundToInt
 
 /**
  * Displays recent call history with clickable card to navigate to full call history.
@@ -127,13 +128,14 @@ private fun CallHistoryItem(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                // Mock confidence score for now
-                val mockConfidence = (70..100).random()
-                Text(
-                    text = "Confidence: $mockConfidence%",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                val confidencePercent = record.detectionScore?.let { (it * 100).roundToInt() }
+                if (confidencePercent != null) {
+                    Text(
+                        text = "Confidence: $confidencePercent%",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }

@@ -1,18 +1,22 @@
 package com.example.fyp_25_s4_23.boundary.call
 
+import android.telecom.Call
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fyp_25_s4_23.control.call.ActiveCallStore
 import com.example.fyp_25_s4_23.control.webrtc.WebRtcClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.collectLatest
 
 
 private const val TAG_UI = "CALL_UI"
 private const val TAG_CALL = "CALL_ENGINE"
+private const val TAG_STORE = "ACTIVE_CALL_STORE"
 
 /* =========================
    UI STATE
@@ -67,6 +71,9 @@ class CallInProgressViewModel : ViewModel() {
     private var isIncomingCall: Boolean = false
     private var resolvedDisplayName: String = ""
     private var activeCallListenerStarted = false
+    
+    // Callback for when user accepts incoming call or starts outgoing call
+    var onStartCallRequested: (() -> Unit)? = null
 
     fun setCallDirection(isIncoming: Boolean) {
         isIncomingCall = isIncoming
@@ -235,8 +242,11 @@ class CallInProgressViewModel : ViewModel() {
     fun setRinging(handle: String, preserveReady: Boolean = false, readyToAnswer: Boolean = true) {
         Log.d(TAG_UI, "setRinging(handle=$handle incoming=$isIncomingCall)")
 
-        val ready =
-            preserveReady && (_state.value as? CallUiState.Ringing)?.isReadyToAnswer == true
+        val ready = if (preserveReady) {
+            (_state.value as? CallUiState.Ringing)?.isReadyToAnswer == true
+        } else {
+            readyToAnswer
+        }
         
         // Use resolved display name if available, otherwise use the provided handle
         val displayHandle = resolvedDisplayName.ifBlank { handle }
@@ -265,6 +275,7 @@ class CallInProgressViewModel : ViewModel() {
 
         _state.value = CallUiState.Active(
             handle = displayHandle,
+            isIncoming = isIncomingCall,
             isMuted = false,
             isSpeakerOn = false,
             localAudioState = CallAudioState.SILENT,

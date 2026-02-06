@@ -254,6 +254,8 @@ class FirebaseSignalingManager {
             val currentHighest = snapshot.getDouble("${userId}_highest_detection_score")?.toFloat() ?: 0f
             val highestScore = maxOf(score, currentHighest)
             val shouldUpdateHighest = highestScore > currentHighest
+            val currentHighestDeepfake = snapshot.getBoolean("${userId}_highest_is_deepfake") ?: false
+            val highestIsDeepfake = currentHighestDeepfake || isDeepfake
             
             // Get the existing timestamp if not updating highest
             val existingHighestTimestamp = if (shouldUpdateHighest) {
@@ -266,12 +268,16 @@ class FirebaseSignalingManager {
             transaction.update(callRef, mapOf(
                 "${userId}_detection_score" to score,
                 "${userId}_highest_detection_score" to highestScore,
-                "${userId}_is_deepfake" to isDeepfake,
+                "${userId}_is_deepfake" to highestIsDeepfake,
+                "${userId}_highest_is_deepfake" to highestIsDeepfake,
                 "${userId}_detection_timestamp" to currentTime,
                 "${userId}_highest_detection_timestamp" to existingHighestTimestamp
             ))
             
-            Log.d("DEEPFAKE_SYNC", "Detection: score=$score, highest=$highestScore (updated=$shouldUpdateHighest)")
+            Log.d(
+                "DEEPFAKE_SYNC",
+                "Detection: score=$score, highest=$highestScore (updated=$shouldUpdateHighest, highestDeepfake=$highestIsDeepfake)"
+            )
             null
         }.addOnFailureListener { e ->
             Log.e("DEEPFAKE_SYNC", "Failed to send detection result", e)
@@ -300,8 +306,9 @@ class FirebaseSignalingManager {
             }
             if (snapshot == null || !snapshot.exists()) return@addSnapshotListener
             
-            // Read only the SCORE - we'll calculate isDeepfake ourselves with our threshold
-            val score = snapshot.getDouble("${remoteUserId}_detection_score")?.toFloat()
+            // Prefer highest score so deepfake flag stays sticky
+            val score = snapshot.getDouble("${remoteUserId}_highest_detection_score")?.toFloat()
+                ?: snapshot.getDouble("${remoteUserId}_detection_score")?.toFloat()
             
             if (score != null) {
                 // Calculate isDeepfake using OUR threshold (receiving device decides)

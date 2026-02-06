@@ -46,43 +46,47 @@ class CallInProgressActivity : ComponentActivity() {
         val isIncoming =
             intent.getBooleanExtra(IncomingCallIntent.EXTRA_IS_INCOMING, false)
 
-        // Resolve contact name synchronously to ensure it's available before any state transitions
-        val database = AppDatabase.getInstance(this)
+        // Resolve contact name asynchronously to avoid blocking the main thread
+        val database = com.example.fyp_25_s4_23.entity.data.db.AppDatabase.getInstance(this)
         val contactRepository = ContactRepository(database.contactDao())
         
         // Check if phone number was passed (for outgoing calls from saved contacts)
         val passedPhoneNumber = intent.getStringExtra("extra_phone_number")
-        
-        displayName = runBlocking {
+        val incomingDisplayName = intent.getStringExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME)
+        displayName = incomingDisplayName ?: remoteUserId
+
+        Log.d(TAG_SIG, "Call started → id=$callId incoming=$isIncoming resolved name=$displayName")
+
+        viewModel.setCallDirection(isIncoming)
+        viewModel.setDisplayName(displayName)
+
+        lifecycleScope.launch {
             val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-            if (isIncoming) {
-                // For incoming calls: use passed display name or resolve from contact database
-                val incomingDisplayName = intent.getStringExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME)
+            val resolved = if (isIncoming) {
                 if (incomingDisplayName != null) {
                     incomingDisplayName
                 } else {
                     DisplayNameResolver.resolveDisplayName(
-                        contactRepository, 
+                        contactRepository,
                         currentUserId,
                         remoteUserId,
                         fallbackPhone = passedPhoneNumber
                     )
                 }
             } else {
-                // For outgoing calls: resolve from contact database
                 DisplayNameResolver.resolveDisplayName(
-                    contactRepository, 
+                    contactRepository,
                     currentUserId,
                     remoteUserId,
                     fallbackPhone = passedPhoneNumber
                 )
             }
+
+            if (resolved.isNotBlank() && resolved != displayName) {
+                displayName = resolved
+                viewModel.setDisplayName(resolved)
+            }
         }
-
-        Log.d(TAG_SIG, "Call started → id=$callId incoming=$isIncoming resolved name=$displayName")
-
-        viewModel.setCallDirection(isIncoming)
-        viewModel.setDisplayName(displayName)
 
         val localUserId =
             FirebaseAuthManager.currentUser()?.uid ?: return finish()
@@ -91,7 +95,6 @@ class CallInProgressActivity : ComponentActivity() {
         ActiveCallStore.setWebRtcActive(callId, remoteUserId)
 
         // Initialize database DAO for detection results
-        val database = com.example.fyp_25_s4_23.entity.data.db.AppDatabase.getInstance(this)
         val detectionDao = database.detectionResultDao()
 
         webRtcClient = WebRtcClient(
@@ -158,6 +161,13 @@ class CallInProgressActivity : ComponentActivity() {
 
         viewModel.attachWebRtcClient(client)
 
+        // Show incoming call UI only when WebRTC is ready to answer
+        client.setOnReadyToAnswerListener { ready ->
+            if (isIncoming && ready) {
+                viewModel.setRinging(displayName, preserveReady = false, readyToAnswer = true)
+            }
+        }
+
         // Wire answer callback (for incoming calls)
         viewModel.onStartCallRequested = {
             Log.d(TAG_SIG, "User accepted call → answering...")
@@ -182,7 +192,6 @@ class CallInProgressActivity : ComponentActivity() {
             onOffer = { offer ->
                 Log.d(TAG_WEBRTC, "OFFER received")
                 if (isIncoming) {
-                    viewModel.setRinging(displayName, preserveReady = true)
                     client.onRemoteOfferReceived(offer)
                 }
             },
@@ -195,8 +204,11 @@ class CallInProgressActivity : ComponentActivity() {
             onStatus = { status ->
                 Log.d(TAG_SIG, "Status → $status (incoming=$isIncoming)")
                 when (status) {
-                    "ringing" ->
-                        viewModel.setRinging(displayName, preserveReady = true)
+                    "ringing" -> {
+                        if (!isIncoming) {
+                            viewModel.setRinging(displayName, preserveReady = true)
+                        }
+                    }
 
                     "accepted", "in_call" -> {
                         if (!isIncoming) viewModel.setActive()

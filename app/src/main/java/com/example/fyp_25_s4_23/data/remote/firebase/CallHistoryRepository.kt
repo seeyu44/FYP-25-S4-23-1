@@ -166,25 +166,34 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             val uidForDetection = currentUid ?: calleeUid
             
             val detectionScore = if (uidForDetection != null) {
-                val scoreKey = "${uidForDetection}_detection_score"
-                val score = (data[scoreKey] as? Number)?.toDouble()
-                Log.d("CallHistoryRepository", "  Looking for '$scoreKey': $score")
+                val highestScoreKey = "${uidForDetection}_highest_detection_score"
+                val latestScoreKey = "${uidForDetection}_detection_score"
+                val score = (data[highestScoreKey] as? Number)?.toDouble()
+                    ?: (data[latestScoreKey] as? Number)?.toDouble()
+                Log.d("CallHistoryRepository", "  Looking for '$highestScoreKey'/'$latestScoreKey': $score")
                 score
             } else null
             
             val detectionTime = if (uidForDetection != null) {
-                val timestampKey = "${uidForDetection}_detection_timestamp"
-                val timestampMillis = (data[timestampKey] as? Number)?.toLong()
-                Log.d("CallHistoryRepository", "  Looking for '$timestampKey': $timestampMillis")
+                val highestTimestampKey = "${uidForDetection}_highest_detection_timestamp"
+                val latestTimestampKey = "${uidForDetection}_detection_timestamp"
+                val timestampMillis = (data[highestTimestampKey] as? Number)?.toLong()
+                    ?: (data[latestTimestampKey] as? Number)?.toLong()
+                Log.d("CallHistoryRepository", "  Looking for '$highestTimestampKey'/'$latestTimestampKey': $timestampMillis")
                 if (timestampMillis != null) {
                     com.google.firebase.Timestamp(timestampMillis / 1000, ((timestampMillis % 1000) * 1000000).toInt())
                 } else null
             } else null
             
             val isDeepfake = if (uidForDetection != null) {
-                val deepfakeKey = "${uidForDetection}_is_deepfake"
-                val deepfake = data[deepfakeKey] as? Boolean
-                Log.d("CallHistoryRepository", "  Looking for '$deepfakeKey': $deepfake")
+                val highestDeepfakeKey = "${uidForDetection}_highest_is_deepfake"
+                val latestDeepfakeKey = "${uidForDetection}_is_deepfake"
+                val deepfake = (data[highestDeepfakeKey] as? Boolean)
+                    ?: (data[latestDeepfakeKey] as? Boolean)
+                Log.d(
+                    "CallHistoryRepository",
+                    "  Looking for '$highestDeepfakeKey'/'$latestDeepfakeKey': $deepfake"
+                )
                 deepfake
             } else null
 
