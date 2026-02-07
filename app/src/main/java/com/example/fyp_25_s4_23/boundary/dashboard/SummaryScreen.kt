@@ -51,8 +51,57 @@ fun SummaryScreen(
     // Filter for incoming calls only (where user is callee, not caller)
     val incomingCalls = firebaseCalls.filter { !it.isCaller }
 
-    // Helper function to generate summary metrics from calls in a date range
-    fun generateMetrics(callsInRange: List<FirebaseCallRecord>): List<SummaryMetrics> {
+    // Helper function to generate a single summary metric for the date range
+    fun generateRangeMetrics(callsInRange: List<FirebaseCallRecord>): List<SummaryMetrics> {
+        if (callsInRange.isEmpty()) return emptyList()
+
+        // Detection logic:
+        // Count all incoming calls in the date range
+        // Answered calls: have detectionScore (deepfake analysis was performed)
+        // Missed calls: no detectionScore
+        // Suspicious calls: isDeepfake == true
+        val allCalls = callsInRange
+        val answeredCalls = callsInRange.filter { it.detectionScore != null }
+        val missedCalls = callsInRange.filter { it.detectionScore == null }
+        val suspiciousCalls = answeredCalls.filter { it.isDeepfake == true }
+
+        // Calculate average confidence from detection scores (only for answered calls)
+        val detectionScores = answeredCalls.mapNotNull { it.detectionScore }
+        val avgConfidence = if (detectionScores.isNotEmpty()) {
+            detectionScores.average()
+        } else {
+            -1.0 // N/A
+        }
+
+        // Calculate average call duration in seconds (only for answered calls with detection score)
+        val avgDuration = if (answeredCalls.isNotEmpty()) {
+            answeredCalls.sumOf { it.duration } / answeredCalls.size.toDouble()
+        } else {
+            0.0
+        }
+
+        Log.i("SummaryScreen", "Range summary - Total: ${allCalls.size}, Answered: ${answeredCalls.size}, Missed: ${missedCalls.size}, Suspicious: ${suspiciousCalls.size}, AvgConfidence: $avgConfidence, AvgDuration: $avgDuration")
+        answeredCalls.forEach { call ->
+            Log.d("SummaryScreen", "  Call ${call.id}: detectionScore=${call.detectionScore}, isDeepfake=${call.isDeepfake}, duration=${call.duration}")
+        }
+
+        return listOf(
+            SummaryMetrics(
+                label = "range",
+                totalCalls = allCalls.size,
+                answered = answeredCalls.size,
+                missed = missedCalls.size,
+                suspicious = suspiciousCalls.size,
+                blocked = 0,
+                warned = 0,
+                avgConfidence = avgConfidence,
+                avgDuration = avgDuration
+            )
+        )
+    }
+
+    // Helper function to generate daily metrics for graphs
+    fun generateDailyMetrics(callsInRange: List<FirebaseCallRecord>): List<SummaryMetrics> {
         if (callsInRange.isEmpty()) return emptyList()
 
         // Group calls by day
@@ -60,46 +109,34 @@ fun SummaryScreen(
             val date = call.createdAt?.toDate() ?: java.util.Date()
             val cal = java.util.Calendar.getInstance()
             cal.time = date
-            LocalDate.of(cal.get(java.util.Calendar.YEAR), 
-                        cal.get(java.util.Calendar.MONTH) + 1,
-                        cal.get(java.util.Calendar.DAY_OF_MONTH))
-                .toString()
+            LocalDate.of(
+                cal.get(java.util.Calendar.YEAR),
+                cal.get(java.util.Calendar.MONTH) + 1,
+                cal.get(java.util.Calendar.DAY_OF_MONTH)
+            ).toString()
         }
 
         return callsByDay.map { (date, callsForDay) ->
-            // Detection logic:
-            // Count all incoming calls in the date range
-            // Answered calls: have detectionScore (deepfake analysis was performed)
-            // Missed calls: no detectionScore
-            // Suspicious calls: isDeepfake == true
-            val allCalls = callsForDay
             val answeredCalls = callsForDay.filter { it.detectionScore != null }
             val missedCalls = callsForDay.filter { it.detectionScore == null }
             val suspiciousCalls = answeredCalls.filter { it.isDeepfake == true }
-            
-            // Calculate average confidence from detection scores (only for answered calls)
+
             val detectionScores = answeredCalls.mapNotNull { it.detectionScore }
             val avgConfidence = if (detectionScores.isNotEmpty()) {
                 detectionScores.average()
             } else {
-                -1.0 // N/A
+                -1.0
             }
-            
-            // Calculate average call duration in seconds (only for answered calls with detection score)
+
             val avgDuration = if (answeredCalls.isNotEmpty()) {
                 answeredCalls.sumOf { it.duration } / answeredCalls.size.toDouble()
             } else {
                 0.0
             }
-            
-            Log.i("SummaryScreen", "Date: $date - Total: ${allCalls.size}, Answered: ${answeredCalls.size}, Missed: ${missedCalls.size}, Suspicious: ${suspiciousCalls.size}, AvgConfidence: $avgConfidence, AvgDuration: $avgDuration")
-            answeredCalls.forEach { call ->
-                Log.d("SummaryScreen", "  Call ${call.id}: detectionScore=${call.detectionScore}, isDeepfake=${call.isDeepfake}, duration=${call.duration}")
-            }
 
             SummaryMetrics(
                 label = date,
-                totalCalls = allCalls.size,
+                totalCalls = callsForDay.size,
                 answered = answeredCalls.size,
                 missed = missedCalls.size,
                 suspicious = suspiciousCalls.size,
@@ -297,7 +334,7 @@ fun SummaryScreen(
            SUMMARY DATA
            ========================= */
         // Filter calls for the selected date range
-        val metrics = remember(startMillis, endMillis, incomingCalls) {
+        val rangeMetrics = remember(startMillis, endMillis, incomingCalls) {
             Log.i("SummaryScreen", "Recalculating metrics: startMillis=$startMillis, endMillis=$endMillis, incomingCalls=${incomingCalls.size}")
             
             // Check if timestamps are valid
@@ -320,13 +357,33 @@ fun SummaryScreen(
             }
             
             Log.i("SummaryScreen", "Calls in range: ${callsInRange.size}")
-            generateMetrics(callsInRange)
+            generateRangeMetrics(callsInRange)
+        }
+
+        val dailyMetrics = remember(startMillis, endMillis, incomingCalls) {
+            val callsInRange = if (incomingCalls.isEmpty()) {
+                emptyList()
+            } else {
+                val hasValidTimestamps = incomingCalls.any { it.getCreatedAtMillis() > 0 }
+                if (!hasValidTimestamps) {
+                    incomingCalls
+                } else {
+                    incomingCalls.filter { call ->
+                        var callTimeMillis = call.getCreatedAtMillis()
+                        if (callTimeMillis > 0 && callTimeMillis < 946684800000L) {
+                            callTimeMillis *= 1000
+                        }
+                        callTimeMillis in startMillis..endMillis
+                    }
+                }
+            }
+            generateDailyMetrics(callsInRange)
         }
 
         /* =========================
            EMPTY STATE
            ========================= */
-        if (metrics.isEmpty()) {
+        if (rangeMetrics.isEmpty()) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -360,7 +417,7 @@ fun SummaryScreen(
                 .fillMaxWidth()
                 .padding(top = 12.dp)
         ) {
-            items(metrics) { item ->
+            items(rangeMetrics) { item ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -490,13 +547,13 @@ fun SummaryScreen(
                         )
 
                         // Simple Bar Graph for Daily Distribution
-                        if (metrics.size > 1) {
+                        if (dailyMetrics.size > 1) {
                             Text(
                                 text = "Daily Distribution",
                                 style = MaterialTheme.typography.labelMedium,
                                 modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
                             )
-                            SimpleCallsBarGraph(metrics = metrics)
+                            SimpleCallsBarGraph(metrics = dailyMetrics)
                         }
                     }
                 }
