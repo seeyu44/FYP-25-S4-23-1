@@ -203,11 +203,8 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 user to settingsRepository.get(user.id)
             }.onSuccess { (user, settings) ->
 
-                // Sync contacts from Firebase; do not block login on failure
-                runCatching { contactSyncUseCase.execute() }
-                    .onFailure { e ->
-                        Log.w("SyncContacts", "Contact sync failed: ${e.message}", e)
-                    }
+                    //Sync Contacts from stored in firebase
+                    contactSyncUseCase.execute()
 
                 _state.update {
                     it.copy(

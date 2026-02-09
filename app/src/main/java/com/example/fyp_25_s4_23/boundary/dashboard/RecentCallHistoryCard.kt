@@ -1,18 +1,30 @@
 package com.example.fyp_25_s4_23.boundary.dashboard
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material3.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
-import kotlin.math.roundToInt
 import kotlin.math.roundToInt
 
 /**
@@ -92,60 +104,57 @@ fun RecentCallHistoryCard(
 @Composable
 private fun CallHistoryItem(
     record: FirebaseCallRecord,
-    @Composable
-    private fun CallHistoryItem(
-        record: FirebaseCallRecord,
-        isLast: Boolean = false
+    isLast: Boolean = false
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        Icon(
+            imageVector = if (record.isOutgoing) Icons.AutoMirrored.Filled.ArrowForward else Icons.Default.Phone,
+            contentDescription = if (record.isOutgoing) "Outgoing" else "Incoming",
+            tint = if (record.isOutgoing) Color.Blue else Color.Green,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = if (record.isOutgoing) Icons.AutoMirrored.Filled.ArrowForward else Icons.Default.Phone,
-                contentDescription = if (record.isOutgoing) "Outgoing" else "Incoming",
-                tint = if (record.isOutgoing) Color.Blue else Color.Green,
-                modifier = Modifier
-                    .size(24.dp)
-                    .padding(end = 8.dp)
-            )
+                .size(24.dp)
+                .padding(end = 8.dp)
+        )
 
-            Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = record.getContactName(),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = record.getCreatedAtFormatted(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
+
+        if (record.isCompleted() && record.detectionScore != null) {
+            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = record.getContactName(),
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = "Total time: ${record.getDurationString()}",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                val confidencePercent = (record.detectionScore * 100).roundToInt()
                 Text(
-                    text = record.getCreatedAtFormatted(),
+                    text = "Confidence: $confidencePercent%",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
-
-                if (record.isCompleted() && record.detectionScore != null) {
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = "Total time: ${record.getDurationString()}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        val confidencePercent = (record.detectionScore * 100).roundToInt()
-                        Text(
-                            text = "Confidence: $confidencePercent%",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-        }
-
-        if (!isLast) {
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 4.dp),
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-            )
         }
     }
+
+    if (!isLast) {
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = 4.dp),
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+        )
+    }
+}

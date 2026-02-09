@@ -78,17 +78,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AntiDeepfakeApp() {
-    val context = LocalContext.current
-    val viewModel: AppMainViewModel = viewModel(
-        factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return AppMainViewModel(context.applicationContext as android.app.Application) as T
-            }
-        }
-    )
+fun AntiDeepfakeApp(viewModel: AppMainViewModel = viewModel()) {
     val uiState by viewModel.state.collectAsState()
+    val context = LocalContext.current
     DisposableEffect(Unit) {
         val auth = FirebaseAuth.getInstance()
 
