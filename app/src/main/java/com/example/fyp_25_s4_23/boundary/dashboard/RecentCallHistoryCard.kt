@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import kotlin.math.roundToInt
+import kotlin.math.roundToInt
 
 /**
  * Displays recent call history with clickable card to navigate to full call history.
@@ -91,59 +92,60 @@ fun RecentCallHistoryCard(
 @Composable
 private fun CallHistoryItem(
     record: FirebaseCallRecord,
-    isLast: Boolean = false
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+    @Composable
+    private fun CallHistoryItem(
+        record: FirebaseCallRecord,
+        isLast: Boolean = false
     ) {
-        Icon(
-            imageVector = if (record.isOutgoing) Icons.AutoMirrored.Filled.ArrowForward else Icons.Default.Phone,
-            contentDescription = if (record.isOutgoing) "Outgoing" else "Incoming",
-            tint = if (record.isOutgoing) Color.Blue else Color.Green,
+        Row(
             modifier = Modifier
-                .size(24.dp)
-                .padding(end = 8.dp)
-        )
-        
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = record.getContactName(),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (record.isOutgoing) Icons.AutoMirrored.Filled.ArrowForward else Icons.Default.Phone,
+                contentDescription = if (record.isOutgoing) "Outgoing" else "Incoming",
+                tint = if (record.isOutgoing) Color.Blue else Color.Green,
+                modifier = Modifier
+                    .size(24.dp)
+                    .padding(end = 8.dp)
             )
-            Text(
-                text = record.getCreatedAtFormatted(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
-        }
-        
-        if (record.isCompleted()) {
-            Column(horizontalAlignment = Alignment.End) {
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = record.getDurationString(),
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = record.getContactName(),
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                val confidencePercent = record.detectionScore?.let { (it * 100).roundToInt() }
-                if (confidencePercent != null) {
-                    Text(
-                        text = "Confidence: $confidencePercent%",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
+                Text(
+                    text = record.getCreatedAtFormatted(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
             }
+
+                if (record.isCompleted() && record.detectionScore != null) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "Total time: ${record.getDurationString()}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val confidencePercent = (record.detectionScore * 100).roundToInt()
+                        Text(
+                            text = "Confidence: $confidencePercent%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+        }
+
+        if (!isLast) {
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 4.dp),
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+            )
         }
     }
-    
-    if (!isLast) {
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 4.dp),
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-        )
-    }
-}
