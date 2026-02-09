@@ -225,7 +225,7 @@ fun FirebaseCallHistoryCard(call: FirebaseCallRecord) {
 
             // Status badge
             val statusColor = when (call.status) {
-                "completed" -> Color(0xFF4CAF50)
+                "completed", "ended" -> Color(0xFF4CAF50)
                 "missed" -> Color(0xFFF44336)
                 "declined" -> Color(0xFFFFA726)
                 else -> Color.Gray

@@ -99,7 +99,7 @@ data class FirebaseCallRecord(
     /**
      * Check if call is completed
      */
-    fun isCompleted(): Boolean = status == "completed"
+    fun isCompleted(): Boolean = status == "completed" || status == "ended"
 
     /**
      * Format duration as readable string
