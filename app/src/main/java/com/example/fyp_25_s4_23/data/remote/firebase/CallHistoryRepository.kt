@@ -202,6 +202,7 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             val createdAt = extractRobustTimestamp(data, "created_at", uidForDetection)
             
             val endedAt = extractRobustTimestamp(data, "ended_at", null)
+                ?: extractRobustTimestamp(data, "updated_at", null)
             
             Log.d("CallHistoryRepository", "  PARSED created_at: $createdAt")
             Log.d("CallHistoryRepository", "  created_at.toDate(): ${createdAt?.toDate()}")
