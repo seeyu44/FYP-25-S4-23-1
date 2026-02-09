@@ -20,8 +20,12 @@ fun AccountAnalysisCard(
     firebaseCalls: List<FirebaseCallRecord>,
     onClick: () -> Unit
 ) {
-    // Filter only incoming calls with detection score (answered calls)
-    val incomingCallsWithDetection = firebaseCalls.filter { !it.isCaller && it.detectionScore != null }
+    // Filter only incoming answered calls with detection score from the past 24 hours
+    val nowMillis = System.currentTimeMillis()
+    val past24HoursMillis = nowMillis - 24L * 60L * 60L * 1000L
+    val incomingCallsWithDetection = firebaseCalls.filter {
+        !it.isCaller && it.detectionScore != null && it.getCreatedAtMillis() >= past24HoursMillis
+    }
     
     val totalCalls = incomingCallsWithDetection.size
     
@@ -57,7 +61,7 @@ fun AccountAnalysisCard(
                 .padding(20.dp)
         ) {
             Text(
-                text = "Account Analysis",
+                text = "Account Analysis (Last 24 Hours)",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.padding(bottom = 16.dp)

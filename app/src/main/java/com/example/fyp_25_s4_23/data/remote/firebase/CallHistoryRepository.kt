@@ -175,16 +175,38 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 score
             } else null
             
-            val detectionTime = if (uidForDetection != null) {
+            val detectionTimestampMillisHighest = if (uidForDetection != null) {
+                val highestTimestampKey = "${uidForDetection}_highest_detection_timestamp"
+                (data[highestTimestampKey] as? Number)?.toLong()
+            } else null
+
+            val detectionTimestampMillisLatest = if (uidForDetection != null) {
+                val latestTimestampKey = "${uidForDetection}_detection_timestamp"
+                (data[latestTimestampKey] as? Number)?.toLong()
+            } else null
+
+            val detectionTime = run {
+                val timestampMillis = detectionTimestampMillisLatest ?: detectionTimestampMillisHighest
                 val highestTimestampKey = "${uidForDetection}_highest_detection_timestamp"
                 val latestTimestampKey = "${uidForDetection}_detection_timestamp"
-                val timestampMillis = (data[highestTimestampKey] as? Number)?.toLong()
-                    ?: (data[latestTimestampKey] as? Number)?.toLong()
                 Log.d("CallHistoryRepository", "  Looking for '$highestTimestampKey'/'$latestTimestampKey': $timestampMillis")
                 if (timestampMillis != null) {
-                    com.google.firebase.Timestamp(timestampMillis / 1000, ((timestampMillis % 1000) * 1000000).toInt())
+                    com.google.firebase.Timestamp(
+                        timestampMillis / 1000,
+                        ((timestampMillis % 1000) * 1000000).toInt()
+                    )
                 } else null
-            } else null
+            }
+
+            val detectionStartMillis = listOfNotNull(
+                detectionTimestampMillisHighest,
+                detectionTimestampMillisLatest
+            ).minOrNull()
+
+            val detectionEndMillis = listOfNotNull(
+                detectionTimestampMillisHighest,
+                detectionTimestampMillisLatest
+            ).maxOrNull()
             
             val isDeepfake = if (uidForDetection != null) {
                 val highestDeepfakeKey = "${uidForDetection}_highest_is_deepfake"
@@ -200,10 +222,24 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
 
             // Robust timestamp extraction - same logic as summary page
             // Tries: created_at -> detection_timestamp -> current time
-            val createdAt = extractRobustTimestamp(data, "created_at", uidForDetection)
+            var createdAt = extractRobustTimestamp(data, "created_at", uidForDetection)
+
+            val createdAtPrimaryMillis = getMillisFromValue(data["created_at"])
+            if (createdAtPrimaryMillis <= 946684800000L && detectionStartMillis != null) {
+                createdAt = com.google.firebase.Timestamp(
+                    detectionStartMillis / 1000,
+                    ((detectionStartMillis % 1000) * 1000000).toInt()
+                )
+            }
             
             val endedAt = extractRobustTimestamp(data, "ended_at", null)
                 ?: extractRobustTimestamp(data, "updated_at", null)
+                ?: detectionEndMillis?.let {
+                    com.google.firebase.Timestamp(
+                        it / 1000,
+                        ((it % 1000) * 1000000).toInt()
+                    )
+                }
                 ?: detectionTime
             
             Log.d("CallHistoryRepository", "  PARSED created_at: $createdAt")
