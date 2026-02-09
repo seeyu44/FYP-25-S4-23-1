@@ -245,7 +245,12 @@ fun AntiDeepfakeApp() {
                     onSubmitReview = viewModel::submitReview,
                     onCreateAdmin = viewModel::createAdminUser,
                     onNavigateToDialer = viewModel::navigateToDialer,
-                    firebaseCalls = uiState.firebaseCalls
+                    firebaseCalls = uiState.firebaseCalls,
+                    onDisableUser = viewModel::disableUser,
+                    onDeleteUser = viewModel::deleteUser,
+                    reviews = uiState.reviews,
+                    onDeleteReview = viewModel::deleteReview,
+                    auditLogs = uiState.auditLogs
                 )
             }
         }

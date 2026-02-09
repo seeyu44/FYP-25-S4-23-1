@@ -78,7 +78,9 @@ data class AppUiState(
     val contacts: List<Contact> = emptyList(),
     val message: String? = null,
     val isBusy: Boolean = false,
-    val modelTest: ModelTestResult = ModelTestResult()
+    val modelTest: ModelTestResult = ModelTestResult(),
+    val reviews: List<com.example.fyp_25_s4_23.boundary.dashboard.ReviewWithUserInfo> = emptyList(),
+    val auditLogs: List<com.example.fyp_25_s4_23.domain.entities.AuditLog> = emptyList()
 )
 
 /* =========================
@@ -105,6 +107,8 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val pendingUsernameStore = PendingUsernameStore(application)
     private val tokenStore = FCMTokenStore(application)
     private val reviewRepository = ReviewRepository()
+    private val auditLogRepository = AuditLogRepository()
+    private val adminManagementService = AdminManagementService()
 
     /* ---------- Detection ---------- */
     private val modelRunner = ModelRunner(application)
@@ -189,10 +193,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     pendingUsernameStore.clear()
                 }
 
-                // Get user profile - this now checks Firebase Custom Claims for admin role
-                Log.d("Login", "Fetching user profile with custom claims check for uid=${firebaseUser.uid}")
                 val profile = userProfileRepository.getUserProfile(firebaseUser.uid)
-                Log.d("Login", "User profile loaded. Role from claims/Firestore: ${profile.role}")
 
                 val user = UserAccount(
                     id = firebaseUser.uid.hashCode().toLong(),
@@ -388,6 +389,12 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
             
             // Load Firebase call history for dashboard display
             loadFirebaseCallHistory()
+            
+            // Load reviews for admin
+            loadReviews()
+            
+            // Load audit logs for admin
+            loadAuditLogs()
         }
     }
 
@@ -602,6 +609,162 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                 Log.e("CallHistory", "Error ending call: ${ex.message}", ex)
                 _state.update {
                     it.copy(message = "Failed to end call: ${ex.message}")
+                }
+            }
+        }
+    }
+
+    /* =========================
+       USER MANAGEMENT
+       ========================= */
+
+    fun disableUser(firebaseUid: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isBusy = true, message = null) }
+            
+            runCatching {
+                adminManagementService.setUserDisabled(firebaseUid, true)
+            }.onSuccess {
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "User has been disabled successfully"
+                    )
+                }
+                Log.i("AdminManagement", "User $firebaseUid disabled")
+                // Refresh dashboard to update users list
+                refreshDashboard()
+            }.onFailure { e ->
+                Log.e("AdminManagement", "Error disabling user: ${e.message}", e)
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "Failed to disable user: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun deleteUser(firebaseUid: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isBusy = true, message = null) }
+            
+            runCatching {
+                adminManagementService.deleteUser(firebaseUid)
+            }.onSuccess {
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "User has been deleted permanently"
+                    )
+                }
+                Log.i("AdminManagement", "User $firebaseUid deleted")
+                // Refresh dashboard to update users list
+                refreshDashboard()
+            }.onFailure { e ->
+                Log.e("AdminManagement", "Error deleting user: ${e.message}", e)
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "Failed to delete user: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    /* =========================
+       REVIEW MANAGEMENT
+       ========================= */
+
+    fun loadReviews() {
+        viewModelScope.launch {
+            _state.update { it.copy(isBusy = true, message = null) }
+
+            runCatching {
+                val allReviews = reviewRepository.getAllReviews()
+                
+                // Map reviews with user display names
+                val reviewsWithUserInfo = allReviews.map { review ->
+                    val user = _state.value.users.find { it.firebaseUid == review.userId }
+                    val displayName = user?.displayName ?: "Anonymous User"
+                    
+                    com.example.fyp_25_s4_23.boundary.dashboard.ReviewWithUserInfo(
+                        review = review,
+                        userDisplayName = displayName
+                    )
+                }
+
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        reviews = reviewsWithUserInfo
+                    )
+                }
+            }.onFailure { ex ->
+                Log.e("ReviewManagement", "Error loading reviews", ex)
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "Failed to load reviews: ${ex.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun deleteReview(reviewId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isBusy = true, message = null) }
+
+            runCatching {
+                adminManagementService.deleteReview(reviewId)
+            }.onSuccess {
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "Review deleted successfully",
+                        reviews = it.reviews.filter { item -> item.review.id != reviewId }
+                    )
+                }
+                Log.i("ReviewManagement", "Review $reviewId deleted")
+            }.onFailure { ex ->
+                Log.e("ReviewManagement", "Error deleting review", ex)
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "Failed to delete review: ${ex.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    /* =========================
+       AUDIT LOGS
+       ========================= */
+
+    fun loadAuditLogs() {
+        viewModelScope.launch {
+            _state.update { it.copy(isBusy = true, message = null) }
+
+            runCatching {
+                auditLogRepository.getAllAuditLogs()
+            }.onSuccess { logs ->
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        auditLogs = logs
+                    )
+                }
+            }.onFailure { ex ->
+                Log.e("AuditLogManagement", "Error loading audit logs", ex)
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "Failed to load audit logs: ${ex.message}"
+                    )
                 }
             }
         }

@@ -1,0 +1,66 @@
+package com.example.fyp_25_s4_23.data.remote.firebase
+
+import android.util.Log
+import com.example.fyp_25_s4_23.domain.entities.AuditLog
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
+
+/**
+ * Repository for managing audit logs in Firebase Firestore.
+ */
+class AuditLogRepository {
+    private val db = FirebaseFirestore.getInstance()
+    private val auditLogsCollection = db.collection("audit_logs")
+
+    /**
+     * Get all audit logs ordered by timestamp (newest first).
+     */
+    suspend fun getAllAuditLogs(): List<AuditLog> {
+        return try {
+            val snapshot = auditLogsCollection
+                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .get()
+                .await()
+
+            snapshot.documents.mapNotNull { doc ->
+                try {
+                    AuditLog(
+                        id = doc.id,
+                        action = doc.getString("action") ?: "UNKNOWN",
+                        actor = doc.getString("actor") ?: "Unknown",
+                        target = doc.getString("target") ?: "",
+                        timestamp = getTimestampInSeconds(doc.get("timestamp")),
+                        details = (doc.get("details") as? Map<String, Any>) ?: emptyMap()
+                    )
+                } catch (e: Exception) {
+                    Log.e("AuditLogRepository", "Error parsing audit log document: ${doc.id}", e)
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("AuditLogRepository", "Error fetching audit logs", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Helper function to extract timestamp from both old (Long) and new (Timestamp) formats
+     */
+    private fun getTimestampInSeconds(data: Any?): Long {
+        return when {
+            data is Long -> data // Old format: Unix timestamp in seconds
+            data is Number -> data.toLong() // Fallback for other number types
+            data != null -> {
+                // Try to handle Firestore Timestamp by accessing seconds property
+                try {
+                    val secondsProperty = data.javaClass.getMethod("getSeconds").invoke(data)
+                    (secondsProperty as? Number)?.toLong() ?: System.currentTimeMillis() / 1000
+                } catch (e: Exception) {
+                    // If it fails, use current time
+                    System.currentTimeMillis() / 1000
+                }
+            }
+            else -> System.currentTimeMillis() / 1000
+        }
+    }
+}

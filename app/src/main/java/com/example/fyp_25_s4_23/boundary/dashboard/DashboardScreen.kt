@@ -37,7 +37,12 @@ fun DashboardScreen(
     onSubmitReview: ((Int, String, Boolean) -> Unit)? = null,
     onCreateAdmin: ((String, String, String, String) -> Unit)? = null,
     onNavigateToDialer: (() -> Unit)? = null,
-    firebaseCalls: List<FirebaseCallRecord> = emptyList()
+    firebaseCalls: List<FirebaseCallRecord> = emptyList(),
+    onDisableUser: ((String) -> Unit)? = null,
+    onDeleteUser: ((String) -> Unit)? = null,
+    reviews: List<com.example.fyp_25_s4_23.boundary.dashboard.ReviewWithUserInfo> = emptyList(),
+    onDeleteReview: ((String) -> Unit)? = null,
+    auditLogs: List<com.example.fyp_25_s4_23.domain.entities.AuditLog> = emptyList()
 ) {
     when (user.role) {
         UserRole.ADMIN -> {
@@ -50,7 +55,16 @@ fun DashboardScreen(
                 onLogout = onLogout,
                 onRefresh = onRefresh,
                 systemController = systemController,
-                onCreateAdmin = onCreateAdmin ?: { _, _, _, _ -> }
+                onCreateAdmin = onCreateAdmin ?: { _, _, _, _ -> },
+                onDisableUser = onDisableUser ?: { },
+                onDeleteUser = onDeleteUser ?: { },
+                reviews = reviews,
+                onDeleteReview = onDeleteReview ?: { },
+                auditLogs = auditLogs,
+                onNavigateToSummary = onNavigateToSummary,
+                onNavigateToCallHistory = onNavigateToCallHistory,
+                onNavigateToContactList = onNavigateToContactList,
+                onNavigateToDialer = onNavigateToDialer
             )
         }
         else -> {

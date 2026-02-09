@@ -64,7 +64,16 @@ fun AdminDashboard(
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
     systemController: SystemController,
-    onCreateAdmin: (String, String, String, String) -> Unit
+    onCreateAdmin: (String, String, String, String) -> Unit,
+    onDisableUser: (String) -> Unit = { },
+    onDeleteUser: (String) -> Unit = { },
+    reviews: List<com.example.fyp_25_s4_23.boundary.dashboard.ReviewWithUserInfo> = emptyList(),
+    onDeleteReview: (String) -> Unit = { },
+    auditLogs: List<com.example.fyp_25_s4_23.domain.entities.AuditLog> = emptyList(),
+    onNavigateToSummary: (() -> Unit)? = null,
+    onNavigateToCallHistory: (() -> Unit)? = null,
+    onNavigateToContactList: (() -> Unit)? = null,
+    onNavigateToDialer: (() -> Unit)? = null
 ) {
     val ctx = LocalContext.current
     LaunchedEffect(user.role) {
@@ -125,6 +134,21 @@ fun AdminDashboard(
                                 }
                             )
                         }
+                    }
+                }
+            )
+        },
+        bottomBar = {
+            BottomNavigationBar(
+                currentRoute = "admin",
+                onNavigate = { route ->
+                    when (route) {
+                        "admin" -> { /* Already on admin dashboard */ }
+                        "summary" -> onNavigateToSummary?.invoke()
+                        "call_history" -> onNavigateToCallHistory?.invoke()
+                        "dialer" -> onNavigateToDialer?.invoke()
+                        "contacts" -> onNavigateToContactList?.invoke()
+                        "logout" -> onLogout()
                     }
                 }
             )
@@ -214,14 +238,44 @@ fun AdminDashboard(
                         colors = CardDefaults.cardColors()
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Registered Users", style = MaterialTheme.typography.titleMedium)
-                            if (users.isEmpty()) {
-                                Text("No users found")
-                            } else {
-                                users.forEach {
-                                    Text("${it.username} (${it.role})")
-                                }
-                            }
+                            UserManagement(
+                                users = users,
+                                onDisableUser = onDisableUser,
+                                onDeleteUser = onDeleteUser
+                            )
+                        }
+                    }
+                }
+
+                // Review Management Section
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        colors = CardDefaults.cardColors()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            ReviewManagement(
+                                reviews = reviews,
+                                onDeleteReview = onDeleteReview
+                            )
+                        }
+                    }
+                }
+
+                // Audit Log Management Section
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        colors = CardDefaults.cardColors()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            AuditLogManagement(
+                                auditLogs = auditLogs
+                            )
                         }
                     }
                 }
