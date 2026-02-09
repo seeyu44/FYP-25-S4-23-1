@@ -155,6 +155,7 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             val currentUid = FirebaseAuth.getInstance().currentUser?.uid
             val callId = data["id"] as? String ?: "unknown"
             val calleeUid = data["callee_user_id"] as? String
+            val isCaller = data["is_caller"] as? Boolean ?: false
             
             Log.d("CallHistoryRepository", "=== Parsing call $callId ===")
             Log.d("CallHistoryRepository", "  currentUid: $currentUid, calleeUid: $calleeUid")
@@ -162,8 +163,8 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             Log.d("CallHistoryRepository", "  RAW ended_at: ${data["ended_at"]} (type: ${data["ended_at"]?.javaClass})")
             Log.d("CallHistoryRepository", "  Available keys: ${data.keys}")
             
-            // Use current user's UID for incoming calls (where current user IS the callee)
-            val uidForDetection = currentUid ?: calleeUid
+            // For outgoing calls, detection fields are on the callee UID; for incoming, use current user.
+            val uidForDetection = if (isCaller) calleeUid else currentUid
             
             val detectionScore = if (uidForDetection != null) {
                 val highestScoreKey = "${uidForDetection}_highest_detection_score"
@@ -203,6 +204,7 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             
             val endedAt = extractRobustTimestamp(data, "ended_at", null)
                 ?: extractRobustTimestamp(data, "updated_at", null)
+                ?: detectionTime
             
             Log.d("CallHistoryRepository", "  PARSED created_at: $createdAt")
             Log.d("CallHistoryRepository", "  created_at.toDate(): ${createdAt?.toDate()}")
@@ -217,7 +219,7 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 endedAt = endedAt,
                 status = data["status"] as? String ?: "unknown",
                 duration = (data["duration"] as? Number)?.toLong() ?: 0L,
-                isCaller = data["is_caller"] as? Boolean ?: false,
+                isCaller = isCaller,
                 otherUser = otherUser,
                 detectionScore = detectionScore,
                 detectionTime = detectionTime,
