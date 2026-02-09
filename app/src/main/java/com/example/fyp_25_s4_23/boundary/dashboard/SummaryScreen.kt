@@ -75,7 +75,7 @@ fun SummaryScreen(
 
         // Calculate average call duration in seconds (only for answered calls with detection score)
         val avgDuration = if (answeredCalls.isNotEmpty()) {
-            answeredCalls.sumOf { it.duration } / answeredCalls.size.toDouble()
+            answeredCalls.sumOf { it.getEffectiveDurationSeconds() } / answeredCalls.size.toDouble()
         } else {
             0.0
         }
@@ -129,7 +129,7 @@ fun SummaryScreen(
             }
 
             val avgDuration = if (answeredCalls.isNotEmpty()) {
-                answeredCalls.sumOf { it.duration } / answeredCalls.size.toDouble()
+                answeredCalls.sumOf { it.getEffectiveDurationSeconds() } / answeredCalls.size.toDouble()
             } else {
                 0.0
             }

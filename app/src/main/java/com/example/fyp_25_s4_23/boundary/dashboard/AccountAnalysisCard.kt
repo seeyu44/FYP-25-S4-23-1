@@ -27,7 +27,7 @@ fun AccountAnalysisCard(
     
     // Calculate average call time in seconds (only for calls with detection score)
     val avgCallTime = if (incomingCallsWithDetection.isNotEmpty()) {
-        val totalSeconds = incomingCallsWithDetection.sumOf { it.duration }
+        val totalSeconds = incomingCallsWithDetection.sumOf { it.getEffectiveDurationSeconds() }
         (totalSeconds / incomingCallsWithDetection.size.toDouble()).roundToInt()
     } else {
         0
