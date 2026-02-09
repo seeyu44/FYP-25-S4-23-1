@@ -105,11 +105,36 @@ data class FirebaseCallRecord(
      * Format duration as readable string
      */
     fun getDurationString(): String {
-        if (duration <= 0) return "0s"
-        
-        val hours = duration / 3600
-        val minutes = (duration % 3600) / 60
-        val seconds = duration % 60
+        return formatDuration(duration)
+    }
+
+    /**
+     * Resolve duration from explicit duration or timestamps when missing.
+     */
+    fun getEffectiveDurationSeconds(): Long {
+        if (duration > 0) return duration
+
+        val startMillis = createdAt?.toDate()?.time
+        val endMillis = endedAt?.toDate()?.time
+        if (startMillis == null || endMillis == null) return 0L
+        if (endMillis <= startMillis) return 0L
+
+        return (endMillis - startMillis) / 1000
+    }
+
+    /**
+     * Format effective duration as readable string.
+     */
+    fun getEffectiveDurationString(): String {
+        return formatDuration(getEffectiveDurationSeconds())
+    }
+
+    private fun formatDuration(totalSeconds: Long): String {
+        if (totalSeconds <= 0) return "0s"
+
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
 
         return when {
             hours > 0 -> String.format("%dh %dm", hours, minutes)

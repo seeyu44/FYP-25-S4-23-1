@@ -270,10 +270,11 @@ fun FirebaseCallHistoryCard(call: FirebaseCallRecord) {
             }
 
             // Duration (only show if call is completed)
-            if (call.isCompleted() && call.duration > 0) {
+            val effectiveDurationSeconds = call.getEffectiveDurationSeconds()
+            if (call.isCompleted() && effectiveDurationSeconds > 0) {
                 val durationLabel = if (call.detectionScore != null) "Total time" else "Duration"
                 Text(
-                    text = "$durationLabel: ${call.getDurationString()}",
+                    text = "$durationLabel: ${call.getEffectiveDurationString()}",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 4.dp)
                 )

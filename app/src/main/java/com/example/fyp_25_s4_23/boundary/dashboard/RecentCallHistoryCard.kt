@@ -124,7 +124,7 @@ private fun CallHistoryItem(
         if (record.isCompleted() && record.detectionScore != null) {
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "Total time: ${record.getDurationString()}",
+                    text = "Total time: ${record.getEffectiveDurationString()}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
