@@ -189,7 +189,10 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     pendingUsernameStore.clear()
                 }
 
+                // Get user profile - this now checks Firebase Custom Claims for admin role
+                Log.d("Login", "Fetching user profile with custom claims check for uid=${firebaseUser.uid}")
                 val profile = userProfileRepository.getUserProfile(firebaseUser.uid)
+                Log.d("Login", "User profile loaded. Role from claims/Firestore: ${profile.role}")
 
                 val user = UserAccount(
                     id = firebaseUser.uid.hashCode().toLong(),

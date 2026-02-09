@@ -26,6 +26,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -42,10 +44,16 @@ import androidx.compose.material3.TextButton
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import android.util.Log
+import androidx.compose.material3.ExperimentalMaterial3Api
 
 /**
  * Admin dashboard showing operational metrics and system management tools.
+ * 
+ * Access verification is done via Firebase Custom Claims for enhanced security.
+ * Custom claims are checked during login to determine admin access.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminDashboard(
     user: UserAccount,
@@ -60,139 +68,159 @@ fun AdminDashboard(
 ) {
     val ctx = LocalContext.current
     LaunchedEffect(user.role) {
-        Toast.makeText(ctx, "Dashboard role: ${user.role}", Toast.LENGTH_SHORT).show()
+        Log.i("AdminDashboard", "Admin user verified via Firebase Custom Claims. UID: ${user.firebaseUid}, Role: ${user.role}")
+        Toast.makeText(ctx, "Admin access verified via Firebase Custom Claims", Toast.LENGTH_SHORT).show()
     }
     var menuExpanded by remember { mutableStateOf(false) }
     var showCreateAdminDialog by remember { mutableStateOf(false) }
     
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .padding(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
-                Text(text = "Welcome, ${user.displayName}", style = MaterialTheme.typography.titleLarge)
-                Text(text = "Admin Dashboard", style = MaterialTheme.typography.bodyMedium)
-                // Debug: show resolved role for clarity
-                Text(text = "Role: ${user.role}", style = MaterialTheme.typography.bodySmall)
-            }
-            Box {
-                IconButton(onClick = { menuExpanded = true }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "Menu")
-                }
-                DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Create Admin") },
-                        onClick = {
-                            menuExpanded = false
-                            showCreateAdminDialog = true
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            text = "DEEPFAKE GUARD",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Text(
+                            text = "Welcome, ${user.displayName}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Admin Dashboard • Role: ${user.role}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Menu")
                         }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Refresh") },
-                        onClick = {
-                            menuExpanded = false
-                            onRefresh()
-                        },
-                        enabled = !isBusy
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Logout") },
-                        onClick = {
-                            menuExpanded = false
-                            onLogout()
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Create Admin") },
+                                onClick = {
+                                    menuExpanded = false
+                                    showCreateAdminDialog = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Refresh") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onRefresh()
+                                },
+                                enabled = !isBusy
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Logout") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onLogout()
+                                }
+                            )
                         }
-                    )
+                    }
                 }
-            }
+            )
         }
-
-        val uptime = remember { mutableStateOf("00:00:00") }
-        val isSystemHealthy = remember { mutableStateOf(true) }
-        val lastUpdateTime = remember { mutableStateOf(System.currentTimeMillis()) }
-
-        LaunchedEffect(Unit) {
-            while (true) {
-                try {
-                    uptime.value = systemController.fetchUptime()
-                    lastUpdateTime.value = System.currentTimeMillis()
-                    isSystemHealthy.value = true
-                } catch (e: Exception) {
-                    isSystemHealthy.value = false
-                }
-                delay(1000)
-            }
-        }
-
-        // Monitor if uptime stops updating (system down)
-        LaunchedEffect(Unit) {
-            while (true) {
-                delay(3000) // Check every 3 seconds
-                val timeSinceLastUpdate = System.currentTimeMillis() - lastUpdateTime.value
-                if (timeSinceLastUpdate > 3000) {
-                    isSystemHealthy.value = false
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier.padding(top = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
         ) {
-            // Status indicator circle
-            Box(
-                modifier = Modifier
-                    .size(12.dp)
-                    .background(
-                        color = if (isSystemHealthy.value) Color.Green else Color.Red,
-                        shape = CircleShape
-                    )
-            )
+            val uptime = remember { mutableStateOf("00:00:00") }
+            val isSystemHealthy = remember { mutableStateOf(true) }
+            val lastUpdateTime = remember { mutableStateOf(System.currentTimeMillis()) }
 
-            Text(
-                text = "System Uptime: ${uptime.value}",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(start = 8.dp)
-            )
-
-            Text(
-                text = if (isSystemHealthy.value) "(Online)" else "(Offline)",
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isSystemHealthy.value) Color.Green else Color.Red,
-                modifier = Modifier.padding(start = 8.dp)
-            )
-        }
-
-        if (message != null) {
-            Text(text = message, modifier = Modifier.padding(top = 8.dp))
-        }
-
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(top = 12.dp)
-        ) {
-            // Call Analysis Section
-            item {
-                CallAnalysisCard(callRecords = callRecords)
+            LaunchedEffect(Unit) {
+                while (true) {
+                    try {
+                        uptime.value = systemController.fetchUptime()
+                        lastUpdateTime.value = System.currentTimeMillis()
+                        isSystemHealthy.value = true
+                    } catch (e: Exception) {
+                        isSystemHealthy.value = false
+                    }
+                    delay(1000)
+                }
             }
 
-            // Registered Users Section
-            item {
-                Card(
+            // Monitor if uptime stops updating (system down)
+            LaunchedEffect(Unit) {
+                while (true) {
+                    delay(3000) // Check every 3 seconds
+                    val timeSinceLastUpdate = System.currentTimeMillis() - lastUpdateTime.value
+                    if (timeSinceLastUpdate > 3000) {
+                        isSystemHealthy.value = false
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.padding(top = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Status indicator circle
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
-                    colors = CardDefaults.cardColors()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Registered Users", style = MaterialTheme.typography.titleMedium)
-                        if (users.isEmpty()) {
-                            Text("No users found")
-                        } else {
-                            users.forEach {
-                                Text("${it.username} (${it.role})")
+                        .size(12.dp)
+                        .background(
+                            color = if (isSystemHealthy.value) Color.Green else Color.Red,
+                            shape = CircleShape
+                        )
+                )
+
+                Text(
+                    text = "System Uptime: ${uptime.value}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+
+                Text(
+                    text = if (isSystemHealthy.value) "(Online)" else "(Offline)",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (isSystemHealthy.value) Color.Green else Color.Red,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+
+            if (message != null) {
+                Text(text = message, modifier = Modifier.padding(top = 8.dp))
+            }
+
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(top = 12.dp)
+            ) {
+                // Call Analysis Section
+                item {
+                    CallAnalysisCard(callRecords = callRecords)
+                }
+
+                // Registered Users Section
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        colors = CardDefaults.cardColors()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Registered Users", style = MaterialTheme.typography.titleMedium)
+                            if (users.isEmpty()) {
+                                Text("No users found")
+                            } else {
+                                users.forEach {
+                                    Text("${it.username} (${it.role})")
+                                }
                             }
                         }
                     }
@@ -209,7 +237,7 @@ fun AdminDashboard(
                 showCreateAdminDialog = false
             }
         )
-}
+    }
 }
 
 @Composable
