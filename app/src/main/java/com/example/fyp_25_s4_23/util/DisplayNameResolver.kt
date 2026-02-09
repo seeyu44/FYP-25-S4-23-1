@@ -7,6 +7,21 @@ import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
  * Prioritizes local saved contacts over Firebase data
  */
 object DisplayNameResolver {
+    private fun normalizePhoneVariants(phone: String?): List<String> {
+        if (phone.isNullOrBlank()) return emptyList()
+        val trimmed = phone.trim().replace(" ", "")
+        val digits = trimmed.replace("+", "")
+
+        val normalized = if (digits.length == 8) {
+            "+65$digits"
+        } else if (trimmed.startsWith("+") && digits.length >= 8) {
+            trimmed
+        } else {
+            trimmed
+        }
+
+        return listOf(trimmed, normalized, digits).distinct()
+    }
     
     /**
      * Resolve display name for a user ID
@@ -30,8 +45,9 @@ object DisplayNameResolver {
         }
         
         // Try to find contact by phone number if provided
-        if (fallbackPhone != null) {
-            val contactByPhone = contactRepository.getContactByPhoneNumber(currentUserId, fallbackPhone)
+        val phoneVariants = normalizePhoneVariants(fallbackPhone)
+        for (phoneVariant in phoneVariants) {
+            val contactByPhone = contactRepository.getContactByPhoneNumber(currentUserId, phoneVariant)
             if (contactByPhone != null && !contactByPhone.displayName.isNullOrBlank()) {
                 return contactByPhone.displayName
             }
@@ -43,8 +59,8 @@ object DisplayNameResolver {
         }
         
         // Use fallback phone number if available
-        if (!fallbackPhone.isNullOrBlank()) {
-            return fallbackPhone
+        if (phoneVariants.isNotEmpty()) {
+            return phoneVariants.first()
         }
         
         // Use fallback name if available
@@ -73,14 +89,15 @@ object DisplayNameResolver {
         }
         
         // Try to find contact by phone number if provided
-        if (fallbackPhone != null) {
-            val contactByPhone = contactRepository.getContactByPhoneNumber(currentUserId, fallbackPhone)
+        val phoneVariants = normalizePhoneVariants(fallbackPhone)
+        for (phoneVariant in phoneVariants) {
+            val contactByPhone = contactRepository.getContactByPhoneNumber(currentUserId, phoneVariant)
             if (contactByPhone?.phoneNumber?.isNotBlank() == true) {
                 return contactByPhone.phoneNumber
             }
         }
         
         // Return fallback phone number
-        return fallbackPhone
+        return phoneVariants.firstOrNull()
     }
 }
