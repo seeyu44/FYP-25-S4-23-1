@@ -109,18 +109,19 @@ class CallInProgressActivity : ComponentActivity() {
         val globalBlockRepository = GlobalBlockRepository()
 
         viewModel.onDeepfakeFlagged = { _ ->
-            if (!isIncoming || hasFlaggedGlobalBlock || isRemoteKnownContact) return@onDeepfakeFlagged
-            hasFlaggedGlobalBlock = true
-            lifecycleScope.launch {
-                try {
-                    globalBlockRepository.flagUser(
-                        userId = remoteUserId,
-                        username = remoteUsername ?: incomingDisplayName,
-                        phoneNumber = passedPhoneNumber,
-                        callId = callId
-                    )
-                } catch (e: Exception) {
-                    Log.e(TAG_SIG, "Failed to flag user in global block list", e)
+            if (isIncoming && !hasFlaggedGlobalBlock && !isRemoteKnownContact) {
+                hasFlaggedGlobalBlock = true
+                lifecycleScope.launch {
+                    try {
+                        globalBlockRepository.flagUser(
+                            userId = remoteUserId,
+                            username = remoteUsername ?: incomingDisplayName,
+                            phoneNumber = passedPhoneNumber,
+                            callId = callId
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG_SIG, "Failed to flag user in global block list", e)
+                    }
                 }
             }
         }
