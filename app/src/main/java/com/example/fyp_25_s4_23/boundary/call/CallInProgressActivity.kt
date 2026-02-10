@@ -22,9 +22,11 @@ import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import com.example.fyp_25_s4_23.util.DisplayNameResolver
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository
+import kotlinx.coroutines.tasks.await
 private const val TAG_SIG = "CALL_SIG"
 private const val TAG_WEBRTC = "WEBRTC_FLOW"
 private lateinit var displayName : String
@@ -110,9 +112,21 @@ class CallInProgressActivity : ComponentActivity() {
 
         viewModel.onDeepfakeFlagged = { _ ->
             if (isIncoming && !hasFlaggedGlobalBlock && !isRemoteKnownContact) {
-                hasFlaggedGlobalBlock = true
                 lifecycleScope.launch {
                     try {
+                        val callSnapshot = FirebaseFirestore.getInstance()
+                            .collection("calls")
+                            .document(callId)
+                            .get()
+                            .await()
+                        val highestKey = "${remoteUserId}_highest_is_deepfake"
+                        val highestIsDeepfake = callSnapshot.getBoolean(highestKey) == true
+                        if (!highestIsDeepfake) {
+                            Log.d(TAG_SIG, "Skip global flag: $highestKey is not true")
+                            return@launch
+                        }
+
+                        hasFlaggedGlobalBlock = true
                         globalBlockRepository.flagUser(
                             userId = remoteUserId,
                             username = remoteUsername ?: incomingDisplayName,
