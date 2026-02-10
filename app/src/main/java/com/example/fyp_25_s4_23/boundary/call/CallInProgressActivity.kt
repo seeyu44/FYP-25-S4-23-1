@@ -97,8 +97,11 @@ class CallInProgressActivity : ComponentActivity() {
             }
         }
 
-        val localUserId =
-            FirebaseAuthManager.currentUser()?.uid ?: return finish()
+        val localUserId = FirebaseAuthManager.currentUser()?.uid
+        if (localUserId == null) {
+            finish()
+            return
+        }
 
         signaling = FirebaseSignalingManager()
         ActiveCallStore.setWebRtcActive(callId, remoteUserId)
