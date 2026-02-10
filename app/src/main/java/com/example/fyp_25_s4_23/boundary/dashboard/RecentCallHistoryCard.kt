@@ -121,19 +121,25 @@ private fun CallHistoryItem(
             )
         }
 
-        if (record.isCompleted() && record.detectionScore != null) {
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "Total time: ${record.getEffectiveDurationString()}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                val confidencePercent = (record.detectionScore * 100).roundToInt()
-                Text(
-                    text = "Confidence: $confidencePercent%",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
+        if (record.isCompleted()) {
+            val showConfidence = !record.isOutgoing && record.detectionScore != null
+            val showDuration = record.isOutgoing || showConfidence
+            if (showDuration) {
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "Total time: ${record.getEffectiveDurationString()}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (showConfidence) {
+                        val confidencePercent = (record.detectionScore!! * 100).roundToInt()
+                        Text(
+                            text = "Confidence: $confidencePercent%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
         }
     }

@@ -166,12 +166,10 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             // For outgoing calls, detection fields are on the callee UID; for incoming, use current user.
             val uidForDetection = if (isCaller) calleeUid else currentUid
             
-            val detectionScore = if (uidForDetection != null) {
+            val detectionScore = if (!isCaller && uidForDetection != null) {
                 val highestScoreKey = "${uidForDetection}_highest_detection_score"
-                val latestScoreKey = "${uidForDetection}_detection_score"
                 val score = (data[highestScoreKey] as? Number)?.toDouble()
-                    ?: (data[latestScoreKey] as? Number)?.toDouble()
-                Log.d("CallHistoryRepository", "  Looking for '$highestScoreKey'/'$latestScoreKey': $score")
+                Log.d("CallHistoryRepository", "  Looking for '$highestScoreKey': $score")
                 score
             } else null
             
@@ -208,14 +206,12 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 detectionTimestampMillisLatest
             ).maxOrNull()
             
-            val isDeepfake = if (uidForDetection != null) {
+            val isDeepfake = if (!isCaller && uidForDetection != null) {
                 val highestDeepfakeKey = "${uidForDetection}_highest_is_deepfake"
-                val latestDeepfakeKey = "${uidForDetection}_is_deepfake"
-                val deepfake = (data[highestDeepfakeKey] as? Boolean)
-                    ?: (data[latestDeepfakeKey] as? Boolean)
+                val deepfake = data[highestDeepfakeKey] as? Boolean
                 Log.d(
                     "CallHistoryRepository",
-                    "  Looking for '$highestDeepfakeKey'/'$latestDeepfakeKey': $deepfake"
+                    "  Looking for '$highestDeepfakeKey': $deepfake"
                 )
                 deepfake
             } else null
