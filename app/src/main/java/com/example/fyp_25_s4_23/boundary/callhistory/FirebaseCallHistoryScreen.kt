@@ -273,7 +273,7 @@ fun FirebaseCallHistoryCard(call: FirebaseCallRecord) {
             // Duration + confidence rules: caller sees only total time; callee sees total time + confidence.
             val effectiveDurationSeconds = call.getEffectiveDurationSeconds()
             val showConfidence = !call.isCaller && call.detectionScore != null
-            val showDuration = call.isCaller || showConfidence
+            val showDuration = call.isCaller || !call.isCaller
             if (call.isCompleted() && effectiveDurationSeconds > 0 && showDuration) {
                 Text(
                     text = "Total time: ${call.getEffectiveDurationString()}",

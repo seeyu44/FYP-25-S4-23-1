@@ -123,7 +123,7 @@ private fun CallHistoryItem(
 
         if (record.isCompleted()) {
             val showConfidence = !record.isOutgoing && record.detectionScore != null
-            val showDuration = record.isOutgoing || showConfidence
+            val showDuration = record.isOutgoing || !record.isOutgoing
             if (showDuration) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text(

@@ -23,22 +23,23 @@ fun AccountAnalysisCard(
     // Filter only incoming answered calls with detection score from the past 24 hours
     val nowMillis = System.currentTimeMillis()
     val past24HoursMillis = nowMillis - 24L * 60L * 60L * 1000L
-    val incomingCallsWithDetection = firebaseCalls.filter {
-        !it.isCaller && it.detectionScore != null && it.getCreatedAtMillis() >= past24HoursMillis
+    val incomingCalls = firebaseCalls.filter {
+        !it.isCaller && it.getCreatedAtMillis() >= past24HoursMillis
     }
-    
-    val totalCalls = incomingCallsWithDetection.size
+
+    val totalCalls = incomingCalls.size
     
     // Calculate average call time in seconds (only for calls with detection score)
-    val avgCallTime = if (incomingCallsWithDetection.isNotEmpty()) {
-        val totalSeconds = incomingCallsWithDetection.sumOf { it.getEffectiveDurationSeconds() }
-        (totalSeconds / incomingCallsWithDetection.size.toDouble()).roundToInt()
+    val completedIncomingCalls = incomingCalls.filter { it.isCompleted() }
+    val avgCallTime = if (completedIncomingCalls.isNotEmpty()) {
+        val totalSeconds = completedIncomingCalls.sumOf { it.getEffectiveDurationSeconds() }
+        (totalSeconds / completedIncomingCalls.size.toDouble()).roundToInt()
     } else {
         0
     }
     
     // Calculate average confidence score from detection scores
-    val detectionScores = incomingCallsWithDetection.mapNotNull { it.detectionScore }
+    val detectionScores = incomingCalls.mapNotNull { it.detectionScore }
     val avgConfidence = if (detectionScores.isNotEmpty()) {
         (detectionScores.average() * 100).roundToInt()
     } else {
