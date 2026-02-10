@@ -26,6 +26,7 @@ class FirebaseContactRepository {
     data class RemoteContact(
         val id: String,
         val username: String,
+        val userId: String?,
         val displayName: String?,
         val phoneNumber: String?,
         val label: ContactLabel
@@ -34,6 +35,7 @@ class FirebaseContactRepository {
     suspend fun addContact(
         username: String,
         label: ContactLabel,
+        userId: String? = null,
         displayName: String? = null,
         phoneNumber: String? = null
     ) {
@@ -58,6 +60,10 @@ class FirebaseContactRepository {
 
         if (!phoneNumber.isNullOrBlank()) {
             data["phoneNumber"] = phoneNumber
+        }
+
+        if (!userId.isNullOrBlank()) {
+            data["userId"] = userId
         }
 
         doc.set(data, SetOptions.merge()).await()
@@ -115,9 +121,12 @@ class FirebaseContactRepository {
 
                 val phoneNumber = doc.getString("phoneNumber")
 
+                val userId = doc.getString("userId")
+
                 RemoteContact(
                     id = doc.id,
                     username = username,
+                    userId = userId,
                     displayName = displayName,
                     phoneNumber = phoneNumber,
                     label = label

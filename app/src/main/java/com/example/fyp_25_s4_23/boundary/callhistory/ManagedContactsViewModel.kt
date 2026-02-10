@@ -130,6 +130,7 @@ class ManagedContactsViewModel(
                 firebaseRepo.addContact(
                     username = lookupResult.username,
                     label = label,
+                    userId = lookupResult.uid,
                     displayName = newContact.displayName,
                     phoneNumber = newContact.phoneNumber
                 )
