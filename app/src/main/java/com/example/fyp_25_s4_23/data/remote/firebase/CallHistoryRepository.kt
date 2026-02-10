@@ -163,8 +163,8 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             Log.d("CallHistoryRepository", "  RAW ended_at: ${data["ended_at"]} (type: ${data["ended_at"]?.javaClass})")
             Log.d("CallHistoryRepository", "  Available keys: ${data.keys}")
             
-            // For outgoing calls, detection fields are on the callee UID; for incoming, use current user.
-            val uidForDetection = if (isCaller) calleeUid else currentUid
+            // Detection fields are stored under the callee UID (highest score and deepfake fields).
+            val uidForDetection = if (!isCaller) calleeUid else null
             
             val detectionScore = if (!isCaller && uidForDetection != null) {
                 val highestScoreKey = "${uidForDetection}_highest_detection_score"
