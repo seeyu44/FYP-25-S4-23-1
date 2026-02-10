@@ -175,8 +175,13 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             
             val detectionScore = if (isCallee && uidForDetection != null) {
                 val highestScoreKey = "${uidForDetection}_highest_detection_score"
+                val latestScoreKey = "${uidForDetection}_detection_score"
                 val score = (data[highestScoreKey] as? Number)?.toDouble()
-                Log.d("CallHistoryRepository", "  Looking for '$highestScoreKey': $score")
+                    ?: (data[latestScoreKey] as? Number)?.toDouble()
+                Log.d(
+                    "CallHistoryRepository",
+                    "  Looking for '$highestScoreKey'/'$latestScoreKey': $score"
+                )
                 score
             } else null
             
@@ -190,18 +195,21 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 (data[latestTimestampKey] as? Number)?.toLong()
             } else null
 
-            val detectionTime = run {
+            val detectionTime = if (uidForDetection != null) {
                 val timestampMillis = detectionTimestampMillisLatest ?: detectionTimestampMillisHighest
                 val highestTimestampKey = "${uidForDetection}_highest_detection_timestamp"
                 val latestTimestampKey = "${uidForDetection}_detection_timestamp"
-                Log.d("CallHistoryRepository", "  Looking for '$highestTimestampKey'/'$latestTimestampKey': $timestampMillis")
+                Log.d(
+                    "CallHistoryRepository",
+                    "  Looking for '$highestTimestampKey'/'$latestTimestampKey': $timestampMillis"
+                )
                 if (timestampMillis != null) {
                     com.google.firebase.Timestamp(
                         timestampMillis / 1000,
                         ((timestampMillis % 1000) * 1000000).toInt()
                     )
                 } else null
-            }
+            } else null
 
             val detectionStartMillis = listOfNotNull(
                 detectionTimestampMillisHighest,
@@ -215,10 +223,12 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             
             val isDeepfake = if (isCallee && uidForDetection != null) {
                 val highestDeepfakeKey = "${uidForDetection}_highest_is_deepfake"
+                val latestDeepfakeKey = "${uidForDetection}_is_deepfake"
                 val deepfake = data[highestDeepfakeKey] as? Boolean
+                    ?: (data[latestDeepfakeKey] as? Boolean)
                 Log.d(
                     "CallHistoryRepository",
-                    "  Looking for '$highestDeepfakeKey': $deepfake"
+                    "  Looking for '$highestDeepfakeKey'/'$latestDeepfakeKey': $deepfake"
                 )
                 deepfake
             } else null
