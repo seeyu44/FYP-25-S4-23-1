@@ -24,6 +24,7 @@ import com.example.fyp_25_s4_23.util.DisplayNameResolver
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository
 private const val TAG_SIG = "CALL_SIG"
 private const val TAG_WEBRTC = "WEBRTC_FLOW"
 private lateinit var displayName : String
@@ -34,6 +35,8 @@ class CallInProgressActivity : ComponentActivity() {
 
     private var webRtcClient: WebRtcClient? = null
     private var signaling: FirebaseSignalingManager? = null
+    private var hasFlaggedGlobalBlock: Boolean = false
+    private var isRemoteKnownContact: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,6 +48,7 @@ class CallInProgressActivity : ComponentActivity() {
             intent.getStringExtra(IncomingCallIntent.EXTRA_REMOTE_USER_ID) ?: return finish()
         val isIncoming =
             intent.getBooleanExtra(IncomingCallIntent.EXTRA_IS_INCOMING, false)
+        val remoteUsername = intent.getStringExtra(IncomingCallIntent.EXTRA_USERNAME)
 
         // Resolve contact name asynchronously to avoid blocking the main thread
         val database = com.example.fyp_25_s4_23.entity.data.db.AppDatabase.getInstance(this)
@@ -66,6 +70,19 @@ class CallInProgressActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            val knownByPhone = if (!passedPhoneNumber.isNullOrBlank()) {
+                contactRepository.getContactByPhoneNumber(currentUserId, passedPhoneNumber)
+            } else {
+                null
+            }
+            val usernameToCheck = remoteUsername ?: incomingDisplayName
+            val knownByUsername = if (!usernameToCheck.isNullOrBlank()) {
+                contactRepository.getContactByUsername(currentUserId, usernameToCheck)
+            } else {
+                null
+            }
+            isRemoteKnownContact = knownByPhone != null || knownByUsername != null
+
             val resolved = DisplayNameResolver.resolveDisplayName(
                 contactRepository = contactRepository,
                 currentUserId = currentUserId,
@@ -86,8 +103,24 @@ class CallInProgressActivity : ComponentActivity() {
         signaling = FirebaseSignalingManager()
         ActiveCallStore.setWebRtcActive(callId, remoteUserId)
 
-        // Initialize database DAO for detection results
-        val detectionDao = database.detectionResultDao()
+        val globalBlockRepository = GlobalBlockRepository()
+
+        viewModel.onDeepfakeFlagged = { _ ->
+            if (!isIncoming || hasFlaggedGlobalBlock || isRemoteKnownContact) return@onDeepfakeFlagged
+            hasFlaggedGlobalBlock = true
+            lifecycleScope.launch {
+                try {
+                    globalBlockRepository.flagUser(
+                        userId = remoteUserId,
+                        username = remoteUsername ?: incomingDisplayName,
+                        phoneNumber = passedPhoneNumber,
+                        callId = callId
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG_SIG, "Failed to flag user in global block list", e)
+                }
+            }
+        }
 
         webRtcClient = WebRtcClient(
             context = this,

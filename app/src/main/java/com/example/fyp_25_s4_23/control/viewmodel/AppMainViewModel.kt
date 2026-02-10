@@ -32,6 +32,8 @@ import com.example.fyp_25_s4_23.boundary.dashboard.SummaryMetrics
 import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseAuthManager
 import com.example.fyp_25_s4_23.data.remote.firebase.UserProfileRepository
 import com.example.fyp_25_s4_23.data.remote.firebase.UsernameService
+import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository
+import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository.GlobalBlockedUser
 
 import com.example.fyp_25_s4_23.domain.entities.Contact
 import com.example.fyp_25_s4_23.domain.entities.ContactLabel
@@ -72,6 +74,7 @@ data class AppUiState(
     val users: List<UserAccount> = emptyList(),
     val callRecords: List<CallRecord> = emptyList(),
     val firebaseCalls: List<FirebaseCallRecord> = emptyList(),
+    val globalBlockedUsers: List<GlobalBlockedUser> = emptyList(),
 
     val summaryMetrics: List<SummaryMetrics> = emptyList(),
 
@@ -105,6 +108,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val pendingUsernameStore = PendingUsernameStore(application)
     private val tokenStore = FCMTokenStore(application)
     private val reviewRepository = ReviewRepository()
+    private val globalBlockRepository = GlobalBlockRepository()
 
     /* ---------- Detection ---------- */
     private val modelRunner = ModelRunner(application)
@@ -273,7 +277,8 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                     screen = AppScreen.Login,
                     message = "Logged out",
                     callRecords = emptyList(),
-                    users = emptyList()
+                    users = emptyList(),
+                    globalBlockedUsers = emptyList()
                 )
             }
         }
@@ -375,16 +380,71 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
             val calls = callRepository.listRecent()
 
+            val flaggedUsers = runCatching {
+                globalBlockRepository.listFlaggedUsers()
+            }.onFailure { e ->
+                Log.e("GlobalBlock", "Failed to load flagged users: ${e.message}", e)
+            }.getOrDefault(emptyList())
+
             _state.update {
                 it.copy(
                     users = mappedUsers,
                     callRecords = calls,
+                    globalBlockedUsers = flaggedUsers,
                     isBusy = false
                 )
             }
             
             // Load Firebase call history for dashboard display
             loadFirebaseCallHistory()
+        }
+    }
+
+    fun blacklistGlobalUser(userId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isBusy = true, message = null) }
+            runCatching {
+                globalBlockRepository.updateLabel(userId, "blacklisted")
+            }.onSuccess {
+                _state.update {
+                    it.copy(
+                        globalBlockedUsers = it.globalBlockedUsers.filterNot { user -> user.userId == userId },
+                        isBusy = false,
+                        message = "User blacklisted"
+                    )
+                }
+            }.onFailure { ex ->
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "Failed to blacklist: ${ex.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun removeGlobalBlockedUser(userId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isBusy = true, message = null) }
+            runCatching {
+                globalBlockRepository.removeUser(userId)
+            }.onSuccess {
+                _state.update {
+                    it.copy(
+                        globalBlockedUsers = it.globalBlockedUsers.filterNot { user -> user.userId == userId },
+                        isBusy = false,
+                        message = "User removed from global block list"
+                    )
+                }
+            }.onFailure { ex ->
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        message = "Failed to remove user: ${ex.message}"
+                    )
+                }
+            }
         }
     }
 

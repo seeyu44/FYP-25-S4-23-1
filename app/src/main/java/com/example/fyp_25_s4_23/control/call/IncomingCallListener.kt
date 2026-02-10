@@ -13,8 +13,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
-import com.example.fyp_25_s4_23.domain.entities.ContactLabel
 import com.example.fyp_25_s4_23.util.DisplayNameResolver
+import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository
 
 
 object IncomingCallListener {
@@ -28,6 +28,7 @@ object IncomingCallListener {
     fun start(context: Context) {
         val database = AppDatabase.getInstance(context)
         val contactRepository = ContactRepository(database.contactDao())
+        val globalBlockRepository = GlobalBlockRepository()
         val uid = FirebaseAuth.getInstance().currentUser?.uid
 
         if (uid == null) {
@@ -110,6 +111,13 @@ object IncomingCallListener {
                                 fallbackName = callerUsername, // Use callerUsername (email) as last resort
                                 fallbackPhone = callerPhone // Use phone from call document
                             )
+
+                            val isGloballyBlocked = try {
+                                globalBlockRepository.isGloballyBlocked(callerId)
+                            } catch (e: Exception) {
+                                Log.e("INCOMING_CALL", "Error checking global blocked list", e)
+                                false
+                            }
                             
                             // Check if contact is blocked by checking Firebase contacts collection
                             val isBlocked = try {
@@ -162,10 +170,10 @@ object IncomingCallListener {
                             }
 
                             when {
-                                isBlocked -> {
+                                isGloballyBlocked || isBlocked -> {
                                     Log.w(
                                         "INCOMING_CALL",
-                                        "Blocked incoming call from BLACKLISTED user=$callerId callId=$callId"
+                                        "Blocked incoming call from user=$callerId callId=$callId"
                                     )
 
                                     // Do NOT show notification
@@ -181,7 +189,8 @@ object IncomingCallListener {
                                         callId = callId,
                                         callerId = callerId,
                                         displayName = resolvedDisplayName,
-                                        phoneNumber = callerPhone
+                                        phoneNumber = callerPhone,
+                                        username = callerUsername
                                     )
                                 }
                             }
