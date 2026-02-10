@@ -43,12 +43,17 @@ class GlobalBlockRepository {
         return snapshot.documents.mapNotNull { doc ->
             val userId = doc.getString("userId") ?: doc.id
             if (userId.isBlank()) return@mapNotNull null
+            val flaggedAtMillis = when (val raw = doc.get("flaggedAt")) {
+                is com.google.firebase.Timestamp -> raw.toDate().time
+                is Number -> raw.toLong()
+                else -> null
+            }
             GlobalBlockedUser(
                 userId = userId,
                 username = doc.getString("username"),
                 phoneNumber = doc.getString("phoneNumber"),
                 label = doc.getString("label") ?: "flag",
-                flaggedAt = doc.getLong("flaggedAt")
+                flaggedAt = flaggedAtMillis
             )
         }
     }
