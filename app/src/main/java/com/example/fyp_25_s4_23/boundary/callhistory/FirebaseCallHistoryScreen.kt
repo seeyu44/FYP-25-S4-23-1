@@ -31,6 +31,7 @@ import com.example.fyp_25_s4_23.boundary.dashboard.BottomNavigationBar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * Displays call history fetched from Firebase Cloud Functions
