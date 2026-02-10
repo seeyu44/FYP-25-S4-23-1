@@ -88,6 +88,21 @@ class SyncContactsUseCase(
             if (localContact != null) {
                 Log.d(TAG, "Updating label for existing contact: ${localContact.displayName}")
                 localRepo.updateContactLabel(localContact.id, contact.label.name)
+
+                val shouldUpdateName =
+                    displayName.isNotBlank() && displayName != localContact.displayName
+                val shouldUpdatePhone =
+                    !isVoip && phone != localContact.phoneNumber
+
+                if (shouldUpdateName || shouldUpdatePhone) {
+                    val updatedName = if (shouldUpdateName) displayName else localContact.displayName
+                    val updatedPhone = if (shouldUpdatePhone) phone else localContact.phoneNumber
+                    localRepo.updateContactDetails(
+                        id = localContact.id,
+                        displayName = updatedName,
+                        phoneNumber = updatedPhone
+                    )
+                }
             } else {
                 Log.d(TAG, "Creating new contact from remote: $username / $phone")
                 localRepo.insertContact(
