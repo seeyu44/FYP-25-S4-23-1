@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
+import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository
 import com.example.fyp_25_s4_23.domain.entities.ContactLabel
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
@@ -34,6 +35,7 @@ fun DialerScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val phoneLookupService = remember { PhoneLookupService() }
+    val globalBlockRepository = remember { GlobalBlockRepository() }
     val contactRepository = remember {
         ContactRepository(AppDatabase.getInstance(context).contactDao())
     }
@@ -223,6 +225,23 @@ fun DialerScreen(
                                 val result = phoneLookupService.getUserByPhoneNumber(normalized)
                                 
                                 Log.d("DialerScreen", "Found user: ${result.username} (${result.uid})")
+
+                                val isGloballyBlocked = runCatching {
+                                    globalBlockRepository.isGloballyBlocked(result.uid)
+                                }.onFailure { e ->
+                                    Log.e("DialerScreen", "Global block check failed", e)
+                                }.getOrElse {
+                                    isLoading = false
+                                    errorMessage = "Unable to verify global block list"
+                                    return@launch
+                                }
+
+                                if (isGloballyBlocked) {
+                                    isLoading = false
+                                    errorMessage = "This user is globally blocked"
+                                    return@launch
+                                }
+
                                 isLoading = false
                                 
                                 // Initiate call with the resolved UID and available info
