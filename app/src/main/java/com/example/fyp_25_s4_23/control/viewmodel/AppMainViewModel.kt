@@ -88,6 +88,10 @@ data class AppUiState(
    ========================= */
 
 class AppMainViewModel(application: Application) : AndroidViewModel(application) {
+    // Audit log paging state
+    private var auditLogPage = 0
+    private var auditLogPageSize = 10
+    private var auditLogSearch: String? = null
 
     /* ---------- Local DB ---------- */
     private val db = AppDatabase.getInstance(application)
@@ -745,12 +749,14 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
        AUDIT LOGS
        ========================= */
 
-    fun loadAuditLogs() {
+    fun loadAuditLogs(page: Int = 0, pageSize: Int = 10, search: String? = null) {
+        auditLogPage = page
+        auditLogPageSize = pageSize
+        auditLogSearch = search
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true, message = null) }
-
             runCatching {
-                auditLogRepository.getAllAuditLogs()
+                auditLogRepository.getAuditLogsPaged(auditLogPage, auditLogPageSize, auditLogSearch)
             }.onSuccess { logs ->
                 _state.update {
                     it.copy(

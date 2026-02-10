@@ -39,21 +39,15 @@ import java.util.Locale
 @Composable
 fun AuditLogManagement(
     auditLogs: List<AuditLog>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onPageChange: (Int) -> Unit = {},
+    onSearchChange: (String) -> Unit = {},
+    page: Int = 0,
+    pageSize: Int = 10,
+    search: String = ""
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-
-    // Filter audit logs based on search query
-    val filteredLogs = if (searchQuery.isBlank()) {
-        auditLogs
-    } else {
-        auditLogs.filter { log ->
-            log.action.contains(searchQuery, ignoreCase = true) ||
-            log.actor.contains(searchQuery, ignoreCase = true) ||
-            log.target.contains(searchQuery, ignoreCase = true) ||
-            log.details.toString().contains(searchQuery, ignoreCase = true)
-        }
-    }
+    val totalPages = (auditLogs.size + pageSize - 1) / pageSize
+    val logsToShow = auditLogs.drop(page * pageSize).take(pageSize)
 
     Column(
         modifier = modifier
@@ -69,8 +63,10 @@ fun AuditLogManagement(
 
         // Search field
         OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
+            value = search,
+            onValueChange = {
+                onSearchChange(it)
+            },
             label = { Text("Search logs (action, actor, target)") },
             modifier = Modifier
                 .fillMaxWidth()
@@ -79,14 +75,14 @@ fun AuditLogManagement(
 
         // Results count
         Text(
-            text = "Showing ${filteredLogs.size} of ${auditLogs.size} entries",
+            text = "Showing ${logsToShow.size} of ${auditLogs.size} entries",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
         // Audit logs list
-        if (filteredLogs.isEmpty()) {
+        if (logsToShow.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -100,12 +96,26 @@ fun AuditLogManagement(
                 )
             }
         } else {
-            LazyColumn(
+            Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(filteredLogs) { log ->
+                logsToShow.forEach { log ->
                     AuditLogCard(log)
                 }
+            }
+        }
+
+        // Pagination controls
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            androidx.compose.material3.Button(onClick = { if (page > 0) onPageChange(page - 1) }, enabled = page > 0) {
+                Text("Previous")
+            }
+            Text("Page ${page + 1} of $totalPages")
+            androidx.compose.material3.Button(onClick = { if (page < totalPages - 1) onPageChange(page + 1) }, enabled = page < totalPages - 1) {
+                Text("Next")
             }
         }
     }
@@ -166,21 +176,18 @@ private fun AuditLogCard(log: AuditLog) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Admin: ${log.actor}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                Column {
-                    Text(
-                        text = "Target: ${log.target}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
+                Text(
+                    text = "Admin: ${log.actor}",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(end = 16.dp)
+                )
+                Text(
+                    text = "Target: ${log.target}",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
 
             // Details if available

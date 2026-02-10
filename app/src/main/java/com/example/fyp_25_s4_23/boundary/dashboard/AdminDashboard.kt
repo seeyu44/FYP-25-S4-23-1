@@ -45,6 +45,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import android.util.Log
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.fyp_25_s4_23.control.viewmodel.AppMainViewModel
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 
 /**
@@ -273,8 +276,26 @@ fun AdminDashboard(
                         colors = CardDefaults.cardColors()
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
+                            var auditLogPage by remember { mutableStateOf(0) }
+                            var auditLogSearch by remember { mutableStateOf("") }
+                            val pageSize = 10
+                            val viewModel: AppMainViewModel = viewModel()
+                            val logs = auditLogs
                             AuditLogManagement(
-                                auditLogs = auditLogs
+                                auditLogs = logs,
+                                modifier = Modifier,
+                                onPageChange = { newPage: Int ->
+                                    auditLogPage = newPage
+                                    viewModel.loadAuditLogs(page = auditLogPage, pageSize = pageSize, search = auditLogSearch)
+                                },
+                                onSearchChange = { newSearch: String ->
+                                    auditLogSearch = newSearch
+                                    auditLogPage = 0
+                                    viewModel.loadAuditLogs(page = auditLogPage, pageSize = pageSize, search = auditLogSearch)
+                                },
+                                page = auditLogPage,
+                                pageSize = pageSize,
+                                search = auditLogSearch
                             )
                         }
                     }

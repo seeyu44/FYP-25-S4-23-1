@@ -11,34 +11,16 @@ import kotlinx.coroutines.tasks.await
 class AuditLogRepository {
     private val db = FirebaseFirestore.getInstance()
     private val auditLogsCollection = db.collection("audit_logs")
+    private val cloudFunctionsHelper = CloudFunctionsHelper()
 
     /**
-     * Get all audit logs ordered by timestamp (newest first).
+     * Get audit logs from cloud function with pagination and search.
      */
-    suspend fun getAllAuditLogs(): List<AuditLog> {
+    suspend fun getAuditLogsPaged(page: Int, pageSize: Int, search: String?): List<AuditLog> {
         return try {
-            val snapshot = auditLogsCollection
-                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .get()
-                .await()
-
-            snapshot.documents.mapNotNull { doc ->
-                try {
-                    AuditLog(
-                        id = doc.id,
-                        action = doc.getString("action") ?: "UNKNOWN",
-                        actor = doc.getString("actor") ?: "Unknown",
-                        target = doc.getString("target") ?: "",
-                        timestamp = getTimestampInSeconds(doc.get("timestamp")),
-                        details = (doc.get("details") as? Map<String, Any>) ?: emptyMap()
-                    )
-                } catch (e: Exception) {
-                    Log.e("AuditLogRepository", "Error parsing audit log document: ${doc.id}", e)
-                    null
-                }
-            }
+            cloudFunctionsHelper.getAuditLogs(page, pageSize, search)
         } catch (e: Exception) {
-            Log.e("AuditLogRepository", "Error fetching audit logs", e)
+            Log.e("AuditLogRepository", "Error fetching audit logs from cloud function", e)
             emptyList()
         }
     }
