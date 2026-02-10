@@ -170,18 +170,25 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             Log.d("CallHistoryRepository", "  RAW ended_at: ${data["ended_at"]} (type: ${data["ended_at"]?.javaClass})")
             Log.d("CallHistoryRepository", "  Available keys: ${data.keys}")
             
-            // Detection fields are stored under the caller UID (highest score and deepfake fields).
-            // For incoming calls, current user is callee, so use caller UID for detection.
-            val uidForDetection = if (isCallee) callerUid else null
+            // Resolve the UID prefix for detection fields based on keys present in the record.
+            val uidForDetection = if (isCallee && !callerUid.isNullOrBlank()) {
+                callerUid
+            } else {
+                resolveDetectionUid(
+                    data = data,
+                    isCallee = isCallee,
+                    callerUid = callerUid,
+                    calleeUid = calleeUid,
+                    currentUid = currentUid
+                )
+            }
             
             val detectionScore = if (isCallee && uidForDetection != null) {
                 val highestScoreKey = "${uidForDetection}_highest_detection_score"
-                val latestScoreKey = "${uidForDetection}_detection_score"
                 val score = (data[highestScoreKey] as? Number)?.toDouble()
-                    ?: (data[latestScoreKey] as? Number)?.toDouble()
                 Log.d(
                     "CallHistoryRepository",
-                    "  Looking for '$highestScoreKey'/'$latestScoreKey': $score"
+                    "  Looking for '$highestScoreKey': $score"
                 )
                 score
             } else null
@@ -191,18 +198,12 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 (data[highestTimestampKey] as? Number)?.toLong()
             } else null
 
-            val detectionTimestampMillisLatest = if (uidForDetection != null) {
-                val latestTimestampKey = "${uidForDetection}_detection_timestamp"
-                (data[latestTimestampKey] as? Number)?.toLong()
-            } else null
-
             val detectionTime = if (uidForDetection != null) {
-                val timestampMillis = detectionTimestampMillisLatest ?: detectionTimestampMillisHighest
                 val highestTimestampKey = "${uidForDetection}_highest_detection_timestamp"
-                val latestTimestampKey = "${uidForDetection}_detection_timestamp"
+                val timestampMillis = detectionTimestampMillisHighest
                 Log.d(
                     "CallHistoryRepository",
-                    "  Looking for '$highestTimestampKey'/'$latestTimestampKey': $timestampMillis"
+                    "  Looking for '$highestTimestampKey': $timestampMillis"
                 )
                 if (timestampMillis != null) {
                     com.google.firebase.Timestamp(
@@ -212,24 +213,16 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 } else null
             } else null
 
-            val detectionStartMillis = listOfNotNull(
-                detectionTimestampMillisHighest,
-                detectionTimestampMillisLatest
-            ).minOrNull()
+            val detectionStartMillis = detectionTimestampMillisHighest
 
-            val detectionEndMillis = listOfNotNull(
-                detectionTimestampMillisHighest,
-                detectionTimestampMillisLatest
-            ).maxOrNull()
+            val detectionEndMillis = detectionTimestampMillisHighest
             
             val isDeepfake = if (isCallee && uidForDetection != null) {
                 val highestDeepfakeKey = "${uidForDetection}_highest_is_deepfake"
-                val latestDeepfakeKey = "${uidForDetection}_is_deepfake"
                 val deepfake = data[highestDeepfakeKey] as? Boolean
-                    ?: (data[latestDeepfakeKey] as? Boolean)
                 Log.d(
                     "CallHistoryRepository",
-                    "  Looking for '$highestDeepfakeKey'/'$latestDeepfakeKey': $deepfake"
+                    "  Looking for '$highestDeepfakeKey': $deepfake"
                 )
                 deepfake
             } else null
@@ -384,5 +377,36 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 }
             }
         }
+    }
+
+    private fun resolveDetectionUid(
+        data: Map<*, *>,
+        isCallee: Boolean,
+        callerUid: String?,
+        calleeUid: String?,
+        currentUid: String?
+    ): String? {
+        val suffixes = listOf(
+            "detection_score",
+            "highest_detection_score",
+            "detection_timestamp",
+            "highest_detection_timestamp",
+            "is_deepfake",
+            "highest_is_deepfake"
+        )
+
+        val preferred = if (isCallee) {
+            listOf(callerUid, calleeUid, currentUid)
+        } else {
+            listOf(calleeUid, callerUid, currentUid)
+        }
+
+        for (uid in preferred.filterNotNull().distinct()) {
+            if (suffixes.any { data.containsKey("${uid}_$it") }) {
+                return uid
+            }
+        }
+
+        return null
     }
 }
