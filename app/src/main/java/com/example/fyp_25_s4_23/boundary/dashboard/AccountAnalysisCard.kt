@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
@@ -40,11 +41,12 @@ fun AccountAnalysisCard(
     
     // Calculate average confidence score from detection scores
     val detectionScores = incomingAnsweredCalls.mapNotNull { it.detectionScore }
-    val avgConfidence = if (detectionScores.isNotEmpty()) {
-        (detectionScores.average() * 100).roundToInt()
+    val avgConfidencePercent = if (detectionScores.isNotEmpty()) {
+        detectionScores.average() * 100.0
     } else {
-        0
+        0.0
     }
+    val avgConfidenceLabel = String.format(Locale.US, "%.2f%%", avgConfidencePercent)
 
     Card(
         modifier = Modifier
@@ -88,7 +90,7 @@ fun AccountAnalysisCard(
                 // Avg Call Time
                 MetricColumn(
                     label = "Avg Call Time",
-                    value = "${avgCallTime}S"
+                    value = "${avgCallTime}s"
                 )
 
                 Divider(
@@ -101,7 +103,7 @@ fun AccountAnalysisCard(
                 // Avg Confidence Score
                 MetricColumn(
                     label = "Avg Confidence Score",
-                    value = "$avgConfidence%"
+                    value = avgConfidenceLabel
                 )
             }
         }
