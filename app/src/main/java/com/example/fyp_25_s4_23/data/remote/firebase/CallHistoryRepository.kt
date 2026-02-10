@@ -154,8 +154,15 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             // For incoming calls, current user = callee, so we use current user's UID
             val currentUid = FirebaseAuth.getInstance().currentUser?.uid
             val callId = data["id"] as? String ?: "unknown"
+            val callerUid = data["caller_user_id"] as? String
             val calleeUid = data["callee_user_id"] as? String
-            val isCaller = data["is_caller"] as? Boolean ?: false
+            val isCallerRaw = data["is_caller"] as? Boolean ?: false
+            val isCaller = if (!callerUid.isNullOrBlank() && currentUid != null) {
+                currentUid == callerUid
+            } else {
+                isCallerRaw
+            }
+            val isCallee = !calleeUid.isNullOrBlank() && currentUid != null && currentUid == calleeUid
             
             Log.d("CallHistoryRepository", "=== Parsing call $callId ===")
             Log.d("CallHistoryRepository", "  currentUid: $currentUid, calleeUid: $calleeUid")
@@ -164,9 +171,9 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             Log.d("CallHistoryRepository", "  Available keys: ${data.keys}")
             
             // Detection fields are stored under the callee UID (highest score and deepfake fields).
-            val uidForDetection = if (!isCaller) calleeUid else null
+            val uidForDetection = if (isCallee) calleeUid else null
             
-            val detectionScore = if (!isCaller && uidForDetection != null) {
+            val detectionScore = if (isCallee && uidForDetection != null) {
                 val highestScoreKey = "${uidForDetection}_highest_detection_score"
                 val score = (data[highestScoreKey] as? Number)?.toDouble()
                 Log.d("CallHistoryRepository", "  Looking for '$highestScoreKey': $score")
@@ -206,7 +213,7 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 detectionTimestampMillisLatest
             ).maxOrNull()
             
-            val isDeepfake = if (!isCaller && uidForDetection != null) {
+            val isDeepfake = if (isCallee && uidForDetection != null) {
                 val highestDeepfakeKey = "${uidForDetection}_highest_is_deepfake"
                 val deepfake = data[highestDeepfakeKey] as? Boolean
                 Log.d(
@@ -245,7 +252,7 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
 
             FirebaseCallRecord(
                 id = data["id"] as? String ?: "",
-                callerUserId = data["caller_user_id"] as? String ?: "",
+                callerUserId = callerUid ?: "",
                 calleeUserId = data["callee_user_id"] as? String ?: "",
                 createdAt = createdAt,
                 endedAt = endedAt,
