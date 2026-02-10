@@ -61,7 +61,7 @@ class AdminManagementService {
      */
     suspend fun deleteReview(reviewId: String): Boolean = try {
         val data = mapOf("reviewId" to reviewId)
-        val result = functions.getHttpsCallable("deleteReview").call(data).await()
+        val result = functions.getHttpsCallable("adminDeleteReview").call(data).await()
         @Suppress("UNCHECKED_CAST")
         (result.data as? Map<String, Any>)?.get("success") as? Boolean ?: false
     } catch (e: Exception) {

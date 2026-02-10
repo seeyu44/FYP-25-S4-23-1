@@ -5,6 +5,7 @@ import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -80,12 +81,16 @@ fun AdminDashboard(
 ) {
     val ctx = LocalContext.current
     LaunchedEffect(user.role) {
-        Log.i("AdminDashboard", "Admin user verified via Firebase Custom Claims. UID: ${user.firebaseUid}, Role: ${user.role}")
-        Toast.makeText(ctx, "Admin access verified via Firebase Custom Claims", Toast.LENGTH_SHORT).show()
+        Log.i(
+            "AdminDashboard",
+            "Admin user verified via Firebase Custom Claims. UID: ${user.firebaseUid}, Role: ${user.role}"
+        )
+        Toast.makeText(ctx, "Admin access verified via Firebase Custom Claims", Toast.LENGTH_SHORT)
+            .show()
     }
     var menuExpanded by remember { mutableStateOf(false) }
     var showCreateAdminDialog by remember { mutableStateOf(false) }
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -146,7 +151,9 @@ fun AdminDashboard(
                 currentRoute = "admin",
                 onNavigate = { route ->
                     when (route) {
-                        "admin" -> { /* Already on admin dashboard */ }
+                        "admin" -> { /* Already on admin dashboard */
+                        }
+
                         "summary" -> onNavigateToSummary?.invoke()
                         "call_history" -> onNavigateToCallHistory?.invoke()
                         "dialer" -> onNavigateToDialer?.invoke()
@@ -157,282 +164,312 @@ fun AdminDashboard(
             )
         }
     ) { paddingValues ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
         ) {
-            val uptime = remember { mutableStateOf("00:00:00") }
-            val isSystemHealthy = remember { mutableStateOf(true) }
-            val lastUpdateTime = remember { mutableStateOf(System.currentTimeMillis()) }
-
-            LaunchedEffect(Unit) {
-                while (true) {
-                    try {
-                        uptime.value = systemController.fetchUptime()
-                        lastUpdateTime.value = System.currentTimeMillis()
-                        isSystemHealthy.value = true
-                    } catch (e: Exception) {
-                        isSystemHealthy.value = false
-                    }
-                    delay(1000)
-                }
-            }
-
-            // Monitor if uptime stops updating (system down)
-            LaunchedEffect(Unit) {
-                while (true) {
-                    delay(3000) // Check every 3 seconds
-                    val timeSinceLastUpdate = System.currentTimeMillis() - lastUpdateTime.value
-                    if (timeSinceLastUpdate > 3000) {
-                        isSystemHealthy.value = false
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier.padding(top = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            val horizontalPadding = if (this.maxWidth < 400.dp) 8.dp else 16.dp
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = horizontalPadding, vertical = 16.dp)
             ) {
-                // Status indicator circle
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .background(
-                            color = if (isSystemHealthy.value) Color.Green else Color.Red,
-                            shape = CircleShape
-                        )
-                )
+                val uptime = remember { mutableStateOf("00:00:00") }
+                val isSystemHealthy = remember { mutableStateOf(true) }
+                val lastUpdateTime = remember { mutableStateOf(System.currentTimeMillis()) }
 
-                Text(
-                    text = "System Uptime: ${uptime.value}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-
-                Text(
-                    text = if (isSystemHealthy.value) "(Online)" else "(Offline)",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (isSystemHealthy.value) Color.Green else Color.Red,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
-
-            if (message != null) {
-                Text(text = message, modifier = Modifier.padding(top = 8.dp))
-            }
-
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(top = 12.dp)
-            ) {
-                // Call Analysis Section
-                item {
-                    CallAnalysisCard(callRecords = callRecords)
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        try {
+                            uptime.value = systemController.fetchUptime()
+                            lastUpdateTime.value = System.currentTimeMillis()
+                            isSystemHealthy.value = true
+                        } catch (e: Exception) {
+                            isSystemHealthy.value = false
+                        }
+                        delay(1000)
+                    }
                 }
 
-                // Registered Users Section
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        colors = CardDefaults.cardColors()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            UserManagement(
-                                users = users,
-                                onDisableUser = onDisableUser,
-                                onDeleteUser = onDeleteUser
-                            )
+                // Monitor if uptime stops updating (system down)
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        delay(3000) // Check every 3 seconds
+                        val timeSinceLastUpdate = System.currentTimeMillis() - lastUpdateTime.value
+                        if (timeSinceLastUpdate > 3000) {
+                            isSystemHealthy.value = false
                         }
                     }
                 }
 
-                // Review Management Section
-                item {
-                    Card(
+                Row(
+                    modifier = Modifier.padding(top = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Status indicator circle
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        colors = CardDefaults.cardColors()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            ReviewManagement(
-                                reviews = reviews,
-                                onDeleteReview = onDeleteReview
+                            .size(12.dp)
+                            .background(
+                                color = if (isSystemHealthy.value) Color.Green else Color.Red,
+                                shape = CircleShape
                             )
-                        }
-                    }
+                    )
+
+                    Text(
+                        text = "System Uptime: ${uptime.value}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+
+                    Text(
+                        text = if (isSystemHealthy.value) "(Online)" else "(Offline)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isSystemHealthy.value) Color.Green else Color.Red,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
                 }
 
-                // Audit Log Management Section
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        colors = CardDefaults.cardColors()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            var auditLogPage by remember { mutableStateOf(0) }
-                            var auditLogSearch by remember { mutableStateOf("") }
-                            val pageSize = 10
-                            val viewModel: AppMainViewModel = viewModel()
-                            val logs = auditLogs
-                            AuditLogManagement(
-                                auditLogs = logs,
-                                modifier = Modifier,
-                                onPageChange = { newPage: Int ->
-                                    auditLogPage = newPage
-                                    viewModel.loadAuditLogs(page = auditLogPage, pageSize = pageSize, search = auditLogSearch)
-                                },
-                                onSearchChange = { newSearch: String ->
-                                    auditLogSearch = newSearch
-                                    auditLogPage = 0
-                                    viewModel.loadAuditLogs(page = auditLogPage, pageSize = pageSize, search = auditLogSearch)
-                                },
-                                page = auditLogPage,
-                                pageSize = pageSize,
-                                search = auditLogSearch
-                            )
-                        }
-                    }
+                if (message != null) {
+                    Text(text = message, modifier = Modifier.padding(top = 8.dp))
                 }
-            }
-        }
-    }
-    
-    if (showCreateAdminDialog) {
-        CreateAdminDialog(
-            onDismiss = { showCreateAdminDialog = false },
-            onConfirm = { email, username, displayName, password ->
-                onCreateAdmin(email, username, displayName, password)
-                showCreateAdminDialog = false
-            }
-        )
-    }
-}
 
-@Composable
-fun CreateAdminDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (String, String, String, String) -> Unit
-) {
-    var email by remember { mutableStateOf("") }
-    var username by remember { mutableStateOf("") }
-    var displayName by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf("") }
-    
-    fun validatePassword(pwd: String): String? {
-        if (pwd.length < 8) return "At least 8 characters required"
-        if (!pwd.any { it.isUpperCase() }) return "Needs one uppercase letter"
-        if (!pwd.any { it.isLowerCase() }) return "Needs one lowercase letter"
-        if (!pwd.any { it.isDigit() }) return "Needs one number"
-        if (!pwd.any { !it.isLetterOrDigit() }) return "Needs one special character"
-        return null
-    }
-    
-    fun canSubmit(): Boolean {
-        if (email.isBlank() || username.isBlank() || displayName.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
-            return false
-        }
-        if (password != confirmPassword) {
-            return false
-        }
-        if (validatePassword(password) != null) {
-            return false
-        }
-        return true
-    }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Create Admin Account") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it; errorMessage = "" },
-                    label = { Text("Email") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it; errorMessage = "" },
-                    label = { Text("Username") },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = displayName,
-                    onValueChange = { displayName = it },
-                    label = { Text("Display Name") },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password") },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true,
-                    isError = password.isNotBlank() && validatePassword(password) != null,
-                    supportingText = {
-                        if (password.isNotBlank()) {
-                            validatePassword(password)?.let { 
-                                Text(it, color = MaterialTheme.colorScheme.error)
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(top = 12.dp)
+                ) {
+                    // Call Analysis Section
+                    item {
+                        CallAnalysisCard(callRecords = callRecords)
+                    }
+
+                    // Registered Users Section
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                            colors = CardDefaults.cardColors()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(
+                                    horizontal = horizontalPadding,
+                                    vertical = 16.dp
+                                )
+                            ) {
+                                UserManagement(
+                                    users = users,
+                                    onDisableUser = onDisableUser,
+                                    onDeleteUser = onDeleteUser
+                                )
                             }
                         }
                     }
-                )
-                OutlinedTextField(
-                    value = confirmPassword,
-                    onValueChange = { confirmPassword = it },
-                    label = { Text("Confirm Password") },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true,
-                    isError = confirmPassword.isNotBlank() && password != confirmPassword,
-                    supportingText = {
-                        if (confirmPassword.isNotBlank() && password != confirmPassword) {
-                            Text("Passwords do not match", color = MaterialTheme.colorScheme.error)
+
+                    // Review Management Section
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                            colors = CardDefaults.cardColors()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(
+                                    horizontal = horizontalPadding,
+                                    vertical = 16.dp
+                                )
+                            ) {
+                                ReviewManagement(
+                                    reviews = reviews,
+                                    onDeleteReview = onDeleteReview
+                                )
+                            }
                         }
                     }
-                )
-                Text(
-                    text = "Role will be set to ADMIN automatically",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-                if (errorMessage.isNotBlank()) {
-                    Text(
-                        text = errorMessage,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
+
+                    // Audit Log Management Section
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                            colors = CardDefaults.cardColors()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(
+                                    horizontal = horizontalPadding,
+                                    vertical = 16.dp
+                                )
+                            ) {
+                                var auditLogPage by remember { mutableStateOf(0) }
+                                var auditLogSearch by remember { mutableStateOf("") }
+                                val pageSize = 10
+                                val viewModel: AppMainViewModel = viewModel()
+                                val logs = auditLogs
+                                AuditLogManagement(
+                                    auditLogs = logs,
+                                    modifier = Modifier,
+                                    onPageChange = { newPage: Int ->
+                                        auditLogPage = newPage
+                                        viewModel.loadAuditLogs(
+                                            page = auditLogPage,
+                                            pageSize = pageSize,
+                                            search = auditLogSearch
+                                        )
+                                    },
+                                    onSearchChange = { newSearch: String ->
+                                        auditLogSearch = newSearch
+                                        auditLogPage = 0
+                                        viewModel.loadAuditLogs(
+                                            page = auditLogPage,
+                                            pageSize = pageSize,
+                                            search = auditLogSearch
+                                        )
+                                    },
+                                    page = auditLogPage,
+                                    pageSize = pageSize,
+                                    search = auditLogSearch
+                                )
+                            }
+                        }
+                    }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(email, username, displayName, password) },
-                enabled = canSubmit()
-            ) {
-                Text("Create")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
         }
-    )
+
+        @Composable
+        fun CreateAdminDialog(
+            onDismiss: () -> Unit,
+            onConfirm: (String, String, String, String) -> Unit
+        ) {
+            var email by remember { mutableStateOf("") }
+            var username by remember { mutableStateOf("") }
+            var displayName by remember { mutableStateOf("") }
+            var password by remember { mutableStateOf("") }
+            var confirmPassword by remember { mutableStateOf("") }
+            var errorMessage by remember { mutableStateOf("") }
+            fun validatePassword(pwd: String): String? {
+                if (pwd.length < 8) return "At least 8 characters required"
+                if (!pwd.any { it.isUpperCase() }) return "Needs one uppercase letter"
+                if (!pwd.any { it.isLowerCase() }) return "Needs one lowercase letter"
+                if (!pwd.any { it.isDigit() }) return "Needs one number"
+                if (!pwd.any { !it.isLetterOrDigit() }) return "Needs one special character"
+                return null
+            }
+
+            fun canSubmit(): Boolean {
+                if (email.isBlank() || username.isBlank() || displayName.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
+                    return false
+                }
+                if (password != confirmPassword) {
+                    return false
+                }
+                if (validatePassword(password) != null) {
+                    return false
+                }
+                return true
+            }
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text("Create Admin Account") },
+                text = {
+                    Column {
+                        OutlinedTextField(
+                            value = email,
+                            onValueChange = { email = it; errorMessage = "" },
+                            label = { Text("Email") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = username,
+                            onValueChange = { username = it; errorMessage = "" },
+                            label = { Text("Username") },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = displayName,
+                            onValueChange = { displayName = it },
+                            label = { Text("Display Name") },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text("Password") },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            visualTransformation = PasswordVisualTransformation(),
+                            singleLine = true,
+                            isError = password.isNotBlank() && validatePassword(password) != null,
+                            supportingText = {
+                                if (password.isNotBlank()) {
+                                    validatePassword(password)?.let {
+                                        Text(it, color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                            }
+                        )
+                        OutlinedTextField(
+                            value = confirmPassword,
+                            onValueChange = { confirmPassword = it },
+                            label = { Text("Confirm Password") },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            visualTransformation = PasswordVisualTransformation(),
+                            singleLine = true,
+                            isError = confirmPassword.isNotBlank() && password != confirmPassword,
+                            supportingText = {
+                                if (confirmPassword.isNotBlank() && password != confirmPassword) {
+                                    Text(
+                                        "Passwords do not match",
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        )
+                        Text(
+                            text = "Role will be set to ADMIN automatically",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                        if (errorMessage.isNotBlank()) {
+                            Text(
+                                text = errorMessage,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = { onConfirm(email, username, displayName, password) },
+                        enabled = canSubmit()
+                    ) {
+                        Text("Create")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        if (showCreateAdminDialog) {
+            CreateAdminDialog(
+                onDismiss = { showCreateAdminDialog = false },
+                onConfirm = { email: String, username: String, displayName: String, password: String ->
+                    onCreateAdmin(email, username, displayName, password)
+                    showCreateAdminDialog = false
+                }
+            )
+        }
+    }
 }
