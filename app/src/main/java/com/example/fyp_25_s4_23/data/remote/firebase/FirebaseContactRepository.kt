@@ -4,7 +4,6 @@ import com.example.fyp_25_s4_23.domain.entities.ContactLabel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 import android.util.Log
 
@@ -45,22 +44,32 @@ class FirebaseContactRepository {
         // Use username as document id to prevent duplicate contacts for the same user.
         val doc = contactsRef().document(trimmedUsername)
 
-        val data = mutableMapOf(
-            "username" to trimmedUsername,
-            "label" to label.name,
-            "createdAt" to System.currentTimeMillis(),
-            "addedBy" to auth.currentUser!!.uid
-        )
+        val safeDisplayName = displayName?.trim()?.takeIf { it.isNotBlank() }
+        val safePhoneNumber = phoneNumber?.trim()?.takeIf { it.isNotBlank() }
 
-        if (!displayName.isNullOrBlank()) {
-            data["displayName"] = displayName
+        val snapshot = doc.get().await()
+        if (!snapshot.exists()) {
+            val data = mutableMapOf(
+                "username" to trimmedUsername,
+                "label" to label.name,
+                "createdAt" to System.currentTimeMillis(),
+                "addedBy" to auth.currentUser!!.uid
+            )
+
+            safeDisplayName?.let { data["displayName"] = it }
+            safePhoneNumber?.let { data["phoneNumber"] = it }
+
+            doc.set(data).await()
+        } else {
+            val updateData = mutableMapOf<String, Any>(
+                "label" to label.name
+            )
+
+            safeDisplayName?.let { updateData["displayName"] = it }
+            safePhoneNumber?.let { updateData["phoneNumber"] = it }
+
+            doc.update(updateData).await()
         }
-
-        if (!phoneNumber.isNullOrBlank()) {
-            data["phoneNumber"] = phoneNumber
-        }
-
-        doc.set(data, SetOptions.merge()).await()
     }
 
     suspend fun deleteContact(contactId: String) {
