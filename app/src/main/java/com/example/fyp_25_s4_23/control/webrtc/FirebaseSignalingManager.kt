@@ -25,22 +25,27 @@ class FirebaseSignalingManager {
         callerUid: String,
         calleeUid: String,
         callerUsername: String,
-        calleeUsername: String? = null
+        calleeUsername: String? = null,
+        callerPhone: String? = null
     ) {
+        val payload = mutableMapOf(
+            "caller_user_id" to callerUid,
+            "callee_user_id" to calleeUid,
+            "caller_username" to callerUsername,
+            "callee_username" to calleeUsername,
+            "status" to "ringing",
+            "offer_sdp" to null,
+            "answer_sdp" to null,
+            "created_at" to com.google.firebase.Timestamp.now()
+        )
+
+        if (!callerPhone.isNullOrBlank()) {
+            payload["caller_phone"] = callerPhone
+        }
+
         firestore.collection("calls")
             .document(callId)
-            .set(
-                mapOf(
-                    "caller_user_id" to callerUid,
-                    "callee_user_id" to calleeUid,
-                    "caller_username" to callerUsername,
-                    "callee_username" to calleeUsername,
-                    "status" to "ringing",
-                    "offer_sdp" to null,
-                    "answer_sdp" to null,
-                    "created_at" to com.google.firebase.Timestamp.now()
-                )
-            )
+            .set(payload)
             .addOnFailureListener { e ->
                 Log.e("CALL_SIG", "createCall FAILED", e)
             }

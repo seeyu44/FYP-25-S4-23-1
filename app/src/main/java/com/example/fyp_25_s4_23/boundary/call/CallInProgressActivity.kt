@@ -51,9 +51,13 @@ class CallInProgressActivity : ComponentActivity() {
         val contactRepository = ContactRepository(database.contactDao())
         
         // Check if phone number was passed (for outgoing calls from saved contacts)
-        val passedPhoneNumber = intent.getStringExtra("extra_phone_number")
+        val passedPhoneNumber = intent.getStringExtra(IncomingCallIntent.EXTRA_PHONE_NUMBER)
         val incomingDisplayName = intent.getStringExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME)
-        displayName = incomingDisplayName ?: remoteUserId
+        displayName = when {
+            !incomingDisplayName.isNullOrBlank() -> incomingDisplayName
+            !passedPhoneNumber.isNullOrBlank() -> passedPhoneNumber
+            else -> remoteUserId
+        }
 
         Log.d(TAG_SIG, "Call started → id=$callId incoming=$isIncoming resolved name=$displayName")
 
@@ -62,25 +66,13 @@ class CallInProgressActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-            val resolved = if (isIncoming) {
-                if (incomingDisplayName != null) {
-                    incomingDisplayName
-                } else {
-                    DisplayNameResolver.resolveDisplayName(
-                        contactRepository,
-                        currentUserId,
-                        remoteUserId,
-                        fallbackPhone = passedPhoneNumber
-                    )
-                }
-            } else {
-                DisplayNameResolver.resolveDisplayName(
-                    contactRepository,
-                    currentUserId,
-                    remoteUserId,
-                    fallbackPhone = passedPhoneNumber
-                )
-            }
+            val resolved = DisplayNameResolver.resolveDisplayName(
+                contactRepository = contactRepository,
+                currentUserId = currentUserId,
+                userId = remoteUserId,
+                fallbackName = incomingDisplayName,
+                fallbackPhone = passedPhoneNumber
+            )
 
             if (resolved.isNotBlank() && resolved != displayName) {
                 displayName = resolved

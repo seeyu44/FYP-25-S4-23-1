@@ -180,7 +180,8 @@ object IncomingCallListener {
                                         context = context.applicationContext,
                                         callId = callId,
                                         callerId = callerId,
-                                        displayName = resolvedDisplayName
+                                        displayName = resolvedDisplayName,
+                                        phoneNumber = callerPhone
                                     )
                                 }
                             }

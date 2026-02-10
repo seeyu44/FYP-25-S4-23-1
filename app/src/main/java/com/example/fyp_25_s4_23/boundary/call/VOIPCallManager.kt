@@ -20,13 +20,15 @@ object VoipCallManager {
 
         val callId = UUID.randomUUID().toString()
         val callerUsername = caller.displayName ?: caller.email ?: caller.uid
+        val callerPhone = caller.phoneNumber
 
 
         FirebaseSignalingManager().createCall(
             callId = callId,
             callerUid = caller.uid,
             calleeUid = calleeUserId,
-            callerUsername = callerUsername
+            callerUsername = callerUsername,
+            callerPhone = callerPhone
         )
 
         val intent = Intent(context, CallInProgressActivity::class.java).apply {
@@ -37,7 +39,7 @@ object VoipCallManager {
                 putExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME, calleeDisplayName)
             }
             if (calleePhoneNumber != null) {
-                putExtra("extra_phone_number", calleePhoneNumber)
+                putExtra(IncomingCallIntent.EXTRA_PHONE_NUMBER, calleePhoneNumber)
             }
         }
         context.startActivity(intent)

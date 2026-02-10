@@ -21,7 +21,8 @@ object IncomingCallNotifier {
         context: Context,
         callId: String,
         callerId: String,
-        displayName: String
+        displayName: String,
+        phoneNumber: String?
     ) {
         Log.d("INCOMING_CALL", "Showing notification for callId=$callId caller=$callerId")
         createChannel(context)
@@ -31,6 +32,7 @@ object IncomingCallNotifier {
             callId = callId,
             callerId = callerId,
             displayName = displayName,
+            phoneNumber = phoneNumber,
             isIncoming = true
         ).apply{
             action = "INCOMING_CALL_$callId"
