@@ -61,8 +61,8 @@ fun SummaryScreen(
         // Missed calls: no detectionScore
         // Suspicious calls: isDeepfake == true
         val allCalls = callsInRange
-        val answeredCalls = callsInRange.filter { it.isCompleted() }
-        val missedCalls = callsInRange.filter { !it.isCompleted() }
+        val answeredCalls = callsInRange.filter { it.detectionScore != null }
+        val missedCalls = callsInRange.filter { it.detectionScore == null }
         val suspiciousCalls = answeredCalls.filter { it.isDeepfake == true }
 
         // Calculate average confidence from detection scores (only for answered calls)
@@ -117,8 +117,8 @@ fun SummaryScreen(
         }
 
         return callsByDay.map { (date, callsForDay) ->
-            val answeredCalls = callsForDay.filter { it.isCompleted() }
-            val missedCalls = callsForDay.filter { !it.isCompleted() }
+            val answeredCalls = callsForDay.filter { it.detectionScore != null }
+            val missedCalls = callsForDay.filter { it.detectionScore == null }
             val suspiciousCalls = answeredCalls.filter { it.isDeepfake == true }
 
             val detectionScores = answeredCalls.mapNotNull { it.detectionScore }
