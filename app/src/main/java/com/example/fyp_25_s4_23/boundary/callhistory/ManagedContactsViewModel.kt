@@ -127,7 +127,12 @@ class ManagedContactsViewModel(
 
                 // Add to Firebase first (uses username)
                 android.util.Log.d("ADD_CONTACT", "Adding to Firebase: username=${lookupResult.username}, label=$label")
-                firebaseRepo.addContact(lookupResult.username, label)
+                firebaseRepo.addContact(
+                    username = lookupResult.username,
+                    label = label,
+                    displayName = newContact.displayName,
+                    phoneNumber = newContact.phoneNumber
+                )
                 
                 // Add to local database
                 android.util.Log.d("ADD_CONTACT", "Adding to local DB: displayName=${newContact.displayName}, phone=${newContact.phoneNumber}")
