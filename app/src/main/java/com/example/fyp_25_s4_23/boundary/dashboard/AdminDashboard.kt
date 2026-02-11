@@ -243,14 +243,6 @@ fun AdminDashboard(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(top = 12.dp)
                 ) {
-                    // Call Analysis Section
-                    item {
-                        CallAnalysisCard(callRecords = callRecords)
-                    }
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(top = 12.dp)
-        ) {
             // Call Analysis Section
             item {
                 CallAnalysisCard(callRecords = callRecords)

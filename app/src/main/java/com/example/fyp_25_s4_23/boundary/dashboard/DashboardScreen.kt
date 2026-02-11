@@ -43,7 +43,7 @@ fun DashboardScreen(
     onDeleteUser: ((String) -> Unit)? = null,
     reviews: List<com.example.fyp_25_s4_23.boundary.dashboard.ReviewWithUserInfo> = emptyList(),
     onDeleteReview: ((String) -> Unit)? = null,
-    auditLogs: List<com.example.fyp_25_s4_23.domain.entities.AuditLog> = emptyList()
+    auditLogs: List<com.example.fyp_25_s4_23.domain.entities.AuditLog> = emptyList(),
     globalBlockedUsers: List<GlobalBlockedUser> = emptyList(),
     onBlacklistGlobalUser: ((String) -> Unit)? = null,
     onRemoveGlobalBlockedUser: ((String) -> Unit)? = null
@@ -69,7 +69,7 @@ fun DashboardScreen(
                 onNavigateToSummary = onNavigateToSummary,
                 onNavigateToCallHistory = onNavigateToCallHistory,
                 onNavigateToContactList = onNavigateToContactList,
-                onNavigateToDialer = onNavigateToDialer
+                onNavigateToDialer = onNavigateToDialer,
                 onBlacklistGlobalUser = onBlacklistGlobalUser ?: {},
                 onRemoveGlobalBlockedUser = onRemoveGlobalBlockedUser ?: {}
             )

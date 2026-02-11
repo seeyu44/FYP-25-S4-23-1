@@ -488,54 +488,6 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun blacklistGlobalUser(userId: String) {
-        viewModelScope.launch {
-            _state.update { it.copy(isBusy = true, message = null) }
-            runCatching {
-                globalBlockRepository.updateLabel(userId, "blacklisted")
-            }.onSuccess {
-                _state.update {
-                    it.copy(
-                        globalBlockedUsers = it.globalBlockedUsers.filterNot { user -> user.userId == userId },
-                        isBusy = false,
-                        message = "User blacklisted"
-                    )
-                }
-            }.onFailure { ex ->
-                _state.update {
-                    it.copy(
-                        isBusy = false,
-                        message = "Failed to blacklist: ${ex.message}"
-                    )
-                }
-            }
-        }
-    }
-
-    fun removeGlobalBlockedUser(userId: String) {
-        viewModelScope.launch {
-            _state.update { it.copy(isBusy = true, message = null) }
-            runCatching {
-                globalBlockRepository.removeUser(userId)
-            }.onSuccess {
-                _state.update {
-                    it.copy(
-                        globalBlockedUsers = it.globalBlockedUsers.filterNot { user -> user.userId == userId },
-                        isBusy = false,
-                        message = "User removed from global block list"
-                    )
-                }
-            }.onFailure { ex ->
-                _state.update {
-                    it.copy(
-                        isBusy = false,
-                        message = "Failed to remove user: ${ex.message}"
-                    )
-                }
-            }
-        }
-    }
-
     /* =========================
        DETECTION
        ========================= */
