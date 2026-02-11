@@ -13,11 +13,21 @@ class VOIPMessagingService : FirebaseMessagingService() {
         val type = data["type"]
         val caller = data["caller"]
         val callId = data["call_id"]
+        val callerPhone = data["caller_phone"]
+        val callerUsername = data["caller_username"]
 
         if (type == "incoming_call" && !caller.isNullOrBlank() && !callId.isNullOrBlank()) {
             Log.i("VOIPMessaging", "Incoming call from $caller")
             startActivity(
-                IncomingCallIntent.create(this, callId, caller, caller, isIncoming=true)
+                IncomingCallIntent.create(
+                    context = this,
+                    callId = callId,
+                    callerId = caller,
+                    displayName = caller,
+                    phoneNumber = callerPhone,
+                    username = callerUsername,
+                    isIncoming = true
+                )
             )
         }
     }

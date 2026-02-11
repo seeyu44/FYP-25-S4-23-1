@@ -31,6 +31,7 @@ import com.example.fyp_25_s4_23.boundary.dashboard.BottomNavigationBar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * Displays call history fetched from Firebase Cloud Functions
@@ -269,15 +270,26 @@ fun FirebaseCallHistoryCard(call: FirebaseCallRecord) {
                 )
             }
 
-            // Duration (only show if call is completed)
+            // Duration + confidence rules: caller sees only total time; callee sees total time + confidence.
             val effectiveDurationSeconds = call.getEffectiveDurationSeconds()
-            if (call.isCompleted() && effectiveDurationSeconds > 0) {
-                val durationLabel = if (call.detectionScore != null) "Total time" else "Duration"
+            val showConfidence = !call.isCaller && call.detectionScore != null
+            val showDuration = call.isCaller || !call.isCaller
+            if (call.isCompleted() && effectiveDurationSeconds > 0 && showDuration) {
                 Text(
-                    text = "$durationLabel: ${call.getEffectiveDurationString()}",
+                    text = "Total time: ${call.getEffectiveDurationString()}",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+
+                if (showConfidence) {
+                    val confidencePercent = (call.detectionScore!! * 100).roundToInt()
+                    Text(
+                        text = "Confidence: $confidencePercent%",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
             }
 
             // Other user info

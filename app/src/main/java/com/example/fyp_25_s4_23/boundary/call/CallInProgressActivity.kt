@@ -22,8 +22,11 @@ import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import com.example.fyp_25_s4_23.util.DisplayNameResolver
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository
+import kotlinx.coroutines.tasks.await
 private const val TAG_SIG = "CALL_SIG"
 private const val TAG_WEBRTC = "WEBRTC_FLOW"
 private lateinit var displayName : String
@@ -34,6 +37,8 @@ class CallInProgressActivity : ComponentActivity() {
 
     private var webRtcClient: WebRtcClient? = null
     private var signaling: FirebaseSignalingManager? = null
+    private var hasFlaggedGlobalBlock: Boolean = false
+    private var isRemoteKnownContact: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,15 +50,20 @@ class CallInProgressActivity : ComponentActivity() {
             intent.getStringExtra(IncomingCallIntent.EXTRA_REMOTE_USER_ID) ?: return finish()
         val isIncoming =
             intent.getBooleanExtra(IncomingCallIntent.EXTRA_IS_INCOMING, false)
+        val remoteUsername = intent.getStringExtra(IncomingCallIntent.EXTRA_USERNAME)
 
         // Resolve contact name asynchronously to avoid blocking the main thread
         val database = com.example.fyp_25_s4_23.entity.data.db.AppDatabase.getInstance(this)
         val contactRepository = ContactRepository(database.contactDao())
         
         // Check if phone number was passed (for outgoing calls from saved contacts)
-        val passedPhoneNumber = intent.getStringExtra("extra_phone_number")
+        val passedPhoneNumber = intent.getStringExtra(IncomingCallIntent.EXTRA_PHONE_NUMBER)
         val incomingDisplayName = intent.getStringExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME)
-        displayName = incomingDisplayName ?: remoteUserId
+        displayName = when {
+            !incomingDisplayName.isNullOrBlank() -> incomingDisplayName
+            !passedPhoneNumber.isNullOrBlank() -> passedPhoneNumber
+            else -> remoteUserId
+        }
 
         Log.d(TAG_SIG, "Call started → id=$callId incoming=$isIncoming resolved name=$displayName")
 
@@ -62,25 +72,26 @@ class CallInProgressActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-            val resolved = if (isIncoming) {
-                if (incomingDisplayName != null) {
-                    incomingDisplayName
-                } else {
-                    DisplayNameResolver.resolveDisplayName(
-                        contactRepository,
-                        currentUserId,
-                        remoteUserId,
-                        fallbackPhone = passedPhoneNumber
-                    )
-                }
+            val knownByPhone = if (!passedPhoneNumber.isNullOrBlank()) {
+                contactRepository.getContactByPhoneNumber(currentUserId, passedPhoneNumber)
             } else {
-                DisplayNameResolver.resolveDisplayName(
-                    contactRepository,
-                    currentUserId,
-                    remoteUserId,
-                    fallbackPhone = passedPhoneNumber
-                )
+                null
             }
+            val usernameToCheck = remoteUsername ?: incomingDisplayName
+            val knownByUsername = if (!usernameToCheck.isNullOrBlank()) {
+                contactRepository.getContactByUsername(currentUserId, usernameToCheck)
+            } else {
+                null
+            }
+            isRemoteKnownContact = knownByPhone != null || knownByUsername != null
+
+            val resolved = DisplayNameResolver.resolveDisplayName(
+                contactRepository = contactRepository,
+                currentUserId = currentUserId,
+                userId = remoteUserId,
+                fallbackName = incomingDisplayName,
+                fallbackPhone = passedPhoneNumber
+            )
 
             if (resolved.isNotBlank() && resolved != displayName) {
                 displayName = resolved
@@ -88,14 +99,46 @@ class CallInProgressActivity : ComponentActivity() {
             }
         }
 
-        val localUserId =
-            FirebaseAuthManager.currentUser()?.uid ?: return finish()
+        val localUserId = FirebaseAuthManager.currentUser()?.uid
+        if (localUserId == null) {
+            finish()
+            return
+        }
 
         signaling = FirebaseSignalingManager()
         ActiveCallStore.setWebRtcActive(callId, remoteUserId)
 
-        // Initialize database DAO for detection results
-        val detectionDao = database.detectionResultDao()
+        val globalBlockRepository = GlobalBlockRepository()
+
+        viewModel.onDeepfakeFlagged = { _ ->
+            if (isIncoming && !hasFlaggedGlobalBlock && !isRemoteKnownContact) {
+                lifecycleScope.launch {
+                    try {
+                        val callSnapshot = FirebaseFirestore.getInstance()
+                            .collection("calls")
+                            .document(callId)
+                            .get()
+                            .await()
+                        val highestKey = "${remoteUserId}_highest_is_deepfake"
+                        val highestIsDeepfake = callSnapshot.getBoolean(highestKey) == true
+                        if (!highestIsDeepfake) {
+                            Log.d(TAG_SIG, "Skip global flag: $highestKey is not true")
+                            return@launch
+                        }
+
+                        hasFlaggedGlobalBlock = true
+                        globalBlockRepository.flagUser(
+                            userId = remoteUserId,
+                            username = remoteUsername ?: incomingDisplayName,
+                            phoneNumber = passedPhoneNumber,
+                            callId = callId
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG_SIG, "Failed to flag user in global block list", e)
+                    }
+                }
+            }
+        }
 
         webRtcClient = WebRtcClient(
             context = this,

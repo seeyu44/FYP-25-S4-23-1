@@ -1,10 +1,10 @@
 package com.example.fyp_25_s4_23.data.remote.firebase
 
-import com.example.fyp_25_s4_23.domain.entities.Contact
 import com.example.fyp_25_s4_23.domain.entities.ContactLabel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 import android.util.Log
 
@@ -23,20 +23,50 @@ class FirebaseContactRepository {
             .collection("contacts")
     }
 
+    data class RemoteContact(
+        val id: String,
+        val username: String,
+        val userId: String?,
+        val displayName: String?,
+        val phoneNumber: String?,
+        val label: ContactLabel
+    )
+
     suspend fun addContact(
         username: String,
-        label: ContactLabel
+        label: ContactLabel,
+        userId: String? = null,
+        displayName: String? = null,
+        phoneNumber: String? = null
     ) {
-        val doc = contactsRef().document()
+        val trimmedUsername = username.trim()
+        if (trimmedUsername.isBlank()) {
+            throw IllegalArgumentException("Username is required to save a contact")
+        }
 
-        val data = mapOf(
-            "username" to username,
+        // Use username as document id to prevent duplicate contacts for the same user.
+        val doc = contactsRef().document(trimmedUsername)
+
+        val data = mutableMapOf(
+            "username" to trimmedUsername,
             "label" to label.name,
             "createdAt" to System.currentTimeMillis(),
             "addedBy" to auth.currentUser!!.uid
         )
 
-        doc.set(data).await()
+        if (!displayName.isNullOrBlank()) {
+            data["displayName"] = displayName
+        }
+
+        if (!phoneNumber.isNullOrBlank()) {
+            data["phoneNumber"] = phoneNumber
+        }
+
+        if (!userId.isNullOrBlank()) {
+            data["userId"] = userId
+        }
+
+        doc.set(data, SetOptions.merge()).await()
     }
 
     suspend fun deleteContact(contactId: String) {
@@ -70,8 +100,7 @@ class FirebaseContactRepository {
         }
     }
 
-    suspend fun fetchContacts(): List<Contact> {
-        val currentUserId = auth.currentUser?.uid ?: ""
+    suspend fun fetchContacts(): List<RemoteContact> {
         return contactsRef()
             .get()
             .await()
@@ -87,11 +116,19 @@ class FirebaseContactRepository {
                 val label = runCatching { ContactLabel.valueOf(labelRaw ?: "") }
                     .getOrDefault(ContactLabel.NONE)
 
-                Contact(
+                val displayName = doc.getString("displayName")
+                    ?: doc.getString("contactName")
+
+                val phoneNumber = doc.getString("phoneNumber")
+
+                val userId = doc.getString("userId")
+
+                RemoteContact(
                     id = doc.id,
-                    userId = currentUserId,
-                    displayName = username,
-                    phoneNumber = "VOIP_USER",
+                    username = username,
+                    userId = userId,
+                    displayName = displayName,
+                    phoneNumber = phoneNumber,
                     label = label
                 )
             }

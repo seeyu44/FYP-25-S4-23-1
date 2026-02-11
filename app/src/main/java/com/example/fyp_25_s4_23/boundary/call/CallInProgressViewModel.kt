@@ -74,6 +74,7 @@ class CallInProgressViewModel : ViewModel() {
     
     // Callback for when user accepts incoming call or starts outgoing call
     var onStartCallRequested: (() -> Unit)? = null
+    var onDeepfakeFlagged: ((Float) -> Unit)? = null
 
     fun setCallDirection(isIncoming: Boolean) {
         isIncomingCall = isIncoming
@@ -150,6 +151,7 @@ class CallInProgressViewModel : ViewModel() {
                     isDetectionActive = true
                 )
                 if (isDeepfake && !alreadyAlerted) {
+                    onDeepfakeFlagged?.invoke(score)
                     viewModelScope.launch {
                         _events.emit(CallUiEvent.Vibrate(score))
                     }

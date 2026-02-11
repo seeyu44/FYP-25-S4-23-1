@@ -56,6 +56,12 @@ class ContactRepository(
         }
     }
 
+    suspend fun updateContactDetails(id: String, displayName: String?, phoneNumber: String) {
+        id.toIntOrNull()?.let { intId ->
+            contactDao.updateContactDetails(intId, displayName, phoneNumber)
+        }
+    }
+
     suspend fun clearAll(){
         contactDao.clearAll()
     }

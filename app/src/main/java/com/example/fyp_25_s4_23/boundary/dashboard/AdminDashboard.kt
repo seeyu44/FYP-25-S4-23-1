@@ -50,6 +50,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fyp_25_s4_23.control.viewmodel.AppMainViewModel
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository.GlobalBlockedUser
 
 /**
  * Admin dashboard showing operational metrics and system management tools.
@@ -63,12 +64,15 @@ fun AdminDashboard(
     user: UserAccount,
     callRecords: List<CallRecord>,
     users: List<UserAccount>,
+    globalBlockedUsers: List<GlobalBlockedUser>,
     message: String?,
     isBusy: Boolean,
     onLogout: () -> Unit,
     onRefresh: () -> Unit,
     systemController: SystemController,
     onCreateAdmin: (String, String, String, String) -> Unit,
+    onBlacklistGlobalUser: (String) -> Unit,
+    onRemoveGlobalBlockedUser: (String) -> Unit,
     onToggleDisableUser: (String, Boolean) -> Unit = { _, _ -> },
     onDeleteUser: (String) -> Unit = { },
     reviews: List<com.example.fyp_25_s4_23.boundary.dashboard.ReviewWithUserInfo> = emptyList(),
@@ -243,6 +247,65 @@ fun AdminDashboard(
                     item {
                         CallAnalysisCard(callRecords = callRecords)
                     }
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(top = 12.dp)
+        ) {
+            // Call Analysis Section
+            item {
+                CallAnalysisCard(callRecords = callRecords)
+            }
+
+            // Global Blocked Review Section
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    colors = CardDefaults.cardColors()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Flagged Users (Global)", style = MaterialTheme.typography.titleMedium)
+                        if (globalBlockedUsers.isEmpty()) {
+                            Text("No flagged users pending review")
+                        } else {
+                            globalBlockedUsers.forEach { entry ->
+                                Column(modifier = Modifier.padding(top = 12.dp)) {
+                                    Text(
+                                        text = entry.username ?: "UID: ${entry.userId}",
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    entry.phoneNumber?.takeIf { it.isNotBlank() }?.let { phone ->
+                                        Text(
+                                            text = phone,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Row(
+                                        modifier = Modifier.padding(top = 8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        TextButton(
+                                            onClick = { onRemoveGlobalBlockedUser(entry.userId) },
+                                            enabled = !isBusy
+                                        ) {
+                                            Text("Remove")
+                                        }
+                                        Button(
+                                            onClick = { onBlacklistGlobalUser(entry.userId) },
+                                            enabled = !isBusy
+                                        ) {
+                                            Text("Blacklist")
+                                        }
+                                    }
+                                }
+                                Divider(modifier = Modifier.padding(top = 12.dp))
+                            }
+                        }
+                    }
+                }
+            }
 
                     // Registered Users Section
                     item {

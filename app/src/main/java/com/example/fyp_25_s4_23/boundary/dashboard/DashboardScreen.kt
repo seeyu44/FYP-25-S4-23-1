@@ -16,6 +16,7 @@ import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 import com.example.fyp_25_s4_23.control.controllers.SystemController
+import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository.GlobalBlockedUser
 
 /**
  * Main dashboard router that displays the appropriate dashboard based on user role.
@@ -43,6 +44,9 @@ fun DashboardScreen(
     reviews: List<com.example.fyp_25_s4_23.boundary.dashboard.ReviewWithUserInfo> = emptyList(),
     onDeleteReview: ((String) -> Unit)? = null,
     auditLogs: List<com.example.fyp_25_s4_23.domain.entities.AuditLog> = emptyList()
+    globalBlockedUsers: List<GlobalBlockedUser> = emptyList(),
+    onBlacklistGlobalUser: ((String) -> Unit)? = null,
+    onRemoveGlobalBlockedUser: ((String) -> Unit)? = null
 ) {
     when (user.role) {
         UserRole.ADMIN -> {
@@ -50,6 +54,7 @@ fun DashboardScreen(
                 user = user,
                 callRecords = callRecords,
                 users = users,
+                globalBlockedUsers = globalBlockedUsers,
                 message = message,
                 isBusy = isBusy,
                 onLogout = onLogout,
@@ -65,6 +70,8 @@ fun DashboardScreen(
                 onNavigateToCallHistory = onNavigateToCallHistory,
                 onNavigateToContactList = onNavigateToContactList,
                 onNavigateToDialer = onNavigateToDialer
+                onBlacklistGlobalUser = onBlacklistGlobalUser ?: {},
+                onRemoveGlobalBlockedUser = onRemoveGlobalBlockedUser ?: {}
             )
         }
         else -> {

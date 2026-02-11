@@ -13,8 +13,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
-import com.example.fyp_25_s4_23.domain.entities.ContactLabel
 import com.example.fyp_25_s4_23.util.DisplayNameResolver
+import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository
 
 
 object IncomingCallListener {
@@ -28,6 +28,7 @@ object IncomingCallListener {
     fun start(context: Context) {
         val database = AppDatabase.getInstance(context)
         val contactRepository = ContactRepository(database.contactDao())
+        val globalBlockRepository = GlobalBlockRepository()
         val uid = FirebaseAuth.getInstance().currentUser?.uid
 
         if (uid == null) {
@@ -110,52 +111,69 @@ object IncomingCallListener {
                                 fallbackName = callerUsername, // Use callerUsername (email) as last resort
                                 fallbackPhone = callerPhone // Use phone from call document
                             )
+
+                            val isGloballyBlocked = try {
+                                globalBlockRepository.isGloballyBlocked(callerId)
+                            } catch (e: Exception) {
+                                Log.e("INCOMING_CALL", "Error checking global blocked list", e)
+                                false
+                            }
                             
                             // Check if contact is blocked by checking Firebase contacts collection
                             val isBlocked = try {
-                                // Get the actual username from the phone number
-                                val actualUsername = if (!callerPhone.isNullOrBlank()) {
-                                    try {
-                                        val phoneLookupService = com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService()
-                                        phoneLookupService.getUserByPhoneNumber(callerPhone).username
-                                    } catch (e: Exception) {
-                                        Log.d("INCOMING_CALL", "Phone lookup failed, using callerUsername: $callerUsername")
-                                        callerUsername
-                                    }
-                                } else {
-                                    callerUsername
-                                }
-                                
-                                Log.d("INCOMING_CALL", "Checking if username=$actualUsername is blocked")
-                                
-                                val contactsSnapshot = db
+                                val contactsRef = db
                                     .collection("users")
                                     .document(uid)
                                     .collection("contacts")
-                                    .whereEqualTo("username", actualUsername)
+
+                                // First try: match by userId (most reliable)
+                                val blockedByUserId = contactsRef
+                                    .whereEqualTo("userId", callerId)
                                     .get()
                                     .await()
-                                
-                                // Check if any contact has label = "BLACK"
-                                val blocked = contactsSnapshot.documents.any { doc ->
-                                    doc.getString("label") == "BLACK"
+                                    .documents
+                                    .any { doc -> doc.getString("label") == "BLACK" }
+
+                                if (blockedByUserId) {
+                                    Log.d("INCOMING_CALL", "Blocked by userId match: $callerId")
+                                    true
+                                } else {
+                                    // Fallback: match by username
+                                    val actualUsername = if (!callerPhone.isNullOrBlank()) {
+                                        try {
+                                            val phoneLookupService = com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService()
+                                            phoneLookupService.getUserByPhoneNumber(callerPhone).username
+                                        } catch (e: Exception) {
+                                            Log.d("INCOMING_CALL", "Phone lookup failed, using callerUsername: $callerUsername")
+                                            callerUsername
+                                        }
+                                    } else {
+                                        callerUsername
+                                    }
+
+                                    Log.d("INCOMING_CALL", "Checking if username=$actualUsername is blocked")
+
+                                    val blockedByUsername = contactsRef
+                                        .whereEqualTo("username", actualUsername)
+                                        .get()
+                                        .await()
+                                        .documents
+                                        .any { doc -> doc.getString("label") == "BLACK" }
+
+                                    blockedByUsername
                                 }
                                 
-                                if (blocked) {
-                                    Log.d("INCOMING_CALL", "Found contact with username=$actualUsername marked as BLOCKED")
-                                }
-                                
-                                blocked
+                            
                             } catch (e: Exception) {
                                 Log.e("INCOMING_CALL", "Error checking Firebase contacts", e)
                                 false // Default to not blocked if error
                             }
 
                             when {
-                                isBlocked -> {
+                                isGloballyBlocked || isBlocked -> {
                                     Log.w(
                                         "INCOMING_CALL",
-                                        "Blocked incoming call from BLACKLISTED user=$callerId callId=$callId"
+                                        "Blocked incoming call from user=$callerId callId=$callId"
                                     )
 
                                     // Do NOT show notification
@@ -170,7 +188,9 @@ object IncomingCallListener {
                                         context = context.applicationContext,
                                         callId = callId,
                                         callerId = callerId,
-                                        displayName = resolvedDisplayName
+                                        displayName = resolvedDisplayName,
+                                        phoneNumber = callerPhone,
+                                        username = callerUsername
                                     )
                                 }
                             }

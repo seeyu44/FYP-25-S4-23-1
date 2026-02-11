@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
@@ -23,27 +24,29 @@ fun AccountAnalysisCard(
     // Filter only incoming answered calls with detection score from the past 24 hours
     val nowMillis = System.currentTimeMillis()
     val past24HoursMillis = nowMillis - 24L * 60L * 60L * 1000L
-    val incomingCallsWithDetection = firebaseCalls.filter {
+    val incomingAnsweredCalls = firebaseCalls.filter {
         !it.isCaller && it.detectionScore != null && it.getCreatedAtMillis() >= past24HoursMillis
     }
-    
-    val totalCalls = incomingCallsWithDetection.size
+
+    val totalCalls = incomingAnsweredCalls.size
     
     // Calculate average call time in seconds (only for calls with detection score)
-    val avgCallTime = if (incomingCallsWithDetection.isNotEmpty()) {
-        val totalSeconds = incomingCallsWithDetection.sumOf { it.getEffectiveDurationSeconds() }
-        (totalSeconds / incomingCallsWithDetection.size.toDouble()).roundToInt()
+    val completedIncomingCalls = incomingAnsweredCalls.filter { it.getEffectiveDurationSeconds() > 0 }
+    val avgCallTime = if (completedIncomingCalls.isNotEmpty()) {
+        val totalSeconds = completedIncomingCalls.sumOf { it.getEffectiveDurationSeconds() }
+        (totalSeconds / completedIncomingCalls.size.toDouble()).roundToInt()
     } else {
         0
     }
     
     // Calculate average confidence score from detection scores
-    val detectionScores = incomingCallsWithDetection.mapNotNull { it.detectionScore }
-    val avgConfidence = if (detectionScores.isNotEmpty()) {
-        (detectionScores.average() * 100).roundToInt()
+    val detectionScores = incomingAnsweredCalls.mapNotNull { it.detectionScore }
+    val avgConfidencePercent = if (detectionScores.isNotEmpty()) {
+        detectionScores.average() * 100.0
     } else {
-        0
+        0.0
     }
+    val avgConfidenceLabel = String.format(Locale.US, "%.2f%%", avgConfidencePercent)
 
     Card(
         modifier = Modifier
@@ -87,7 +90,7 @@ fun AccountAnalysisCard(
                 // Avg Call Time
                 MetricColumn(
                     label = "Avg Call Time",
-                    value = "${avgCallTime}S"
+                    value = "${avgCallTime}s"
                 )
 
                 Divider(
@@ -100,7 +103,7 @@ fun AccountAnalysisCard(
                 // Avg Confidence Score
                 MetricColumn(
                     label = "Avg Confidence Score",
-                    value = "$avgConfidence%"
+                    value = avgConfidenceLabel
                 )
             }
         }

@@ -45,6 +45,9 @@ interface ContactDao {
     @Query("UPDATE contacts SET label = :label WHERE id = :id")
     suspend fun updateLabel(id: Int, label: String)
 
+    @Query("UPDATE contacts SET displayName = :displayName, phoneNumber = :phoneNumber WHERE id = :id")
+    suspend fun updateContactDetails(id: Int, displayName: String?, phoneNumber: String)
+
     @Query("DELETE FROM contacts")
     suspend fun clearAll()
 }
