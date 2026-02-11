@@ -246,7 +246,7 @@ fun AntiDeepfakeApp() {
                     onCreateAdmin = viewModel::createAdminUser,
                     onNavigateToDialer = viewModel::navigateToDialer,
                     firebaseCalls = uiState.firebaseCalls,
-                    onDisableUser = viewModel::disableUser,
+                    onToggleDisableUser = viewModel::toggleUserDisabled,
                     onDeleteUser = viewModel::deleteUser,
                     reviews = uiState.reviews,
                     onDeleteReview = viewModel::deleteReview,

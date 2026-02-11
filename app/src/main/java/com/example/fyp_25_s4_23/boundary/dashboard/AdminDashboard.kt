@@ -69,7 +69,7 @@ fun AdminDashboard(
     onRefresh: () -> Unit,
     systemController: SystemController,
     onCreateAdmin: (String, String, String, String) -> Unit,
-    onDisableUser: (String) -> Unit = { },
+    onToggleDisableUser: (String, Boolean) -> Unit = { _, _ -> },
     onDeleteUser: (String) -> Unit = { },
     reviews: List<com.example.fyp_25_s4_23.boundary.dashboard.ReviewWithUserInfo> = emptyList(),
     onDeleteReview: (String) -> Unit = { },
@@ -260,7 +260,7 @@ fun AdminDashboard(
                             ) {
                                 UserManagement(
                                     users = users,
-                                    onDisableUser = onDisableUser,
+                                    onToggleDisableUser = onToggleDisableUser,
                                     onDeleteUser = onDeleteUser
                                 )
                             }

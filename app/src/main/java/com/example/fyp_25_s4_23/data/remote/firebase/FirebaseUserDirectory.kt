@@ -12,26 +12,38 @@ class FirebaseUserDirectory {
     private val auth = FirebaseAuth.getInstance()
 
     suspend fun getAllUsers(): List<RemoteUser> {
-        val currentUid = auth.currentUser?.uid
-            ?: return emptyList()
-
+        val currentUid = auth.currentUser?.uid ?: return emptyList()
         return runCatching {
+            val functions = com.google.firebase.functions.FirebaseFunctions.getInstance()
+            val result = functions.getHttpsCallable("listUsers").call().await()
+            @Suppress("UNCHECKED_CAST")
+            val authUserList = result.data as? List<Map<String, Any>> ?: emptyList()
+
+            // Fetch Firestore public_users
             val snapshot = db.collection("public_users").get().await()
+            val firestoreUsers = snapshot.documents.associateBy { it.id }
 
-            snapshot.documents.mapNotNull { doc ->
-                val username = doc.getString("username")
-                val displayName = doc.getString("displayName")
+            authUserList.mapNotNull { userMap ->
+                val uid = userMap["uid"] as? String ?: return@mapNotNull null
+                val disabled = userMap["disabled"] as? Boolean ?: false
+                val authDisplayName = userMap["displayName"] as? String ?: ""
+                val email = userMap["email"] as? String ?: ""
 
-                if (username != null && doc.id != currentUid) {
+                val firestoreDoc = firestoreUsers[uid]
+                val username = firestoreDoc?.getString("username") ?: email
+                val displayName = firestoreDoc?.getString("displayName") ?: authDisplayName.ifBlank { username }
+
+                if (uid != currentUid) {
                     RemoteUser(
-                        uid = doc.id,
+                        uid = uid,
                         username = username,
-                        displayName = displayName ?: username
+                        displayName = displayName,
+                        disabled = disabled
                     )
                 } else null
             }
         }.getOrElse { e ->
-            Log.e("FirebaseUserDirectory", "Failed to fetch public users", e)
+            Log.e("FirebaseUserDirectory", "Failed to fetch users from cloud function and Firestore", e)
             emptyList()
         }
     }

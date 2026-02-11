@@ -25,7 +25,7 @@ import com.example.fyp_25_s4_23.entity.domain.entities.UserAccount
 @Composable
 fun UserManagement(
     users: List<UserAccount>,
-    onDisableUser: (String) -> Unit,
+    onToggleDisableUser: (String, Boolean) -> Unit,
     onDeleteUser: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -33,7 +33,8 @@ fun UserManagement(
     var selectedUserUid by remember { mutableStateOf<String?>(null) }
     var showConfirmDialog by remember { mutableStateOf(false) }
     var pendingAction by remember { mutableStateOf<Pair<String, String>?>(null) } // action type to uid
-    var actionType by remember { mutableStateOf("") } // "disable" or "delete"
+    var actionType by remember { mutableStateOf("") } // "toggleDisable" or "delete"
+    var pendingDisableState by remember { mutableStateOf<Boolean?>(null) }
 
     val filteredUsers = remember(users, searchQuery) {
         if (searchQuery.isBlank()) {
@@ -80,7 +81,7 @@ fun UserManagement(
             shape = RoundedCornerShape(8.dp)
         )
 
-        Divider(modifier = Modifier.padding(vertical = 8.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         if (filteredUsers.isEmpty()) {
             Box(
@@ -112,9 +113,10 @@ fun UserManagement(
                         onSelect = {
                             selectedUserUid = if (selectedUserUid == user.firebaseUid) null else user.firebaseUid
                         },
-                        onDisable = {
-                            pendingAction = Pair("disable", user.firebaseUid ?: "")
-                            actionType = "disable"
+                        onToggleDisable = {
+                            pendingAction = Pair("toggleDisable", user.firebaseUid ?: "")
+                            actionType = "toggleDisable"
+                            pendingDisableState = user.isDisabled
                             showConfirmDialog = true
                         },
                         onDelete = {
@@ -141,32 +143,44 @@ fun UserManagement(
 
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
-            title = { 
-                Text(if (action == "disable") "Disable User Account" else "Delete User Account")
+            title = {
+                Text(
+                    when (action) {
+                        "toggleDisable" -> if (pendingDisableState == true) "Enable User Account" else "Disable User Account"
+                        else -> "Delete User Account"
+                    }
+                )
             },
             text = {
                 Text(
-                    if (action == "disable")
-                        "Are you sure you want to disable $displayInfo's account? They will not be able to log in."
-                    else
-                        "Are you sure you want to permanently delete $displayInfo's account? This cannot be undone."
+                    when (action) {
+                        "toggleDisable" ->
+                            if (pendingDisableState == true)
+                                "Are you sure you want to enable $displayInfo's account? They will be able to log in again."
+                            else
+                                "Are you sure you want to disable $displayInfo's account? They will not be able to log in."
+                        else ->
+                            "Are you sure you want to permanently delete $displayInfo's account? This cannot be undone."
+                    }
                 )
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        if (action == "disable") {
-                            onDisableUser(uid)
-                        } else {
-                            onDeleteUser(uid)
+                        when (action) {
+                            "toggleDisable" -> onToggleDisableUser(uid, pendingDisableState == true)
+                            "delete" -> onDeleteUser(uid)
                         }
                         showConfirmDialog = false
                         pendingAction = null
                         selectedUserUid = null
+                        pendingDisableState = null
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (action == "disable") 
-                            Color(0xFFFFA500) else MaterialTheme.colorScheme.error
+                        containerColor = when (action) {
+                            "toggleDisable" -> if (pendingDisableState == true) Color(0xFF388E3C) else Color(0xFFFFA500)
+                            else -> MaterialTheme.colorScheme.error
+                        }
                     )
                 ) {
                     Text("Confirm")
@@ -186,7 +200,7 @@ private fun UserListItem(
     user: UserAccount,
     isSelected: Boolean,
     onSelect: () -> Unit,
-    onDisable: () -> Unit,
+    onToggleDisable: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -227,26 +241,34 @@ private fun UserListItem(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+                Text(
+                    text = if (user.isDisabled) "Status: Disabled" else "Status: Enabled",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (user.isDisabled) MaterialTheme.colorScheme.error else Color(0xFF388E3C)
+                )
             }
             Text(text = if (isSelected) "▼" else "▶")
         }
 
         if (isSelected) {
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
-                    onClick = onDisable,
+                    onClick = onToggleDisable,
                     modifier = Modifier
                         .weight(1f)
                         .height(36.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFFA500)
+                        containerColor = if (user.isDisabled) Color(0xFF388E3C) else Color(0xFFFFA500)
                     )
                 ) {
-                    Text("Disable", style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        if (user.isDisabled) "Enable" else "Disable",
+                        style = MaterialTheme.typography.labelSmall
+                    )
                 }
                 Button(
                     onClick = onDelete,

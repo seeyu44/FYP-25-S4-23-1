@@ -8,6 +8,7 @@ data class UserAccount(
     val username: String,
     val displayName: String,
     val role: UserRole,
-    val createdAtSeconds: Long
+    val createdAtSeconds: Long,
+    val isDisabled: Boolean = false
 )
 

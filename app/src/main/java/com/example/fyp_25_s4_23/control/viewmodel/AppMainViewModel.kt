@@ -88,6 +88,31 @@ data class AppUiState(
    ========================= */
 
 class AppMainViewModel(application: Application) : AndroidViewModel(application) {
+        fun toggleUserDisabled(firebaseUid: String, currentlyDisabled: Boolean) {
+            viewModelScope.launch {
+                _state.update { it.copy(isBusy = true, message = null) }
+                runCatching {
+                    adminManagementService.setUserDisabled(firebaseUid, !currentlyDisabled)
+                }.onSuccess {
+                    _state.update {
+                        it.copy(
+                            isBusy = false,
+                            message = if (!currentlyDisabled) "User has been disabled successfully" else "User has been enabled successfully"
+                        )
+                    }
+                    Log.i("AdminManagement", "User $firebaseUid status toggled")
+                    refreshDashboard()
+                }.onFailure { e ->
+                    Log.e("AdminManagement", "Error toggling user status: ${e.message}", e)
+                    _state.update {
+                        it.copy(
+                            isBusy = false,
+                            message = "Failed to update user status: ${e.message}"
+                        )
+                    }
+                }
+            }
+        }
     // Audit log paging state
     private var auditLogPage = 0
     private var auditLogPageSize = 10
@@ -371,9 +396,10 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
                         id = it.uid.hashCode().toLong(),
                         firebaseUid = it.uid,
                         username = it.username,
-                        displayName = it.username,
+                        displayName = it.displayName,
                         role = UserRole.REGISTERED,
-                        createdAtSeconds = 0
+                        createdAtSeconds = 0,
+                        isDisabled = it.disabled
                     )
                 }
             Log.d("VOIP_DEBUG", "Mapped users after filtering: ${mappedUsers.size}")
