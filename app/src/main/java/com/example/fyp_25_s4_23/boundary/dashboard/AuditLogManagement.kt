@@ -43,7 +43,7 @@ fun AuditLogManagement(
     onPageChange: (Int) -> Unit = {},
     onSearchChange: (String) -> Unit = {},
     page: Int = 0,
-    pageSize: Int = 10,
+    pageSize: Int = 5,
     search: String = ""
 ) {
     val totalPages = (auditLogs.size + pageSize - 1) / pageSize

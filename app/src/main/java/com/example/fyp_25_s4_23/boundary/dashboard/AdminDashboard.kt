@@ -305,7 +305,7 @@ fun AdminDashboard(
                             ) {
                                 var auditLogPage by remember { mutableStateOf(0) }
                                 var auditLogSearch by remember { mutableStateOf("") }
-                                val pageSize = 10
+                                val pageSize = 5
                                 val viewModel: AppMainViewModel = viewModel()
                                 val logs = auditLogs
                                 AuditLogManagement(

@@ -20,12 +20,14 @@ class CloudFunctionsHelper {
         val logs = result.data as? List<*> ?: return emptyList()
         return logs.mapNotNull { item ->
             val map = item as? Map<String, Any> ?: return@mapNotNull null
+            val rawTimestamp = (map["timestamp"] as? Number)?.toLong() ?: 0L
+            val timestampSeconds = if (rawTimestamp > 1000000000000L) rawTimestamp / 1000 else rawTimestamp
             AuditLog(
                 id = map["id"] as? String ?: "",
                 action = map["action"] as? String ?: "",
                 actor = map["actor"] as? String ?: "",
                 target = map["target"] as? String ?: "",
-                timestamp = (map["timestamp"] as? Number)?.toLong() ?: 0L,
+                timestamp = timestampSeconds,
                 details = map["details"] as? Map<String, Any> ?: emptyMap()
             )
         }
