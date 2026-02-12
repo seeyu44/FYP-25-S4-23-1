@@ -14,7 +14,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import com.example.fyp_25_s4_23.boundary.dashboard.AggregateStats
+import com.example.fyp_25_s4_23.boundary.dashboard.fetchAggregateStatsDaily
 import kotlin.math.roundToInt
 
 /**
@@ -23,12 +32,12 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun CallAnalysisCard(callRecords: List<CallRecord>) {
-    // Calculate metrics
-    val averageAnalysisTime = calculateAverageAnalysisTime(callRecords)
-    val totalCallsAnalyzed = callRecords.size
-    val averageProbability = calculateAverageProbability(callRecords)
-    val flaggedCallsCount = callRecords.count { record ->
-        record.lastDetection?.isDeepfake == true
+    val aggregateStats = remember { mutableStateOf<AggregateStats?>(null) }
+    LaunchedEffect(Unit) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val stats = fetchAggregateStatsDaily()
+            aggregateStats.value = stats
+        }
     }
 
     Card(
@@ -38,51 +47,38 @@ fun CallAnalysisCard(callRecords: List<CallRecord>) {
         colors = CardDefaults.cardColors()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Call Analysis", style = MaterialTheme.typography.titleMedium)
+            Text("Call Analytics", style = MaterialTheme.typography.titleMedium)
             Text(
-                "AI Model Performance & Operational Metrics",
+                "AI Model Performance & Daily Stats",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp)
             )
-
             Spacer(modifier = Modifier.height(12.dp))
             Divider()
 
-            // Metric: Average Analysis Time
+            val stats = aggregateStats.value
             MetricRow(
-                label = "Avg. Analysis Time",
-                value = if (averageAnalysisTime >= 0) "${averageAnalysisTime.roundToInt()} sec" else "N/A",
-                description = "Average time to analyze a single call"
+                label = "Avg. Confidence Score",
+                value = stats?.avgConfidence?.let { String.format("%.2f%%", it * 100) } ?: "Loading...",
+                description = "Average model confidence for scans"
             )
-
             Spacer(modifier = Modifier.height(8.dp))
-
-            // Metric: Total Calls Analyzed
             MetricRow(
-                label = "Total Calls Analyzed",
-                value = totalCallsAnalyzed.toString(),
-                description = "Total number of calls processed"
+                label = "Deepfake Rate",
+                value = stats?.deepfakeRate?.let { String.format("%.2f%%", it * 100) } ?: "Loading...",
+                description = "Percentage of scans flagged as deepfake"
             )
-
             Spacer(modifier = Modifier.height(8.dp))
-
-            // Metric: Average Detection Probability
             MetricRow(
-                label = "Avg. Detection Probability",
-                value = if (averageProbability >= 0) "${(averageProbability * 100).roundToInt()}%" else "N/A",
-                description = "Average deepfake detection probability"
+                label = "Total Scans",
+                value = stats?.totalScans?.toString() ?: "Loading...",
+                description = "Total number of scans today"
             )
-
             Spacer(modifier = Modifier.height(8.dp))
-
-            // Metric: Flagged Calls
-            MetricRow(
-                label = "Flagged Calls",
-                value = flaggedCallsCount.toString(),
-                description = "Calls flagged as deepfakes",
-                isAlert = flaggedCallsCount > 0
-            )
+            if (stats?.updatedAt?.isNotBlank() == true) {
+                Text("Last Updated: ${stats.updatedAt}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
         }
     }
 }
