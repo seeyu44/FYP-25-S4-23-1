@@ -78,7 +78,7 @@ fun AdminDashboard(
     onDeleteUser: (String) -> Unit = { },
     reviews: List<com.example.fyp_25_s4_23.boundary.dashboard.ReviewWithUserInfo> = emptyList(),
     onDeleteReview: (String) -> Unit = { },
-    auditLogs: List<com.example.fyp_25_s4_23.domain.entities.AuditLog> = emptyList(),
+    auditLogs: List<com.example.fyp_25_s4_23.entity.domain.entities.AuditLog> = emptyList(),
     onNavigateToSummary: (() -> Unit)? = null,
     onNavigateToCallHistory: (() -> Unit)? = null,
     onNavigateToContactList: (() -> Unit)? = null,

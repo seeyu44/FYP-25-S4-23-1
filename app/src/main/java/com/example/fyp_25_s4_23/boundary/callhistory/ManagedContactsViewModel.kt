@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseContactRepository
 import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
-import com.example.fyp_25_s4_23.domain.entities.Contact
-import com.example.fyp_25_s4_23.domain.entities.ContactLabel
+import com.example.fyp_25_s4_23.entity.domain.entities.Contact
+import com.example.fyp_25_s4_23.entity.domain.entities.ContactLabel
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow

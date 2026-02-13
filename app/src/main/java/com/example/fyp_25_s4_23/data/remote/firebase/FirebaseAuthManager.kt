@@ -26,24 +26,7 @@ object FirebaseAuthManager {
             ?: throw IllegalStateException("Login failed: user is null")
     }
 
-    suspend fun register(
-        email: String,
-        password: String
-    ): FirebaseUser {
-        val result = auth
-            .createUserWithEmailAndPassword(email, password)
-            .await()
 
-        return result.user
-            ?: throw IllegalStateException("Registration failed")
-    }
-
-    suspend fun sendEmailVerification() {
-        val user = auth.currentUser
-            ?: throw IllegalStateException("No logged-in user")
-
-        user.sendEmailVerification().await()
-    }
 
     suspend fun checkEmailExists(email: String) {
         // Firebase fetchSignInMethodsForEmail to check if email exists

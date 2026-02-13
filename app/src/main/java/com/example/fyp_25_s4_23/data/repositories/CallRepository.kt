@@ -4,7 +4,7 @@ import android.util.Log
 import com.example.fyp_25_s4_23.data.dao.CallRecordDao
 import com.example.fyp_25_s4_23.data.mappers.toDomain
 import com.example.fyp_25_s4_23.data.mappers.toEntity
-import com.example.fyp_25_s4_23.domain.entities.CallRecord
+import com.example.fyp_25_s4_23.entity.domain.entities.CallRecord
 
 class CallRepository(private val callRecordDao: CallRecordDao) {
     suspend fun upsert(record: CallRecord) = callRecordDao.upsert(record.toEntity())

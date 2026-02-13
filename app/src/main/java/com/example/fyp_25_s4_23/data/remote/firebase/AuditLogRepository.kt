@@ -1,7 +1,7 @@
 package com.example.fyp_25_s4_23.data.remote.firebase
 
 import android.util.Log
-import com.example.fyp_25_s4_23.domain.entities.AuditLog
+import com.example.fyp_25_s4_23.entity.domain.entities.AuditLog
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 

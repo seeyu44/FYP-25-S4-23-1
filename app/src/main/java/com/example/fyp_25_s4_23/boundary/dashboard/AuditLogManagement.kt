@@ -28,7 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.fyp_25_s4_23.domain.entities.AuditLog
+import com.example.fyp_25_s4_23.entity.domain.entities.AuditLog
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

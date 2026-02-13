@@ -13,8 +13,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.control.viewmodel.AppMainViewModel
-import com.example.fyp_25_s4_23.domain.entities.Contact
-import com.example.fyp_25_s4_23.domain.entities.ContactLabel
+import com.example.fyp_25_s4_23.entity.domain.entities.Contact
+import com.example.fyp_25_s4_23.entity.domain.entities.ContactLabel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -3,7 +3,7 @@ package com.example.fyp_25_s4_23.entity.data.repositories
 import com.example.fyp_25_s4_23.entity.data.dao.ContactDao
 import com.example.fyp_25_s4_23.entity.data.mappers.toDomain
 import com.example.fyp_25_s4_23.entity.data.mappers.toEntity
-import com.example.fyp_25_s4_23.domain.entities.Contact
+import com.example.fyp_25_s4_23.entity.domain.entities.Contact
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 

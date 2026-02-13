@@ -1,6 +1,6 @@
 package com.example.fyp_25_s4_23.data.remote.firebase
 
-import com.example.fyp_25_s4_23.domain.entities.ContactLabel
+import com.example.fyp_25_s4_23.entity.domain.entities.ContactLabel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore

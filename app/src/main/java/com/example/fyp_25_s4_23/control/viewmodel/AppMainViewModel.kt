@@ -12,7 +12,6 @@ import com.example.fyp_25_s4_23.control.AlertHandlerHolder
 import com.example.fyp_25_s4_23.control.controllers.DetectionController
 import com.example.fyp_25_s4_23.control.usecases.SaveDetectionAlertUseCase
 import com.example.fyp_25_s4_23.data.remote.dto.FCMTokenStore
-import com.example.fyp_25_s4_23.data.remote.dto.PendingUsernameStore
 import com.example.fyp_25_s4_23.data.remote.firebase.*
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.*
@@ -35,8 +34,8 @@ import com.example.fyp_25_s4_23.data.remote.firebase.UsernameService
 import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository
 import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository.GlobalBlockedUser
 
-import com.example.fyp_25_s4_23.domain.entities.Contact
-import com.example.fyp_25_s4_23.domain.entities.ContactLabel
+import com.example.fyp_25_s4_23.entity.domain.entities.Contact
+import com.example.fyp_25_s4_23.entity.domain.entities.ContactLabel
 import com.example.fyp_25_s4_23.util.VibratorUtil
 
 
@@ -82,7 +81,7 @@ data class AppUiState(
     val isBusy: Boolean = false,
     val modelTest: ModelTestResult = ModelTestResult(),
     val reviews: List<com.example.fyp_25_s4_23.boundary.dashboard.ReviewWithUserInfo> = emptyList(),
-    val auditLogs: List<com.example.fyp_25_s4_23.domain.entities.AuditLog> = emptyList()
+    val auditLogs: List<com.example.fyp_25_s4_23.entity.domain.entities.AuditLog> = emptyList()
 )
 
 /* =========================
@@ -135,7 +134,6 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
     private val firebaseUserDirectory = FirebaseUserDirectory()
     private val userProfileRepository = UserProfileRepository()
     private val usernameService = UsernameService()
-    private val pendingUsernameStore = PendingUsernameStore(application)
     private val tokenStore = FCMTokenStore(application)
     private val reviewRepository = ReviewRepository()
     private val auditLogRepository = AuditLogRepository()
@@ -217,11 +215,6 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
 
                 if (!firebaseUser.isEmailVerified) {
                     error("Please verify your email before logging in.")
-                }
-
-                pendingUsernameStore.get()?.let {
-                    usernameService.claimUsername(it)
-                    pendingUsernameStore.clear()
                 }
 
                 val profile = userProfileRepository.getUserProfile(firebaseUser.uid)
@@ -547,7 +540,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true) }
 
-            val threshold = _state.value.userSettings.detectionThreshold
+            val threshold = _state.value.userSettings.threshold.toDouble()
 
             Log.i("SummaryDebug", "Querying summary: start=$startMillis, end=$endMillis, daily=$daily, threshold=$threshold")
             Log.i("SummaryDebug", "Query in seconds: start=${startMillis/1000}, end=${endMillis/1000}")

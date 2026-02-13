@@ -1,6 +1,6 @@
 package com.example.fyp_25_s4_23.data.remote.firebase
 
-import com.example.fyp_25_s4_23.domain.entities.AuditLog
+import com.example.fyp_25_s4_23.entity.domain.entities.AuditLog
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
 

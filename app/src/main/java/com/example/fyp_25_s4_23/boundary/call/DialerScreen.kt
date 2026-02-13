@@ -16,7 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.fyp_25_s4_23.data.remote.firebase.PhoneLookupService
 import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository
-import com.example.fyp_25_s4_23.domain.entities.ContactLabel
+import com.example.fyp_25_s4_23.entity.domain.entities.ContactLabel
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import com.example.fyp_25_s4_23.boundary.dashboard.BottomNavigationBar

@@ -1,4 +1,4 @@
-package com.example.fyp_25_s4_23.domain.entities
+package com.example.fyp_25_s4_23.entity.domain.entities
 
 /**
  * Represents an audit log entry for admin actions.
