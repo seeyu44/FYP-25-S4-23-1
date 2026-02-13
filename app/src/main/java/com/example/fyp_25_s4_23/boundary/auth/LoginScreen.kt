@@ -27,8 +27,7 @@ import com.example.fyp_25_s4_23.ui.theme.*
 fun LoginScreen(
     isBusy: Boolean,
     message: String?,
-    onLogin: (String, String) -> Unit,
-    onNavigateToRegister: () -> Unit
+    onLogin: (String, String) -> Unit
 ) {
     val context = LocalContext.current
     var email by remember { mutableStateOf("") }
@@ -127,10 +126,6 @@ fun LoginScreen(
                             CircularProgressIndicator(color = NavyDark, strokeWidth = 2.dp, modifier = Modifier.size(20.dp).padding(end = 8.dp))
                         }
                         Text("Sign In", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    }
-
-                    TextButton(onClick = onNavigateToRegister, modifier = Modifier.padding(top = 8.dp)) {
-                        Text("Need an account? Register", color = TextGray)
                     }
 
                     Spacer(modifier = Modifier.height(32.dp))
