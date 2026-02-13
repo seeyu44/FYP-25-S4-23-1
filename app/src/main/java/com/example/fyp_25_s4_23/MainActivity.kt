@@ -28,7 +28,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fyp_25_s4_23.boundary.auth.LoginScreen
-import com.example.fyp_25_s4_23.boundary.auth.RegisterScreen
 import com.example.fyp_25_s4_23.boundary.callhistory.CallHistoryScreen
 import com.example.fyp_25_s4_23.boundary.callhistory.FirebaseCallHistoryScreen
 import com.example.fyp_25_s4_23.boundary.callhistory.ManagedContactsScreen
@@ -174,15 +173,7 @@ fun AntiDeepfakeApp() {
         AppScreen.Login -> LoginScreen(
             isBusy = uiState.isBusy,
             message = uiState.message,
-            onLogin = viewModel::login,
-            onNavigateToRegister = viewModel::navigateToRegister
-        )
-
-        AppScreen.Register -> RegisterScreen(
-            isBusy = uiState.isBusy,
-            message = uiState.message,
-            onRegister = viewModel::register,
-            onNavigateToLogin = viewModel::navigateToLogin
+            onLogin = viewModel::login
         )
 
         AppScreen.Summary -> {

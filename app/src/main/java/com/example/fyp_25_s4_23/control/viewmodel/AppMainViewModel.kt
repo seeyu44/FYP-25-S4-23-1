@@ -48,7 +48,6 @@ import com.example.fyp_25_s4_23.util.VibratorUtil
 sealed interface AppScreen {
     data object Loading : AppScreen
     data object Login : AppScreen
-    data object Register : AppScreen
     data object Summary : AppScreen
     data object CallHistory : AppScreen
     data object Dashboard : AppScreen
@@ -196,7 +195,6 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
        NAVIGATION
        ========================= */
 
-    fun navigateToRegister() = _state.update { it.copy(screen = AppScreen.Register) }
     fun navigateToLogin() = _state.update { it.copy(screen = AppScreen.Login) }
     fun navigateToDashboard() = _state.update { it.copy(screen = AppScreen.Dashboard) }
     fun navigateToSummary() = _state.update { it.copy(screen = AppScreen.Summary) }
@@ -268,36 +266,7 @@ class AppMainViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun register(email: String, username: String, displayName: String, password: String) {
-        viewModelScope.launch {
-            _state.update { it.copy(isBusy = true, message = null) }
 
-            runCatching {
-                val cleanUsername = username.trim().lowercase()
-
-                if (!usernameService.checkUsername(cleanUsername)) {
-                    error("Username already taken")
-                }
-
-                FirebaseAuthManager.register(email.trim(), password)
-                FirebaseAuthManager.sendEmailVerification()
-
-                pendingUsernameStore.save(cleanUsername)
-            }.onSuccess {
-                _state.update {
-                    it.copy(
-                        screen = AppScreen.Login,
-                        isBusy = false,
-                        message = "Account created. Verify email, then log in."
-                    )
-                }
-            }.onFailure {
-                _state.update {
-                    it.copy(isBusy = false, message = it.message ?: "Registration failed")
-                }
-            }
-        }
-    }
 
     fun logout() {
         viewModelScope.launch {
