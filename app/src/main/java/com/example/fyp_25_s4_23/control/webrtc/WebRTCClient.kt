@@ -89,7 +89,7 @@ class WebRtcClient(
     private var iceInProgress: Boolean = false  // Track if ICE is actively negotiating
     private var ringTimeoutHandler: Handler? = null
     private var ringTimeoutRunnable: Runnable? = null
-    private val ringTimeoutMs: Long = 60_000  // Increased to 60s for cross-network calls
+    private val ringTimeoutMs: Long = 120_000  // Extended to 120s for slow networks + first call setup
     
     // Audio capture (legacy, not used for digital detection)
     private var audioRecord: android.media.AudioRecord? = null
@@ -632,16 +632,19 @@ class WebRtcClient(
         ringTimeoutHandler = Handler(Looper.getMainLooper())
         ringTimeoutRunnable = Runnable {
             if (ended || callConnected) return@Runnable
+            
             // Don't timeout if ICE is actively negotiating
             if (iceInProgress) {
-                Log.i("CALL_TIMEOUT", "ICE in progress, extending timeout...")
-                ringTimeoutHandler?.postDelayed(ringTimeoutRunnable!!, 30_000) // Give another 30s
+                Log.i("CALL_TIMEOUT", "ICE in progress, extending timeout for another 60s...")
+                ringTimeoutHandler?.postDelayed(ringTimeoutRunnable!!, 60_000)
                 return@Runnable
             }
-            Log.w("CALL_TIMEOUT", "No answer within ${ringTimeoutMs}ms → ending call")
+            
+            Log.w("CALL_TIMEOUT", "Ring timeout: No answer within ${ringTimeoutMs}ms → ending call")
             signaling.updateCallStatus(callId, "ended")
             engineEnd("RING_TIMEOUT")
         }
+        Log.d("CALL_TIMEOUT", "Ring timeout started: ${ringTimeoutMs}ms for isCaller=$isCaller")
         ringTimeoutHandler?.postDelayed(ringTimeoutRunnable!!, ringTimeoutMs)
     }
 

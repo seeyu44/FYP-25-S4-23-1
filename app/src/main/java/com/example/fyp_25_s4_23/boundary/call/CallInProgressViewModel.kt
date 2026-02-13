@@ -71,6 +71,7 @@ class CallInProgressViewModel : ViewModel() {
     private var isIncomingCall: Boolean = false
     private var resolvedDisplayName: String = ""
     private var activeCallListenerStarted = false
+    private var isInitialized = false
     
     // Callback for when user accepts incoming call or starts outgoing call
     var onStartCallRequested: (() -> Unit)? = null
@@ -79,6 +80,20 @@ class CallInProgressViewModel : ViewModel() {
     fun setCallDirection(isIncoming: Boolean) {
         isIncomingCall = isIncoming
         Log.d(TAG_UI, "Call direction set → incoming=$isIncoming")
+        
+        // Initialize state based on call direction
+        if (!isInitialized) {
+            if (isIncoming) {
+                // For incoming calls, start in Ringing state with remote user ringing
+                // (We're waiting to accept)
+                _state.value = CallUiState.Ringing(
+                    handle = "",
+                    isIncoming = true,
+                    isReadyToAnswer = false  // Will become true when offer arrives
+                )
+            }
+            isInitialized = true
+        }
     }
     
     fun setDisplayName(displayName: String) {
@@ -93,12 +108,17 @@ class CallInProgressViewModel : ViewModel() {
             is CallUiState.Active -> current.copy(handle = displayName)
             is CallUiState.Disconnected -> current.copy(handle = displayName)
         }
-        
-        // Start listening to ActiveCallStore after display name is set
-        if (!activeCallListenerStarted) {
-            startActiveCallListener()
-            activeCallListenerStarted = true
-        }
+    }
+    
+    /**
+     * MUST be called AFTER ActiveCallStore is populated (from Activity.onCreate)
+     * This prevents race conditions where the listener fires before store is ready
+     */
+    fun startListeningToCallState() {
+        if (activeCallListenerStarted) return
+        Log.d(TAG_UI, "Starting ActiveCallStore listener")
+        startActiveCallListener()
+        activeCallListenerStarted = true
     }
 
     fun setRemoteDisplayName(displayName: String) {
@@ -182,8 +202,16 @@ class CallInProgressViewModel : ViewModel() {
     private fun startActiveCallListener() {
         viewModelScope.launch {
             ActiveCallStore.state.collectLatest { snapshot ->
+                // If snapshot is null, only disconnect if WebRTC has also ended
                 if (snapshot == null) {
-                    if (webRtcClient != null) return@collectLatest
+                    // If WebRTC client is still active, ignore null snapshot
+                    // (might be a temporary state update)
+                    if (webRtcClient != null) {
+                        Log.d(TAG_STORE, "Snapshot null but WebRTC active, ignoring")
+                        return@collectLatest
+                    }
+                    
+                    Log.d(TAG_STORE, "Snapshot null and no WebRTC client, disconnecting")
                     setDisconnected()
                     return@collectLatest
                 }

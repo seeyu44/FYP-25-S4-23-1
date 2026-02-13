@@ -7,33 +7,43 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.ViewModelProvider
 import com.example.fyp_25_s4_23.control.call.ActiveCallStore
 import com.example.fyp_25_s4_23.control.call.IncomingCallIntent
 import com.example.fyp_25_s4_23.control.call.IncomingCallListener
+import com.example.fyp_25_s4_23.boundary.call.CallInProgressViewModel
+import com.example.fyp_25_s4_23.boundary.call.CallUiEvent
 import com.example.fyp_25_s4_23.control.webrtc.FirebaseSignalingManager
 import com.example.fyp_25_s4_23.control.webrtc.WebRtcClient
 import com.example.fyp_25_s4_23.data.remote.firebase.FirebaseAuthManager
 import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
-import androidx.lifecycle.lifecycleScope
 import com.example.fyp_25_s4_23.util.VibratorUtil
 import com.example.fyp_25_s4_23.entity.data.db.AppDatabase
 import com.example.fyp_25_s4_23.entity.data.repositories.ContactRepository
 import com.example.fyp_25_s4_23.util.DisplayNameResolver
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository
 import kotlinx.coroutines.tasks.await
+import com.example.fyp_25_s4_23.data.remote.firebase.GlobalBlockRepository
+import kotlinx.coroutines.launch
+
 private const val TAG_SIG = "CALL_SIG"
 private const val TAG_WEBRTC = "WEBRTC_FLOW"
 private lateinit var displayName : String
 
+/**
+ * CallInProgressActivity manages the UI and lifecycle of an active call.
+ *
+ * REFACTORED for Phase 1:
+ * - Business logic moved to CallInProgressViewModel (manages call state)
+ * - Uses standard ViewModel pattern without Hilt (manual instantiation)
+ * - Activity focuses purely on UI and WebRTC client management
+ */
 class CallInProgressActivity : ComponentActivity() {
 
-    private val viewModel: CallInProgressViewModel by viewModels()
+    private lateinit var viewModel: CallInProgressViewModel
 
     private var webRtcClient: WebRtcClient? = null
     private var signaling: FirebaseSignalingManager? = null
@@ -44,6 +54,9 @@ class CallInProgressActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         IncomingCallListener.stop()
 
+        // Initialize ViewModel (no Hilt dependencies required)
+        viewModel = ViewModelProvider(this).get(CallInProgressViewModel::class.java)
+
         val callId =
             intent.getStringExtra(IncomingCallIntent.EXTRA_CALL_ID) ?: return finish()
         val remoteUserId =
@@ -51,19 +64,21 @@ class CallInProgressActivity : ComponentActivity() {
         val isIncoming =
             intent.getBooleanExtra(IncomingCallIntent.EXTRA_IS_INCOMING, false)
         val remoteUsername = intent.getStringExtra(IncomingCallIntent.EXTRA_USERNAME)
-
-        // Resolve contact name asynchronously to avoid blocking the main thread
-        val database = com.example.fyp_25_s4_23.entity.data.db.AppDatabase.getInstance(this)
-        val contactRepository = ContactRepository(database.contactDao())
-        
-        // Check if phone number was passed (for outgoing calls from saved contacts)
         val passedPhoneNumber = intent.getStringExtra(IncomingCallIntent.EXTRA_PHONE_NUMBER)
         val incomingDisplayName = intent.getStringExtra(IncomingCallIntent.EXTRA_DISPLAY_NAME)
-        displayName = when {
+
+        // Resolve contact name asynchronously to avoid blocking the main thread
+        val database = AppDatabase.getInstance(this)
+        val contactRepository = ContactRepository(database.contactDao())
+        
+        // Determine initial display name for quick UI update
+        val initialDisplayName = when {
             !incomingDisplayName.isNullOrBlank() -> incomingDisplayName
             !passedPhoneNumber.isNullOrBlank() -> passedPhoneNumber
             else -> remoteUserId
         }
+
+        displayName = initialDisplayName
 
         Log.d(TAG_SIG, "Call started → id=$callId incoming=$isIncoming resolved name=$displayName")
 
@@ -106,7 +121,10 @@ class CallInProgressActivity : ComponentActivity() {
         }
 
         signaling = FirebaseSignalingManager()
+        // CRITICAL: Set call store BEFORE starting listener to avoid race conditions
         ActiveCallStore.setWebRtcActive(callId, remoteUserId)
+        // NOW safe to start listening
+        viewModel.startListeningToCallState()
 
         val globalBlockRepository = GlobalBlockRepository()
 
@@ -165,20 +183,20 @@ class CallInProgressActivity : ComponentActivity() {
             micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
 
-        // Load available demo audio files
+        // Load demo audio files
         val demoAudioFiles = loadDemoAudioFiles()
-        
+
         setContent {
             FYP25S423Theme {
                 CallInProgressScreen(
                     state = viewModel.state,
-                    onAnswer = viewModel::answer,
+                    onAnswer = { viewModel.answer() },
                     onHangUp = {
                         viewModel.hangUp()
                         finish()
                     },
-                    onMute = viewModel::toggleMute,
-                    onToggleSpeaker = viewModel::toggleSpeaker,
+                    onMute = { viewModel.toggleMute() },
+                    onToggleSpeaker = { viewModel.toggleSpeaker() },
                     onPlayDemoAudio = { filename ->
                         webRtcClient?.playDemoAudio(filename)
                     },
@@ -186,7 +204,9 @@ class CallInProgressActivity : ComponentActivity() {
                 )
             }
         }
-        lifecycleScope.launchWhenStarted {
+
+        // Observe UI events (vibration on high deepfake score, etc.)
+        lifecycleScope.launch {
             viewModel.events.collect { event ->
                 when (event) {
                     is CallUiEvent.Vibrate -> {
@@ -196,7 +216,6 @@ class CallInProgressActivity : ComponentActivity() {
                 }
             }
         }
-
     }
 
     private fun startWebRtc(callId: String, remoteUserId: String, isIncoming: Boolean) {
@@ -282,7 +301,7 @@ class CallInProgressActivity : ComponentActivity() {
         IncomingCallListener.start(applicationContext)
         Log.d(TAG_SIG, "Call activity destroyed")
     }
-    
+
     private fun loadDemoAudioFiles(): List<String> {
         return try {
             assets.list("demo_audio")?.filter { filename ->
