@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -292,15 +294,26 @@ fun FirebaseCallHistoryCard(call: FirebaseCallRecord) {
                 }
             }
 
-            // Other user info
-            if (call.otherUser.phoneNumber != null) {
-                Text(
-                    text = call.otherUser.phoneNumber,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+            if (call.isDeepfake != null) {
+                val isDeepfakeDetected = call.isDeepfake == true
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isDeepfakeDetected) Icons.Default.Warning else Icons.Default.CheckCircle,
+                        contentDescription = if (isDeepfakeDetected) "Deepfake detected" else "Real voice",
+                        tint = if (isDeepfakeDetected) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 6.dp)
+                    )
+                    Text(
+                        text = if (isDeepfakeDetected) "Deepfake detected" else "Real voice",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isDeepfakeDetected) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    )
+                }
             }
+
         }
     }
 }

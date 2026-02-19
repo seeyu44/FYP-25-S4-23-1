@@ -150,8 +150,7 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             }
 
             // Extract UID-prefixed detection fields
-            // Detection fields use the callee's UID as prefix
-            // For incoming calls, current user = callee, so we use current user's UID
+            // Detection fields are stored using the other participant's UID prefix
             val currentUid = FirebaseAuth.getInstance().currentUser?.uid
             val callId = data["id"] as? String ?: "unknown"
             val callerUid = data["caller_user_id"] as? String
@@ -162,29 +161,23 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
             } else {
                 isCallerRaw
             }
-            val isCallee = !calleeUid.isNullOrBlank() && currentUid != null && currentUid == calleeUid
+            val detectionUid = if (!otherUser.userId.isNullOrBlank()) {
+                otherUser.userId
+            } else if (isCaller) {
+                calleeUid
+            } else {
+                callerUid
+            }
             
             Log.d("CallHistoryRepository", "=== Parsing call $callId ===")
-            Log.d("CallHistoryRepository", "  currentUid: $currentUid, calleeUid: $calleeUid")
+            Log.d("CallHistoryRepository", "  currentUid: $currentUid, callerUid: $callerUid, calleeUid: $calleeUid")
+            Log.d("CallHistoryRepository", "  detectionUid: $detectionUid")
             Log.d("CallHistoryRepository", "  RAW created_at: ${data["created_at"]} (type: ${data["created_at"]?.javaClass})")
             Log.d("CallHistoryRepository", "  RAW ended_at: ${data["ended_at"]} (type: ${data["ended_at"]?.javaClass})")
             Log.d("CallHistoryRepository", "  Available keys: ${data.keys}")
             
-            // Resolve the UID prefix for detection fields based on keys present in the record.
-            val uidForDetection = if (isCallee && !callerUid.isNullOrBlank()) {
-                callerUid
-            } else {
-                resolveDetectionUid(
-                    data = data,
-                    isCallee = isCallee,
-                    callerUid = callerUid,
-                    calleeUid = calleeUid,
-                    currentUid = currentUid
-                )
-            }
-            
-            val detectionScore = if (isCallee && uidForDetection != null) {
-                val highestScoreKey = "${uidForDetection}_highest_detection_score"
+            val detectionScore = if (!detectionUid.isNullOrBlank()) {
+                val highestScoreKey = "${detectionUid}_highest_detection_score"
                 val score = (data[highestScoreKey] as? Number)?.toDouble()
                 Log.d(
                     "CallHistoryRepository",
@@ -192,15 +185,10 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 )
                 score
             } else null
-            
-            val detectionTimestampMillisHighest = if (uidForDetection != null) {
-                val highestTimestampKey = "${uidForDetection}_highest_detection_timestamp"
-                (data[highestTimestampKey] as? Number)?.toLong()
-            } else null
 
-            val detectionTime = if (uidForDetection != null) {
-                val highestTimestampKey = "${uidForDetection}_highest_detection_timestamp"
-                val timestampMillis = detectionTimestampMillisHighest
+            val detectionTime = if (!detectionUid.isNullOrBlank()) {
+                val highestTimestampKey = "${detectionUid}_highest_detection_timestamp"
+                val timestampMillis = (data[highestTimestampKey] as? Number)?.toLong()
                 Log.d(
                     "CallHistoryRepository",
                     "  Looking for '$highestTimestampKey': $timestampMillis"
@@ -213,12 +201,8 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
                 } else null
             } else null
 
-            val detectionStartMillis = detectionTimestampMillisHighest
-
-            val detectionEndMillis = detectionTimestampMillisHighest
-            
-            val isDeepfake = if (isCallee && uidForDetection != null) {
-                val highestDeepfakeKey = "${uidForDetection}_highest_is_deepfake"
+            val isDeepfake = if (!callerUid.isNullOrBlank()) {
+                val highestDeepfakeKey = "${callerUid}_highest_is_deepfake"
                 val deepfake = data[highestDeepfakeKey] as? Boolean
                 Log.d(
                     "CallHistoryRepository",
@@ -229,25 +213,8 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
 
             // Robust timestamp extraction - same logic as summary page
             // Tries: created_at -> detection_timestamp -> current time
-            var createdAt = extractRobustTimestamp(data, "created_at", uidForDetection)
-
-            val createdAtPrimaryMillis = getMillisFromValue(data["created_at"])
-            if (createdAtPrimaryMillis <= 946684800000L && detectionStartMillis != null) {
-                createdAt = com.google.firebase.Timestamp(
-                    detectionStartMillis / 1000,
-                    ((detectionStartMillis % 1000) * 1000000).toInt()
-                )
-            }
-            
-            val endedAt = extractRobustTimestamp(data, "ended_at", null)
-                ?: extractRobustTimestamp(data, "updated_at", null)
-                ?: detectionEndMillis?.let {
-                    com.google.firebase.Timestamp(
-                        it / 1000,
-                        ((it % 1000) * 1000000).toInt()
-                    )
-                }
-                ?: detectionTime
+            val createdAt = extractRobustTimestamp(data, "created_at", null)
+            val endedAt = extractRobustTimestamp(data, "updated_at", null)
             
             Log.d("CallHistoryRepository", "  PARSED created_at: $createdAt")
             Log.d("CallHistoryRepository", "  created_at.toDate(): ${createdAt?.toDate()}")
@@ -277,8 +244,8 @@ class CallHistoryRepository(private val contactRepository: ContactRepository? = 
     /**
      * Robustly extract timestamp from Firebase data - same logic as summary page
      * Handles: Timestamp objects, Numbers (millis/seconds), Maps with _seconds/seconds
-     * Falls back to detection_timestamp if available and primary field is invalid
-     * 
+            val isDeepfake = if (!detectionUid.isNullOrBlank()) {
+                val highestDeepfakeKey = "${detectionUid}_highest_is_deepfake"
      * Mimics TypeScript getMillis() and timestampToSeconds() functions
      */
     private fun extractRobustTimestamp(

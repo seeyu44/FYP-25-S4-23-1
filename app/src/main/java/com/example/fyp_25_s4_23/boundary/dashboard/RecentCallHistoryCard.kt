@@ -4,7 +4,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -119,6 +121,26 @@ private fun CallHistoryItem(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
+            if (record.isDeepfake != null) {
+                val isDeepfakeDetected = record.isDeepfake == true
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isDeepfakeDetected) Icons.Default.Warning else Icons.Default.CheckCircle,
+                        contentDescription = if (isDeepfakeDetected) "Deepfake detected" else "Real voice",
+                        tint = if (isDeepfakeDetected) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = if (isDeepfakeDetected) "Deepfake detected" else "Real voice",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isDeepfakeDetected) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+            }
         }
 
         if (record.isCompleted()) {
