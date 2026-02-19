@@ -73,7 +73,7 @@ fun CallAnalysisCard(callRecords: List<CallRecord>) {
             MetricRow(
                 label = "Total Scans",
                 value = stats?.totalScans?.toString() ?: "Loading...",
-                description = "Total number of scans today"
+                description = "Total number of scans"
             )
             Spacer(modifier = Modifier.height(8.dp))
             if (stats?.updatedAt?.isNotBlank() == true) {
