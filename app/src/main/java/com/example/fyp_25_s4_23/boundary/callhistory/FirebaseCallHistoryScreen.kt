@@ -294,7 +294,7 @@ fun FirebaseCallHistoryCard(call: FirebaseCallRecord) {
                 }
             }
 
-            if (call.isDeepfake != null) {
+            if (!call.isCaller && call.isDeepfake != null) {
                 val isDeepfakeDetected = call.isDeepfake == true
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

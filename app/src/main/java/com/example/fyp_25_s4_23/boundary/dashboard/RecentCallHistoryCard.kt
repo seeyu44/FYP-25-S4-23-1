@@ -121,7 +121,7 @@ private fun CallHistoryItem(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
-            if (record.isDeepfake != null) {
+            if (!record.isOutgoing && record.isDeepfake != null) {
                 val isDeepfakeDetected = record.isDeepfake == true
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
