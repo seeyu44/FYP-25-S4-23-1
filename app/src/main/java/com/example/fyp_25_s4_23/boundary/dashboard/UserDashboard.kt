@@ -27,7 +27,6 @@ import com.example.fyp_25_s4_23.entity.domain.entities.UserSettings
 import com.example.fyp_25_s4_23.entity.domain.valueobjects.UserRole
 import com.example.fyp_25_s4_23.control.controllers.SystemController
 import com.example.fyp_25_s4_23.boundary.call.VoipCallManager
-import com.example.fyp_25_s4_23.control.utils.getMemoryUsageGb
 import com.example.fyp_25_s4_23.entity.domain.entities.FirebaseCallRecord
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Star
@@ -45,7 +44,7 @@ fun UserDashboard(
     userSettings: UserSettings? = null,
     onLogout: () -> Unit = {},
     onRefresh: () -> Unit = {},
-    systemController: SystemController = SystemController(),
+    systemController: SystemController = SystemController(LocalContext.current),
     onNavigateToSummary: (() -> Unit)? = null,
     onNavigateToCallHistory: (() -> Unit)? = null,
     onNavigateToContactList: (() -> Unit)? = null,
@@ -141,12 +140,27 @@ fun UserDashboard(
 
             LaunchedEffect(Unit) {
                 while (true) {
-                    val latency = (12..35).random()
-                    val memory = getMemoryUsageGb(ctx)
-                    latencyTrend.add(latency)
-                    memoryTrend.add(memory)
+                    // Fetch real metrics from SystemController
+                    val latency = systemController.getFirebaseLatency().toInt()
+                    val memoryInfo = systemController.getMemoryInfo()
+                    
+                    // Convert total memory to GB for display if needed, 
+                    // or use the usage percentage for the graph.
+                    // We'll use GB for consistency with the label "Memory Usage (GB)"
+                    val memoryUsedGb = memoryInfo.usedMemory.toFloat() / (1024 * 1024 * 1024)
+                    
+                    if (latency >= 0) {
+                        latencyTrend.add(latency)
+                    } else {
+                        // If latency check failed, we can use a placeholder or skip
+                        latencyTrend.add(0)
+                    }
+                    
+                    memoryTrend.add(memoryUsedGb)
+                    
                     if (latencyTrend.size > 20) latencyTrend.removeAt(0)
                     if (memoryTrend.size > 20) memoryTrend.removeAt(0)
+                    
                     delay(2000)
                 }
             }

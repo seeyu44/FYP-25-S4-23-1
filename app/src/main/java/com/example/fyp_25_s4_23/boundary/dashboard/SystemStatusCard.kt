@@ -21,6 +21,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import java.util.Locale
 
 
 
@@ -98,7 +99,7 @@ fun SystemStatusCard(
 
                     Spacer(Modifier.height(12.dp))
 
-                    Text("Memory Usage (GB)")
+                    Text(String.format(Locale.getDefault(), "Memory Usage (%.2f GB)", memoryUsedGb))
                     SparklineFloat(data = memoryTrend)
                 }
             }
@@ -163,4 +164,3 @@ fun SparklineFloat(data: List<Float>) {
         }
     }
 }
-

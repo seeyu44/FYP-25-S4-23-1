@@ -49,9 +49,6 @@ import com.example.fyp_25_s4_23.ui.theme.FYP25S423Theme
 import androidx.compose.runtime.LaunchedEffect
 import android.util.Log
 
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import com.example.fyp_25_s4_23.control.call.IncomingCallListener
 import com.google.firebase.auth.FirebaseAuth
 
@@ -224,7 +221,7 @@ fun AntiDeepfakeApp() {
             if (user == null) {
                 viewModel.navigateToLogin()
             } else {
-                val systemController = remember { SystemController() }
+                val systemController = remember { SystemController(context) }
 
                 DashboardScreen(
                     user = user,
